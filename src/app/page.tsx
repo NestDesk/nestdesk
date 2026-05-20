@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import HeroSvg from "@/components/layout/HeroSvg";
+import { LandingMobileNav } from "@/components/layout/LandingMobileNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -135,12 +137,7 @@ const pricing = [
     price: "0",
     period: "forever",
     description: "For owners just getting started",
-    features: [
-      "Up to 10 tenants each",
-      "1 property",
-      "Basic payments",
-      "Email support",
-    ],
+    features: ["Up to 10 tenants", "1 property", "Basic payments", "Email support"],
     cta: "Start Free",
     ctaHref: "/login",
     highlighted: false,
@@ -151,7 +148,7 @@ const pricing = [
     period: "month",
     description: "For growing PGs and properties",
     features: [
-      "Up to 50 tenants",
+      "Up to 75 tenants",
       "1 property",
       "Razorpay payments",
       "WhatsApp reminders",
@@ -223,13 +220,12 @@ const trustBadges = [
   { icon: MessageSquare, label: "WhatsApp reminders" },
   { icon: ClipboardList, label: "Clear tenant records" },
   { icon: TrendingUp, label: "Useful reports" },
-  { icon: Building2, label: "Built for PGs, colives & rentals" },
 ];
 
 const stats = [
-  { value: "500+", label: "Property Owners" },
-  { value: "12,000+", label: "Tenants Managed" },
-  { value: "Rs. 2Cr+", label: "Rent Collected" },
+  { value: "50+", label: "Property Owners" },
+  { value: "1,200+", label: "Tenants Managed" },
+  { value: "₹ 8L+", label: "Rent Collected" },
   { value: "99.9%", label: "Uptime SLA" },
 ];
 
@@ -239,16 +235,77 @@ const stats = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen overflow-hidden bg-background bg-mesh-light dark:bg-mesh-dark">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-background to-background dark:from-primary/[0.1] dark:via-background dark:to-background" />
+      <div className="pointer-events-none absolute -left-32 top-28 -z-10 h-80 w-80 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
+      <div className="pointer-events-none absolute -right-28 top-44 -z-10 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/15" />
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 1200"
+        className="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-50 dark:opacity-35"
+        preserveAspectRatio="xMidYMid slice"
+      >
+        <defs>
+          <pattern
+            id="nestdesk-grid"
+            width="48"
+            height="48"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M48 0H0V48"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+              className="text-primary/10 dark:text-primary/15"
+            />
+          </pattern>
+          <radialGradient id="nestdesk-radial" cx="50%" cy="50%" r="50%">
+            <stop
+              offset="0%"
+              className="text-cyan-400/20 dark:text-cyan-300/25"
+              stopColor="currentColor"
+            />
+            <stop
+              offset="100%"
+              className="text-transparent"
+              stopColor="currentColor"
+            />
+          </radialGradient>
+        </defs>
+
+        <rect width="1440" height="1200" fill="url(#nestdesk-grid)" />
+        <circle cx="1120" cy="220" r="240" fill="url(#nestdesk-radial)" />
+        <circle cx="280" cy="980" r="280" fill="url(#nestdesk-radial)" />
+
+        <path
+          d="M-40 220C180 80 380 80 620 220C860 360 1080 360 1480 180"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-primary/20 dark:text-primary/25"
+        />
+        <path
+          d="M-20 760C230 620 440 610 690 760C940 910 1160 920 1480 760"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-cyan-500/20 dark:text-cyan-300/25"
+        />
+      </svg>
+
       {/* ── Navbar ─────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Building2 className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-foreground">NestDesk</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <LandingMobileNav />
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
+                <Building2 className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-lg font-bold text-foreground">NestDesk</span>
+            </Link>
+          </div>
 
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
             <Link
@@ -271,9 +328,9 @@ export default function LandingPage() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
-            <Link href="/login">
+            <Link href="/login" className="hidden sm:block">
               <Button variant="ghost" size="sm" className="rounded-xl">
                 Sign in
               </Button>
@@ -291,66 +348,77 @@ export default function LandingPage() {
           <div className="absolute bottom-0 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/6 blur-3xl" />
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-20 sm:px-6 sm:pt-28 lg:pt-36">
-          <div className="flex flex-col items-center text-center">
-            <Badge
-              variant="secondary"
-              className="mb-6 gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
-            >
-              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
-              Built for PGs, colives, hostels &amp; rentals
-            </Badge>
+        <div className="relative mx-auto max-w-7xl px-4 pb-12 pt-10 sm:px-6 sm:pt-14 lg:pt-16">
+          <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16">
+            {/* Left: Text content */}
+            <div className="flex flex-1 flex-col items-start text-left">
+              <Badge
+                variant="secondary"
+                className="mb-4 gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
+              >
+                <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+                Built for Hostels, PGs, Colives &amp; Rentals in India
+              </Badge>
 
-            <h1 className="max-w-4xl text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-              The modern way to{" "}
-              <span className="relative">
-                <span className="relative z-10 text-primary">
-                  manage your property
+              <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                The modern way to{" "}
+                <span className="relative inline-block">
+                  <span className="text-gradient relative z-10">
+                    manage your property
+                  </span>
+                  <span className="absolute -bottom-1 left-0 right-0 z-0 h-3 rounded-full bg-gradient-to-r from-primary/20 via-blue-500/15 to-blue-400/10 blur-sm" />
                 </span>
-                <span className="absolute -bottom-1 left-0 right-0 z-0 h-3 rounded bg-primary/15" />
-              </span>
-            </h1>
+              </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-              Tenants, rooms, payments, notices, and maintenance for PGs, colives,
-              hostels, and rental properties in one simple dashboard.
-            </p>
+              <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl">
+                Tenants, rooms, payments, notices, and maintenance for PGs, colives,
+                hostels, and rental properties in one simple dashboard.
+              </p>
 
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
-              <Link href="/login">
-                <Button size="lg" className="h-12 rounded-xl px-8 text-base">
-                  Start Free — No Credit Card
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 rounded-xl px-8 text-base"
-                >
-                  View Live Demo
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
+              <div className="mt-8 flex flex-row flex-wrap gap-4">
+                <Link href="/login">
+                  <Button
+                    size="default"
+                    className="h-10 rounded-xl bg-gradient-to-r from-primary to-blue-500 px-6 text-sm font-semibold shadow-lg shadow-primary/30 hover:brightness-110 hover:shadow-primary/50"
+                  >
+                    Start Free
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button
+                    size="default"
+                    variant="outline"
+                    className="h-10 rounded-xl px-6 text-sm hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    View Live Demo
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+
+              <p className="mt-4 text-sm text-muted-foreground">
+                Free plan available &bull; Setup in under 10 minutes &bull; No
+                contracts
+              </p>
+
+              {/* Trust bar */}
+              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+                {trustBadges.map(({ icon: Icon, label }) => (
+                  <span
+                    key={label}
+                    className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
+                  >
+                    <Icon className="h-4 w-4 text-primary" />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            <p className="mt-4 text-sm text-muted-foreground">
-              Free plan available &bull; Setup in under 10 minutes &bull; No
-              contracts
-            </p>
-
-            {/* Trust bar */}
-            <div className="mt-14 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-              {trustBadges.map(({ icon: Icon, label }) => (
-                <span
-                  key={label}
-                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
-                >
-                  <Icon className="h-4 w-4 text-primary" />
-                  {label}
-                </span>
-              ))}
+            {/* Right: Illustration */}
+            <div className="hidden flex-1 items-center justify-center sm:flex lg:justify-end">
+              <HeroSvg className="animate-float w-full max-w-xs text-primary drop-shadow-xl sm:max-w-sm lg:max-w-lg" />
             </div>
           </div>
         </div>
@@ -358,7 +426,7 @@ export default function LandingPage() {
 
       {/* ── Stats ──────────────────────────────── */}
       <section className="border-y border-border bg-muted/40">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {stats.map(({ value, label }) => (
               <div
@@ -376,18 +444,18 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ───────────────────────────── */}
-      <section id="features" className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
-        <div className="mb-16 flex flex-col items-center text-center">
+      <section id="features" className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+        <div className="mb-10 flex flex-col items-center text-center">
           <Badge
             variant="secondary"
             className="mb-4 rounded-full px-4 py-1.5 text-sm"
           >
             Everything you need
           </Badge>
-          <h2 className="max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Built for how managed properties actually work
           </h2>
-          <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+          <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
             Every feature is designed around real workflows of PGs, colives, hostels,
             and rental properties, not generic software.
           </p>
@@ -397,10 +465,10 @@ export default function LandingPage() {
           {features.map(({ icon: Icon, title, description }) => (
             <Card
               key={title}
-              className="group rounded-2xl border-border transition-shadow hover:shadow-lg hover:shadow-primary/5"
+              className="card-hover group rounded-2xl border-border/60 bg-card/80 backdrop-blur-sm"
             >
               <CardContent className="p-6">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-blue-400/10 transition-all group-hover:from-primary/25 group-hover:to-blue-400/20">
                   <Icon className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="mb-2 text-base font-semibold text-foreground">
@@ -416,26 +484,23 @@ export default function LandingPage() {
       </section>
 
       {/* ── How It Works ───────────────────────── */}
-      <section id="how-it-works" className="bg-muted/30 py-24">
+      <section id="how-it-works" className="bg-muted/30 py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-16 flex flex-col items-center text-center">
+          <div className="mb-10 flex flex-col items-center text-center">
             <Badge
               variant="secondary"
               className="mb-4 rounded-full px-4 py-1.5 text-sm"
             >
               Simple setup
             </Badge>
-            <h2 className="max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+            <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Up and running in minutes
             </h2>
           </div>
 
-          <div className="grid gap-8 lg:grid-cols-3">
-            {steps.map(({ step, title, description }, i) => (
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {steps.map(({ step, title, description }) => (
               <div key={step} className="relative flex flex-col items-start">
-                {i < steps.length - 1 && (
-                  <div className="absolute left-10 top-10 hidden h-px w-[calc(100%+2rem)] bg-gradient-to-r from-primary/30 to-transparent lg:block" />
-                )}
                 <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
                   <span className="text-2xl font-bold text-primary">{step}</span>
                 </div>
@@ -452,33 +517,39 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ───────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
-        <div className="mb-16 flex flex-col items-center text-center">
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+        <div className="mb-10 flex flex-col items-center text-center">
           <Badge
             variant="secondary"
             className="mb-4 rounded-full px-4 py-1.5 text-sm"
           >
             Trusted by owners
           </Badge>
-          <h2 className="max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Owners love NestDesk
           </h2>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
           {testimonials.map(({ name, role, initials, quote }) => (
-            <Card key={name} className="rounded-2xl border-border">
+            <Card
+              key={name}
+              className="card-hover rounded-2xl border-border/60 bg-card/80 backdrop-blur-sm"
+            >
               <CardContent className="p-6">
                 <div className="mb-4 flex gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                    <Star
+                      key={i}
+                      className="h-4 w-4 fill-amber-400 text-amber-400"
+                    />
                   ))}
                 </div>
                 <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
                   &ldquo;{quote}&rdquo;
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-400 text-sm font-bold text-white shadow shadow-primary/30">
                     {initials}
                   </div>
                   <div>
@@ -493,25 +564,25 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ────────────────────────────── */}
-      <section id="pricing" className="bg-muted/30 py-24">
+      <section id="pricing" className="bg-muted/30 py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-16 flex flex-col items-center text-center">
+          <div className="mb-10 flex flex-col items-center text-center">
             <Badge
               variant="secondary"
               className="mb-4 rounded-full px-4 py-1.5 text-sm"
             >
               Simple pricing
             </Badge>
-            <h2 className="max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+            <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Plans that grow with you
             </h2>
-            <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+            <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
               Start free. Upgrade when you need more. Your data is always yours — we
               never delete it on plan changes.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {pricing.map(
               ({
                 name,
@@ -527,8 +598,8 @@ export default function LandingPage() {
                   key={name}
                   className={`relative flex flex-col rounded-2xl border p-6 ${
                     highlighted
-                      ? "border-primary bg-primary shadow-lg shadow-primary/20"
-                      : "border-border bg-card"
+                      ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
+                      : "card-hover border-border/60 bg-card/80 backdrop-blur-sm"
                   }`}
                 >
                   {highlighted && (
@@ -604,49 +675,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Final CTA ──────────────────────────── */}
-      <section className="bg-muted/30 py-24">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <div className="mb-6 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/30">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          <h2 className="mb-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Ready to simplify property management?
-          </h2>
-          <p className="mb-10 text-lg text-muted-foreground">
-            Join 500+ owners who replaced WhatsApp groups and Excel sheets with
-            NestDesk. Free to start, no credit card needed.
-          </p>
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link href="/login">
-              <Button size="lg" className="h-12 rounded-xl px-10 text-base">
-                Start Free Today
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-12 rounded-xl px-10 text-base"
-              >
-                Explore the Demo
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* ── Footer ─────────────────────────────── */}
       <footer className="border-t border-border bg-background">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5">
             {/* Brand */}
             <div className="lg:col-span-2">
               <Link href="/" className="mb-4 flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
                   <Building2 className="h-4 w-4 text-white" />
                 </div>
                 <span className="font-bold text-foreground">NestDesk</span>
