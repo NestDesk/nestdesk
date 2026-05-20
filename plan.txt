@@ -1,0 +1,1107 @@
+Week 1 — Foundation + Security Setup
+Day 1 — Project Init + Security Config
+Hour 1:
+□ Create Next.js 14 project
+□ Install material ui s + Shadcn
+□ Push to GitHub with 
+  .gitignore (no .env files)
+
+Hour 2:
+□ Connect Supabase
+□ Setup environment variables
+  NEVER commit these to GitHub
+□ Install security dependencies:
+  - helmet (HTTP security headers)
+  - rate-limiter-flexible
+  - zod (input validation)
+
+Hour 3:
+□ Deploy to Vercel
+□ Connect custom domain
+□ Verify SSL certificate active ✅
+□ Force HTTPS redirect
+✅ Goal: Secure foundation ready
+
+Day 2 — Database Schema + Security
+Hour 1:
+□ Design schema with security in mind:
+  - No plain text sensitive fields
+  - Separate PII into own table
+  - Add created_at, updated_at 
+    to every table
+  - Add deleted_at for soft deletes
+    (data retention compliance)
+
+Hour 2:
+□ Create tables in Supabase:
+
+-- Core tables
+owners, hostels, floors, rooms,
+tenants, payments, notices,
+maintenance_requests,
+subscriptions, invite_codes,
+audit_logs, consent_records,
+data_deletion_requests
+
+Hour 3:
+□ Setup RLS on every table
+□ Enable audit logging table
+□ Test RLS with dummy data
+✅ Goal: Secure schema ready
+
+Day 3 — Authentication + Security
+Hour 1:
+□ Supabase Auth setup
+□ Email/password with 
+  minimum 8 chars enforced
+□ Email verification mandatory
+
+Hour 2:
+□ Rate limiting on login:
+  Max 5 attempts → 15 min lockout
+□ Session timeout after 30 min idle
+□ Secure httpOnly cookies
+
+Hour 3:
+□ Password strength indicator on UI
+□ Brute force protection
+□ Login activity log
+  (IP, device, timestamp)
+✅ Goal: Secure auth working
+
+Day 4 — Consent Management System
+This is required by DPDP Act 2023
+Hour 1:
+□ Consent records table:
+  user_id, consent_type,
+  consent_given, timestamp,
+  ip_address, version
+
+Hour 2:
+□ Consent types to track:
+  - Data collection consent
+  - Marketing emails consent
+  - WhatsApp notifications consent
+  - Third party sharing consent
+
+Hour 3:
+□ Consent checkbox on signup:
+  "I agree to Privacy Policy 
+   and Terms of Service"
+□ Store consent with timestamp
+□ User can withdraw consent 
+  from settings
+✅ Goal: Consent system compliant
+   with DPDP Act 2023
+
+Day 5 — App Shell + Privacy By Design
+Hour 1:
+□ Sidebar + navigation
+□ Role based menu items:
+  Owner sees owner menu
+  Tenant sees tenant menu only
+
+Hour 2:
+□ Data minimization in UI:
+  Only show data needed 
+  for each screen
+□ Mask sensitive data by default:
+  Phone: +91 XXXXX X1234
+  Aadhar: XXXX XXXX 1234
+
+Hour 3:
+□ Session management UI:
+  Show active sessions
+  Option to logout all devices
+✅ Goal: Privacy-first UI ready
+
+Day 6 — Hostel Management + Audit Logs
+Hour 1:
+□ Hostel CRUD operations
+□ Every create/edit/delete 
+  writes to audit_logs table:
+  user_id, action, table_name,
+  record_id, old_value, 
+  new_value, timestamp, ip
+
+Hour 2:
+□ Floor + room management
+□ Audit every room change
+□ Soft deletes only 
+  (never hard delete — 
+   required for compliance)
+
+Hour 3:
+□ Owner can view audit log
+  for their own account
+□ "Who changed what and when"
+✅ Goal: Full audit trail working
+
+Day 7 — Week 1 Security Review
+Hour 1:
+□ Run OWASP top 10 checklist:
+  ✅ SQL Injection (Supabase ORM safe)
+  ✅ XSS (Next.js escapes by default)
+  ✅ Auth issues (tested)
+  ✅ Sensitive data exposure (masked)
+  ✅ Rate limiting (added)
+
+Hour 2:
+□ Check no API keys in 
+  frontend code
+□ Check no sensitive data 
+  in console logs
+□ Check error messages don't 
+  leak system info
+
+Hour 3:
+□ Setup Sentry (free tier)
+  for error monitoring
+□ Test error tracking
+□ Post LinkedIn Day 7 update
+✅ Goal: Security baseline solid
+
+Week 2 — Tenant Management + Data Protection
+Day 8 — Room Management
+Hour 1:
+□ Room CRUD with audit logs
+□ Room status tracking
+
+Hour 2:
+□ Occupancy grid
+□ Vacancy overview
+
+Hour 3:
+□ All room changes logged
+□ Soft delete rooms only
+✅ Goal: Room management done
+
+Day 9 — Tenant List + Data Minimization
+Hour 1:
+□ Tenant list page
+□ Show minimal data in list:
+  Name, Room, Status, Rent due
+  (not full details on list view)
+
+Hour 2:
+□ Search + filters
+□ Pagination (max 50 per page)
+
+Hour 3:
+□ Export tenant data:
+  Owner can export their own
+  tenant data as CSV
+  (DPDP compliance — 
+   data portability)
+✅ Goal: Compliant tenant listing
+
+Day 10 — Add Tenant + Explicit Consent
+Hour 1:
+□ Multi-step tenant form
+□ Personal info with 
+  data collection notice:
+  "This information is collected 
+   for hostel management purposes 
+   only as per our Privacy Policy"
+
+Hour 2:
+□ Explicit consent checkbox 
+  on tenant form:
+  ✅ "I consent to my data being 
+     stored and processed"
+□ Store consent record
+
+Hour 3:
+□ Data retention notice shown:
+  "Your data will be retained 
+   for [X] years after move-out"
+□ Form validation with Zod
+✅ Goal: Compliant tenant creation
+
+Day 11 — Tenant Profile + Data Rights
+Hour 1:
+□ Tenant profile page
+□ Masked sensitive fields by default
+□ "Reveal" button with re-auth 
+  for full Aadhar number
+
+Hour 2:
+□ Data rights section in 
+  tenant settings:
+  - Download my data (JSON/PDF)
+  - Request data deletion
+  - View consent history
+  - Update consent preferences
+
+Hour 3:
+□ Data deletion request flow:
+  Tenant requests → 
+  Owner notified →
+  30 day processing period →
+  Data anonymized not deleted
+  (legal requirement to keep 
+   some financial records)
+✅ Goal: Data rights compliant
+
+Day 12 — Document Storage + Aadhar Compliance
+Hour 1:
+□ Supabase Storage bucket setup
+□ Bucket is PRIVATE 
+  (not public accessible)
+□ Signed URLs only (expire in 1 hour)
+
+Hour 2:
+□ Document upload with encryption
+□ Aadhar specific rules:
+  - Store as image only
+  - Mask number on display:
+    XXXX XXXX 1234
+  - Add watermark on stored copy:
+    "For [Hostel Name] verification only"
+
+Hour 3:
+□ Document access log:
+  Every time document viewed →
+  log who viewed it and when
+□ Owner cannot bulk download 
+  all Aadhar documents
+✅ Goal: Aadhar Act compliant
+   document storage
+
+Day 13 — Tenant Invite + Consent Flow
+Hour 1:
+□ Generate unique invite code
+□ /join/[inviteCode] page
+□ Show clear data notice 
+  before form:
+  "By registering you consent to 
+   [Hostel Name] collecting and 
+   storing your personal data 
+   for hostel management purposes"
+
+Hour 2:
+□ Tenant registration form
+□ Consent checkboxes:
+  ✅ Data collection (mandatory)
+  ☐ WhatsApp notifications (optional)
+  ☐ Email updates (optional)
+
+Hour 3:
+□ Consent stored with:
+  timestamp, IP address,
+  form version number
+□ Tenant gets confirmation email
+  with privacy policy link
+✅ Goal: DPDP compliant 
+   tenant registration
+
+Day 14 — Week 2 Review + Penetration Test
+Hour 1:
+□ Manual security testing:
+  Try to access another 
+  owner's data by manipulating URLs
+  e.g. /hostels/[other-owner-id]
+  Should get 403 forbidden ✅
+
+Hour 2:
+□ Test RLS thoroughly:
+  Login as Tenant A →
+  Try to view Tenant B data →
+  Should be blocked ✅
+  
+  Login as Owner A →
+  Try to view Owner B data →
+  Should be blocked ✅
+
+Hour 3:
+□ Test file access:
+  Try accessing document URL 
+  after signed URL expires →
+  Should get 403 ✅
+□ Visit 3 hostels for feedback
+✅ Goal: Security verified
+
+Week 3 — Tenant Portal + Compliance Pages
+Day 15 — Owner Approval Flow
+Hour 1:
+□ Pending approvals dashboard
+□ Approval/rejection flow
+
+Hour 2:
+□ Rejection must include reason
+□ Reason stored in audit log
+
+Hour 3:
+□ Rejection email to tenant
+□ Clear reason communicated
+□ Data deletion on rejection:
+  If rejected, tenant data 
+  deleted after 30 days
+✅ Goal: Compliant approval flow
+
+Day 16 — Tenant Portal with Privacy
+Hour 1:
+□ Tenant login page
+□ Role detection + redirect
+
+Hour 2:
+□ Tenant dashboard
+□ Tenant can only see:
+  Own profile, own rent,
+  own maintenance requests
+
+Hour 3:
+□ Tenant privacy center:
+  View what data is stored
+  Download own data
+  Update consent preferences
+✅ Goal: Privacy-first tenant portal
+
+Day 17 — Data Retention Policy
+Required by DPDP Act + IT Act
+Hour 1:
+□ Define retention periods:
+  Active tenant data: Indefinite
+  Post move-out data: 3 years
+  Payment records: 7 years 
+    (Income Tax requirement)
+  Rejected applicant data: 30 days
+  Audit logs: 180 days minimum
+    (CERT-In requirement)
+
+Hour 2:
+□ Automated data anonymization:
+  After retention period expires →
+  Replace PII with anonymized values
+  Keep financial records intact
+  (Name → "Former Tenant #123")
+
+Hour 3:
+□ Data retention schedule 
+  in Supabase (pg_cron):
+  Runs monthly
+  Anonymizes expired records
+✅ Goal: Automated compliance
+
+Day 18 — Maintenance + Security Logs
+Hour 1:
+□ Maintenance request system
+□ All requests logged with timestamp
+
+Hour 2:
+□ CERT-In compliance:
+  System activity logs kept 180 days
+  Logs include:
+  IP address, user ID,
+  action, timestamp
+
+Hour 3:
+□ Log viewer for owner
+  (own account logs only)
+□ Suspicious activity detection:
+  Flag if same IP tries 
+  multiple accounts
+✅ Goal: CERT-In compliant logging
+
+Day 19 — Notices + Communication Compliance
+Hour 1:
+□ Notice system
+□ All communications logged
+
+Hour 2:
+□ Unsubscribe option in 
+  every email (legal requirement)
+□ WhatsApp opt-out option
+□ Honor opt-outs immediately
+
+Hour 3:
+□ Communication preference center:
+  Tenant controls what they receive
+□ Suppression list maintained
+✅ Goal: Communication compliant
+
+Day 20 — Move Out + Data Handling
+Hour 1:
+□ Move out flow
+□ Final dues calculation
+
+Hour 2:
+□ Post move-out data notice:
+  Inform tenant their data 
+  will be retained for 3 years
+  as per policy
+
+Hour 3:
+□ Tenant can request early 
+  deletion after move-out
+□ Financial records exempt 
+  from deletion (7 year rule)
+□ Send move-out summary email
+✅ Goal: Compliant offboarding
+
+Day 21 — Week 3 Review
+Hour 1:
+□ Test data deletion flow
+□ Test data download flow
+□ Test unsubscribe flow
+
+Hour 2:
+□ Verify retention policies working
+□ Check audit logs complete
+□ Test anonymization
+
+Hour 3:
+□ Visit 5 hostels
+□ Target 3 free trial signups
+✅ Goal: Compliance flows verified
+
+Week 4 — Payments + RBI Compliance
+Day 22 — Payment Setup + Compliance
+Hour 1:
+□ Payments table with:
+  Full audit trail
+  Payment method recorded
+  IP address of payment
+  Razorpay transaction ID
+
+Hour 2:
+□ Auto-generate monthly records
+□ Payment status logic
+
+Hour 3:
+□ RBI compliance checklist:
+  ✅ Using PCI-DSS gateway (Razorpay)
+  ✅ Never storing card data
+  ✅ 2FA on payments (Razorpay handles)
+  ✅ Transaction audit trail
+✅ Goal: RBI compliant payments
+
+Day 23 — Manual Payments + Audit
+Hour 1:
+□ Manual payment recording
+□ Every manual payment requires:
+  Amount, date, method,
+  reference number, notes
+
+Hour 2:
+□ Manual payments audit trail:
+  Who recorded it + when
+  Cannot be deleted 
+  (only marked as error)
+
+Hour 3:
+□ Payment dispute handling:
+  Mark payment as disputed
+  Add dispute notes
+  Resolution tracking
+✅ Goal: Audit-proof payments
+
+Day 24 — Razorpay + Security
+Hour 1:
+□ Razorpay integration
+□ Webhook signature verification:
+  NEVER skip this step
+  Prevents fake payment confirmations
+
+Hour 2:
+□ Idempotency keys on payments:
+  Prevents duplicate charges
+□ Payment failure handling
+
+Hour 3:
+□ Razorpay webhook logs stored:
+  Every webhook event saved
+  For dispute resolution
+✅ Goal: Secure payment processing
+
+Day 25 — Online Payments
+Hour 1:
+□ Pay Now button in tenant portal
+□ Razorpay checkout
+
+Hour 2:
+□ Payment confirmation page
+□ Auto-update status via webhook
+
+Hour 3:
+□ Payment confirmation:
+  Email + WhatsApp to tenant
+  Email to owner
+  Both within 60 seconds
+✅ Goal: Real-time payment flow
+
+Day 26 — GST-Ready Receipts
+Hour 1:
+□ Receipt template:
+  Your name + PAN
+  Service description
+  Amount
+  Date + receipt number
+  "GST not applicable 
+   (below threshold)" note
+
+Hour 2:
+□ PDF generation (jsPDF)
+□ Unique receipt number system:
+  REC-2024-0001 format
+□ Cannot be regenerated 
+  (immutable records)
+
+Hour 3:
+□ Receipt storage:
+  Store in Supabase permanently
+  7 year retention (IT Act)
+□ GST fields ready but hidden:
+  When you register GST later,
+  just enable the fields
+✅ Goal: GST-ready receipt system
+
+Day 27 — Financial Dashboard
+Hour 1:
+□ Revenue overview
+□ Payment analytics
+
+Hour 2:
+□ Financial reports:
+  Monthly P&L per hostel
+  Collection efficiency
+  Export to CSV/PDF
+
+Hour 3:
+□ Audit report:
+  All transactions in 
+  date range exportable
+  For CA/tax purposes
+✅ Goal: Tax-ready financial records
+
+Day 28 — Week 4 Review
+Hour 1:
+□ Test payment security:
+  Try replaying webhook →
+  Should be idempotent ✅
+  Try fake webhook signature →
+  Should be rejected ✅
+
+Hour 2:
+□ Test receipt immutability
+□ Check 7 year retention logic
+□ Verify no card data stored
+
+Hour 3:
+□ ₹1 live transaction test
+□ Verify receipt generated
+□ Verify audit log entry created
+✅ Goal: Payments production ready
+
+Week 5 — Notifications + CERT-In Compliance
+Day 29 — Email System + CAN-SPAM
+Hour 1:
+□ Resend setup
+□ Email templates
+
+Hour 2:
+□ Every email must include:
+  ✅ Your business name
+  ✅ Physical address 
+     (or "India" at minimum)
+  ✅ Unsubscribe link
+  ✅ Why they're receiving this
+
+Hour 3:
+□ Unsubscribe handling:
+  One click unsubscribe
+  Honored within 24 hours
+  Stored in suppression list
+✅ Goal: Compliant email system
+
+Day 30 — Automated Reminders + Opt-in
+Hour 1:
+□ Rent reminder cron job
+□ Only send to opted-in tenants
+
+Hour 2:
+□ Reminder content compliant:
+  Clear sender identity
+  Unsubscribe option
+  No misleading subject lines
+
+Hour 3:
+□ Reminder logs stored:
+  Who was sent what and when
+  Delivery status tracked
+✅ Goal: Compliant automations
+
+Day 31 — WhatsApp Compliance
+Hour 1:
+□ MSG91 WhatsApp setup
+□ Meta approved templates only
+  (required by WhatsApp Business API)
+
+Hour 2:
+□ Opt-in BEFORE sending WhatsApp:
+  Tenant must explicitly agree
+  during registration
+  (WhatsApp policy requirement)
+
+Hour 3:
+□ Opt-out handling:
+  "Reply STOP to unsubscribe"
+  Immediate opt-out processing
+  Cannot message opted-out users
+✅ Goal: WhatsApp policy compliant
+
+Day 32 — CERT-In Incident Response
+Hour 1:
+□ Incident response plan document:
+  What to do if data breach occurs:
+  1. Identify scope
+  2. Contain breach
+  3. Notify CERT-In within 6 hours
+  4. Notify affected users
+  5. Document everything
+
+Hour 2:
+□ Breach detection in app:
+  Alert if unusual data access:
+  Same user downloading 
+  1000+ records = suspicious
+  Auto-flag + notify you
+
+Hour 3:
+□ CERT-In Point of Contact setup:
+  Register at cert-in.org.in
+  You are the POC
+  Add POC details to privacy policy
+✅ Goal: CERT-In ready
+
+Day 33 — Security Headers + Protection
+Hour 1:
+□ Add security headers in 
+  next.config.js:
+  Content-Security-Policy
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy
+  Permissions-Policy
+
+Hour 2:
+□ Rate limiting on all API routes:
+  Auth routes: 5/min
+  General API: 100/min
+  File uploads: 10/min
+
+Hour 3:
+□ Input sanitization everywhere:
+  All user inputs sanitized
+  Before saving to database
+  Prevent XSS attacks
+✅ Goal: Hardened security
+
+Day 34 — Settings + Privacy Center
+Hour 1:
+□ Owner privacy center:
+  Download all data
+  View consent history
+  Delete account flow
+
+Hour 2:
+□ Account deletion flow:
+  Owner deletes account →
+  All hostel data retained 
+  for 3 years (legal requirement)
+  Tenant data anonymized
+  Financial records kept 7 years
+
+Hour 3:
+□ Data export format:
+  Machine readable JSON
+  Human readable PDF
+  DPDP Act requirement
+✅ Goal: Full privacy center done
+
+Day 35 — Week 5 Review
+Hour 1:
+□ Test unsubscribe flows
+□ Test data export
+□ Test account deletion
+
+Hour 2:
+□ Verify CERT-In logs working
+□ Check security headers live
+  (use securityheaders.com)
+
+Hour 3:
+□ Visit hostels + follow up
+  with trial users
+✅ Goal: Notifications + 
+   compliance complete
+
+Week 6 — Subscriptions + Billing Compliance
+Day 36 — Subscription Setup
+Hour 1:
+□ Plans in Razorpay + Supabase
+□ Free, ₹599, ₹1199, ₹1999
+
+Hour 2:
+□ Subscription audit trail:
+  Every plan change logged:
+  Upgraded, downgraded, 
+  cancelled, renewed
+
+Hour 3:
+□ Failed payment handling:
+  3 retry attempts
+  Grace period 7 days
+  Email warning each attempt
+✅ Goal: Subscription system ready
+
+Day 37 — Billing Compliance
+Hour 1:
+□ Upgrade/downgrade flow
+□ Cancellation flow
+
+Hour 2:
+□ Refund policy enforced in code:
+  Cancellation within 3 days →
+  Auto-refund via Razorpay
+  After 3 days → no refund
+  This must match your T&C
+
+Hour 3:
+□ Billing history page:
+  All invoices listed
+  Download any invoice
+  7 year retention
+✅ Goal: Billing legally compliant
+
+Day 38 — Invoice Compliance
+Hour 1:
+□ Invoice must include by law:
+  Your full legal name
+  Your PAN number
+  Your address
+  Service description
+  Amount in INR
+  Date + unique invoice number
+
+Hour 2:
+□ Invoice numbering:
+  Sequential, no gaps
+  Format: INV-2024-00001
+  Cannot be deleted or modified
+  (immutable financial record)
+
+Hour 3:
+□ Future GST readiness:
+  Add GST fields to invoice
+  Hidden until GST registered
+  One toggle to activate
+  when you register GST
+✅ Goal: Tax compliant invoices
+
+Day 39 — Feature Gating
+Hour 1:
+□ Plan limits enforced
+□ Upgrade prompts
+
+Hour 2:
+□ Downgrade data handling:
+  If owner downgrades plan:
+  Data retained but locked
+  Not deleted
+  Reactivates on upgrade
+
+Hour 3:
+□ Expired plan handling:
+  7 day read-only grace period
+  Clear warning emails daily
+  Data never deleted on expiry
+✅ Goal: Safe plan management
+
+Day 40 — Week 6 Review
+Hour 1:
+□ Test full billing cycle
+□ Test refund flow
+□ Test invoice generation
+
+Hour 2:
+□ Verify invoice immutability
+□ Check PAN on invoices
+□ Test downgrade data retention
+
+Hour 3:
+□ Follow up all trial users
+□ Push toward paid conversion
+✅ Goal: Billing production ready
+
+Week 7 — Legal Pages + Launch Prep
+Day 41 — Privacy Policy Page
+Must include per DPDP Act 2023:
+Hour 1:
+□ Write privacy policy covering:
+  - What data you collect
+  - Why you collect it
+  - How long you keep it
+  - Who you share it with
+    (Razorpay, MSG91, Resend)
+  - User rights under DPDP Act
+  - CERT-In POC details
+  - Grievance Officer details
+    (required by IT Act)
+
+Hour 2:
+□ Continue privacy policy:
+  - Data retention periods
+  - Cookie policy
+  - Third party services list
+  - How to contact for data requests
+  - How to file complaints
+
+Hour 3:
+□ Get free template from:
+  privacypolicies.com
+  Customize for your app
+  Have lawyer review at 
+  20 customers (₹3,000)
+✅ Goal: Privacy policy live
+
+Day 42 — Terms & Conditions
+Hour 1:
+□ T&C must cover:
+  - Service description
+  - Owner responsibilities
+  - Tenant data handling
+  - Payment terms
+  - Refund policy
+
+Hour 2:
+□ Critical liability clauses:
+  "We are a software tool only.
+   Not responsible for owner-tenant
+   disputes"
+  "Not responsible for incorrect
+   data entered by owners"
+  "Not liable for payment disputes
+   between parties"
+
+Hour 3:
+□ Acceptable use policy:
+  Cannot use for illegal purposes
+  Cannot store false ID documents
+  Violation = account termination
+□ Grievance redressal mechanism:
+  Required by IT Act
+  Email + 30 day resolution
+✅ Goal: T&C live
+
+Day 43 — Grievance Officer Setup
+Mandatory under IT Act 2000
+for platforms collecting user data
+Hour 1:
+□ Designate yourself as 
+  Grievance Officer
+□ Add to website:
+  Name: [Your Name]
+  Email: grievance@yourapp.com
+  Response time: Within 30 days
+
+Hour 2:
+□ Grievance submission form on website
+□ Auto-acknowledgment email
+□ Track grievances in simple 
+  Google Sheet for now
+
+Hour 3:
+□ Add grievance officer details to:
+  Privacy Policy
+  Terms & Conditions
+  Footer of website
+  Footer of all emails
+✅ Goal: IT Act compliant
+
+Day 44 — Cookie Compliance
+Hour 1:
+□ Audit all cookies used:
+  Supabase auth cookie
+  Analytics cookies (if any)
+  Session cookies
+
+Hour 2:
+□ Cookie consent banner:
+  First visit → show banner
+  "We use cookies for 
+   authentication and security"
+  Accept/Decline options
+
+Hour 3:
+□ Cookie policy page
+□ Essential cookies only 
+  by default
+□ No tracking cookies without
+  explicit consent
+✅ Goal: Cookie compliant
+
+Day 45 — Security Final Audit
+Hour 1:
+□ Final OWASP checklist:
+  ✅ Injection attacks prevented
+  ✅ Auth secure
+  ✅ Sensitive data encrypted
+  ✅ XML/XXE not applicable
+  ✅ Access control (RLS) tested
+  ✅ Security misconfiguration checked
+  ✅ XSS prevented
+  ✅ Insecure deserialization NA
+  ✅ Dependencies updated
+  ✅ Logging working
+
+Hour 2:
+□ Run free security scan:
+  observatory.mozilla.org
+  (checks security headers)
+  Target score: A or B grade
+
+Hour 3:
+□ Check Supabase security:
+  RLS enabled on ALL tables ✅
+  No public tables ✅
+  Service key only on server ✅
+  Anon key limited permissions ✅
+✅ Goal: Security audit passed
+
+Day 46 — Demo + Landing Page
+Hour 1:
+□ Landing page with compliance 
+  trust signals:
+  "Data stored in India ✅"
+  "256-bit encryption ✅"
+  "DPDP Act compliant ✅"
+  "Razorpay secured payments ✅"
+
+Hour 2:
+□ Demo account setup
+□ Trust badges on landing page
+
+Hour 3:
+□ Links in footer:
+  Privacy Policy
+  Terms & Conditions
+  Grievance Officer
+  Cookie Policy
+  Refund Policy
+✅ Goal: Trust-building landing page
+
+Day 47 — Week 7 Review
+Hour 1:
+□ All legal pages live and linked
+□ All consent flows tested
+□ All data rights flows tested
+
+Hour 2:
+□ Check all emails have 
+  unsubscribe links
+□ Check privacy policy 
+  linked in signup form
+□ Check cookie banner works
+
+Hour 3:
+□ Prepare launch materials
+□ Draft LinkedIn launch post
+✅ Goal: Legally ready to launch
+
+Week 8 — Launch
+Day 48 — Launch Day
+Hour 1:
+□ Final production checks
+□ All environment variables live
+□ Razorpay in live mode
+□ Real email sending working
+
+Hour 2:
+□ Post on LinkedIn
+□ Share in WhatsApp groups
+□ Message personal network
+
+Hour 3:
+□ Monitor signups
+□ Respond to every inquiry
+□ Fix any critical bugs immediately
+✅ Goal: First signups!
+
+Days 49-56 — Acquire First Users
+Daily:
+Hour 1: Fix bugs + improvements
+Hour 2: Visit hostels / online outreach
+Hour 3: Onboard + support new users
+
+Week 9-10 — Grow to 30 Customers
+Daily focus:
+□ Fix every bug same day
+□ Onboard every new user personally
+□ Daily follow up with trial users
+□ Weekly LinkedIn content
+□ Visit hostels on weekends
+
+Legal trigger at 15 customers:
+□ Open current account
+□ Update Razorpay
+□ Get lawyer to review T&C
+   (₹5,000 one time)
+
+Legal trigger at 30 customers:
+□ Register Sole Proprietorship
+□ Get GST number
+□ Hire CA (₹3,000/month)
+□ Update invoices with GST
+
+Complete Security Checklist Summary
+Authentication:
+✅ Email verification mandatory
+✅ Rate limiting on login
+✅ Session timeout
+✅ Secure cookies
+
+Data Protection:
+✅ RLS on all tables
+✅ Aadhar masked + encrypted
+✅ Documents in private storage
+✅ Signed URLs only
+
+Compliance:
+✅ Consent collected + stored
+✅ Privacy policy live
+✅ T&C live
+✅ Grievance officer named
+✅ Cookie consent banner
+✅ Unsubscribe in all emails
+✅ Data deletion flow
+✅ Data export flow
+✅ Audit logs 180 days
+
+Payments:
+✅ Razorpay PCI-DSS
+✅ Webhook signature verified
+✅ No card data stored
+✅ Payment audit trail
+✅ Immutable invoices
+
+Infrastructure:
+✅ HTTPS forced
+✅ Security headers
+✅ Input sanitization
+✅ Error monitoring (Sentry)
+✅ Data stored in India
+
+Weekly Summary
+Week 1:  Setup + auth + security foundation
+Week 2:  Tenant mgmt + data protection
+Week 3:  Tenant portal + compliance pages
+Week 4:  Payments + RBI compliance
+Week 5:  Notifications + CERT-In
+Week 6:  Subscriptions + billing compliance
+Week 7:  Legal pages + security audit
+Week 8:  🚀 Launch
+Week 9:  Fix + grow to 15 customers
+         → Open current account
+Week 10: Push to 30 customers
+         → Register business + GST
