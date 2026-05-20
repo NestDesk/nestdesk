@@ -1094,12 +1094,17 @@ Checklist:
 - [x] `src/lib/supabase/admin.ts` created — server-only admin client using `service_role` key
 - [x] `.env.example` recreated documenting two-environment setup (safe to commit)
 
-### Hour 3 — Deploy Prep ✅ Decisions finalised
+### Hour 3 — Deploy Prep ✅ Completed
 
 - [x] Vercel deploy strategy decided (see Architecture Decisions below)
-- [ ] Vercel project import + `initial` branch deployed
+- [x] Vercel project imported + `initial` branch deployed
+- [x] `nestdesk.in` and `www.nestdesk.in` added to Vercel → Production environment
+- [x] Env vars strategy confirmed: Preview = DEV creds, Production = PROD creds
 - [ ] Verify preview URL works (`nestdesk-git-initial-xxxx.vercel.app`)
-- [ ] Production (`main` branch + `nestdesk.in`) set up when ready to launch
+- [ ] nestdesk-prod Supabase project created + SQL run
+- [ ] Prod env vars added in Vercel (Production environment)
+- [ ] DNS records added in Hostinger → domains turn green in Vercel
+- [ ] Merge `initial` → `main` → production deploys to `nestdesk.in`
 
 ---
 
@@ -1107,10 +1112,10 @@ Checklist:
 
 ### Two-Environment Supabase Setup
 
-| Environment | Supabase Project | Branch    | Domain                                 | Status        |
-| ----------- | ---------------- | --------- | -------------------------------------- | ------------- |
-| Dev         | `nestdesk-dev`   | `initial` | `nestdesk-git-initial-xxxx.vercel.app` | 🔧 Setting up |
-| Production  | `nestdesk-prod`  | `main`    | `nestdesk.in` + `www.nestdesk.in`      | 🔧 Setting up |
+| Environment | Supabase Project | Branch    | Domain                                 | Status         |
+| ----------- | ---------------- | --------- | -------------------------------------- | -------------- |
+| Dev         | `nestdesk-dev`   | `initial` | `nestdesk-git-initial-xxxx.vercel.app` | ✅ Deployed    |
+| Production  | `nestdesk-prod`  | `main`    | `nestdesk.in` + `www.nestdesk.in`      | ⏳ DNS pending |
 
 > Dev uses the free auto-assigned Vercel preview URL. No `dev.nestdesk.in` subdomain needed.
 
@@ -1601,31 +1606,42 @@ SUPABASE_SERVICE_ROLE_KEY=YOUR_DEV_SERVICE_ROLE_KEY
 
 ### Vercel Dev Setup (do now)
 
-- [ ] Import GitHub repo to Vercel (if not already done)
+- [x] GitHub repo imported to Vercel
+- [x] `initial` branch deployed — preview URL assigned
 - [ ] Add env vars — check **Preview** environment only:
   - `NEXT_PUBLIC_SUPABASE_URL` → `https://qviwaspbhijvchmmbub.supabase.co`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → nestdesk-dev anon key
   - `SUPABASE_SERVICE_ROLE_KEY` → nestdesk-dev service role key
-- [ ] Verify `nestdesk-git-initial-xxxx.vercel.app` preview URL loads correctly
+- [ ] Verify preview URL loads correctly
 
 ### Vercel Production Setup (do now)
 
+- [x] `nestdesk.in` added to Vercel → Production environment
+- [x] `www.nestdesk.in` added to Vercel → Production environment
+- [x] Production branch confirmed as `main` in Vercel → Settings → Git
 - [ ] Add env vars — check **Production** environment only:
   - `NEXT_PUBLIC_SUPABASE_URL` → nestdesk-prod project URL
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → nestdesk-prod anon key
   - `SUPABASE_SERVICE_ROLE_KEY` → nestdesk-prod service role key
-- [ ] Vercel → Settings → Domains → Add `nestdesk.in` → assign to Production (main)
-- [ ] Vercel → Settings → Domains → Add `www.nestdesk.in` → assign to Production (main)
-- [ ] Confirm production branch is `main` in Vercel → Settings → Git
 
 ### DNS (Hostinger) — do now
 
 - [ ] Log in to hpanel.hostinger.com → Domains → `nestdesk.in` → DNS Records
 - [ ] Add `A` record: Name `@` → Value `76.76.21.21` → TTL `3600`
-- [ ] Add `CNAME` record: Name `www` → Value from Vercel's domain config for `www.nestdesk.in` → TTL `3600`
+- [ ] Add `CNAME` record: Name `www` → Value `3d2beabc152efcdc.vercel-dns-017com.` → TTL `3600`
 - [ ] Wait 5–30 min for DNS propagation
 - [ ] Click **Refresh** in Vercel → both domains should turn green
 - [ ] Verify SSL certificate active
+
+### Final Production Go-Live
+
+- [ ] Merge `initial` → `main` → push to trigger prod deploy:
+  ```bash
+  git checkout main
+  git merge initial
+  git push origin main
+  ```
+- [ ] Verify `nestdesk.in` loads correctly with prod Supabase
 
 ### Day 3 (Next)
 

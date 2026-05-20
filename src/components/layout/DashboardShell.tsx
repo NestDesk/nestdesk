@@ -1,5 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { IdleTimeoutEnforcer } from "@/components/auth/IdleTimeoutEnforcer";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -9,6 +10,7 @@ interface DashboardShellProps {
 export function DashboardShell({ children, title }: DashboardShellProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <IdleTimeoutEnforcer />
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar title={title} />

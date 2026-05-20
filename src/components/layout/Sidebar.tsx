@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Building2,
@@ -9,8 +9,10 @@ import {
   CreditCard,
   Bell,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -23,6 +25,17 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error("Failed to sign out. Please try again.");
+    }
+  }
 
   return (
     <aside className="hidden w-60 flex-col border-r border-sidebar-border bg-sidebar md:flex">
@@ -54,20 +67,26 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* User */}
+      {/* User + Logout */}
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-sidebar-accent/40">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-400 text-xs font-bold text-white shadow shadow-primary/30">
-            AK
+            ND
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-sidebar-foreground">
-              Ahmad Khan
+              My Account
             </p>
-            <p className="truncate text-xs text-sidebar-foreground/40">
-              owner@email.com
-            </p>
+            <p className="truncate text-xs text-sidebar-foreground/40">Owner</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="ml-auto rounded-lg p-1.5 text-sidebar-foreground/40 transition-colors hover:bg-red-500/10 hover:text-red-400"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </aside>

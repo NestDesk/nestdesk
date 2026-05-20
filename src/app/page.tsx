@@ -139,7 +139,7 @@ const pricing = [
     description: "For owners just getting started",
     features: ["Up to 10 tenants", "1 property", "Basic payments", "Email support"],
     cta: "Start Free",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: false,
   },
   {
@@ -156,7 +156,7 @@ const pricing = [
       "Activity timeline",
     ],
     cta: "Start Free Trial",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: false,
   },
   {
@@ -174,7 +174,7 @@ const pricing = [
       "Data export (CSV/PDF)",
     ],
     cta: "Start Free Trial",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: true,
   },
   {
@@ -192,7 +192,7 @@ const pricing = [
       "SLA guarantee",
     ],
     cta: "Start Free Trial",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: false,
   },
   {
@@ -376,7 +376,7 @@ export default function LandingPage() {
               </p>
 
               <div className="mt-8 flex flex-row flex-wrap gap-4">
-                <Link href="/login">
+                <Link href="/register">
                   <Button
                     size="default"
                     className="h-10 rounded-xl bg-gradient-to-r from-primary to-blue-500 px-6 text-sm font-semibold shadow-lg shadow-primary/30 hover:brightness-110 hover:shadow-primary/50"
