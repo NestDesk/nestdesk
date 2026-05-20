@@ -148,7 +148,7 @@ const pricing = [
     period: "month",
     description: "For growing PGs and properties",
     features: [
-      "Up to 50 tenants",
+      "Up to 75 tenants",
       "1 property",
       "Razorpay payments",
       "WhatsApp reminders",

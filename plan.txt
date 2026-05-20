@@ -740,7 +740,7 @@ Week 6 — Subscriptions + Billing Compliance
 Day 36 — Subscription Setup
 Hour 1:
 □ Plans in Razorpay + Supabase
-□ Free, ₹599, ₹1199, ₹1999
+□ Free, Starter ₹599, Pro ₹1199, Business ₹2499, Enterprise (custom)
 
 Hour 2:
 □ Subscription audit trail:
