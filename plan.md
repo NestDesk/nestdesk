@@ -452,19 +452,24 @@ export async function createClient() {
 }
 ```
 
-`.env.local` (never commit)
+`.env.local` (never commit) — **DEV values are now filled in**
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# ── DEV environment (nestdesk-dev Supabase project) ──────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://qviwaspbhijvchmmbub.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<dev anon key>
+SUPABASE_SERVICE_ROLE_KEY=<dev service role key>
 ```
 
-`.env.example` (commit this)
+`.env.example` (committed — no real values, documents both environments)
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_DEV_PROJECT_ID.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_DEV_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_DEV_SERVICE_ROLE_KEY
 ```
+
+> `client.ts` and `admin.ts` now call `validateSupabaseEnv()` / `validateServiceRoleKey()` from `env-check.ts` for early, readable startup errors.
 
 ---
 
@@ -1058,3 +1063,574 @@ Checklist:
 | Notifications (Resend / MSG91) | Week 5         |
 | Subscriptions                  | Week 6         |
 | Legal pages + compliance       | Week 7         |
+
+---
+
+---
+
+# Implementation Progress Log
+
+## ✅ Day 1 — Completed
+
+### Hour 1 — Project Init
+
+- [x] Next.js 14 project created (`nestdesk`)
+- [x] Shadcn/UI + Radix UI installed and initialized
+- [x] GitHub repository set up
+- [x] `.gitignore` covers all `.env*` files — no secrets in Git
+- [x] Pushed to GitHub on branch `initial` (dev branch)
+
+### Hour 2 — Supabase + Security
+
+- [x] Supabase DEV project created → ref: `qviwaspbhijvchmmbub`
+- [x] `.env.local` configured with real DEV credentials
+- [x] Security dependencies installed:
+  ```bash
+  npm install helmet rate-limiter-flexible
+  ```
+  (`zod` was already installed from Shadcn init)
+- [x] `src/lib/supabase/env-check.ts` created — validates env vars at startup with descriptive errors
+- [x] `src/lib/supabase/client.ts` updated to use `validateSupabaseEnv()`
+- [x] `src/lib/supabase/admin.ts` created — server-only admin client using `service_role` key
+- [x] `.env.example` recreated documenting two-environment setup (safe to commit)
+
+### Hour 3 — Deploy Prep ✅ Decisions finalised
+
+- [x] Vercel deploy strategy decided (see Architecture Decisions below)
+- [ ] Vercel project import + `initial` branch deployed
+- [ ] Verify preview URL works (`nestdesk-git-initial-xxxx.vercel.app`)
+- [ ] Production (`main` branch + `nestdesk.in`) set up when ready to launch
+
+---
+
+## 🏗️ Architecture Decisions Made
+
+### Two-Environment Supabase Setup
+
+| Environment | Supabase Project | Branch    | Domain                                 | Status        |
+| ----------- | ---------------- | --------- | -------------------------------------- | ------------- |
+| Dev         | `nestdesk-dev`   | `initial` | `nestdesk-git-initial-xxxx.vercel.app` | 🔧 Setting up |
+| Production  | `nestdesk-prod`  | `main`    | `nestdesk.in` + `www.nestdesk.in`      | 🔧 Setting up |
+
+> Dev uses the free auto-assigned Vercel preview URL. No `dev.nestdesk.in` subdomain needed.
+
+### Domain & DNS (Hostinger) — Production
+
+Domain `nestdesk.in` is registered on **Hostinger**.
+
+DNS records to add in Hostinger hPanel → DNS Records:
+
+| Type  | Name  | Value                                 | TTL  |
+| ----- | ----- | ------------------------------------- | ---- |
+| A     | `@`   | `76.76.21.21`                         | 3600 |
+| CNAME | `www` | `3d2beabc152efcdc.vercel-dns-017com.` | 3600 |
+
+> Use the exact CNAME value shown in Vercel → Settings → Domains → `www.nestdesk.in` — it is project-specific.
+> After adding, DNS propagates in 5–30 minutes. Click **Refresh** in Vercel to verify.
+
+---
+
+## 📋 Day 2 — Database Schema (SQL ready, not yet executed)
+
+Run these three SQL steps in the **Supabase SQL Editor** of the DEV project.
+
+### Step 1 — Core Tables
+
+```sql
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
+-- Owners (one per Supabase auth user)
+create table owners (
+  id            uuid primary key default uuid_generate_v4(),
+  auth_user_id  uuid unique not null references auth.users(id) on delete cascade,
+  full_name     text not null,
+  email         text unique not null,
+  phone         text,
+  plan          text not null default 'free' check (plan in ('free','starter','pro','business','enterprise')),
+  plan_expires_at timestamptz,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  deleted_at    timestamptz
+);
+
+-- Hostels
+create table hostels (
+  id          uuid primary key default uuid_generate_v4(),
+  owner_id    uuid not null references owners(id) on delete cascade,
+  name        text not null,
+  address     text,
+  city        text,
+  state       text,
+  pincode     text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+
+-- Floors
+create table floors (
+  id          uuid primary key default uuid_generate_v4(),
+  hostel_id   uuid not null references hostels(id) on delete cascade,
+  name        text not null,
+  created_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+
+-- Rooms
+create table rooms (
+  id          uuid primary key default uuid_generate_v4(),
+  floor_id    uuid not null references floors(id) on delete cascade,
+  hostel_id   uuid not null references hostels(id) on delete cascade,
+  room_number text not null,
+  capacity    int not null default 1,
+  rent_amount numeric(10,2) not null default 0,
+  status      text not null default 'vacant' check (status in ('vacant','occupied','maintenance')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+
+-- Tenants (PII separated from operational data)
+create table tenants (
+  id              uuid primary key default uuid_generate_v4(),
+  auth_user_id    uuid unique references auth.users(id) on delete set null,
+  owner_id        uuid not null references owners(id),
+  hostel_id       uuid not null references hostels(id),
+  room_id         uuid references rooms(id) on delete set null,
+  full_name       text not null,
+  email           text,
+  phone           text,
+  aadhar_last4    text,             -- only last 4 digits stored in plain text
+  aadhar_doc_path text,             -- encrypted Supabase Storage path
+  join_date       date,
+  move_out_date   date,
+  status          text not null default 'pending' check (status in ('pending','active','moved_out','rejected')),
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  deleted_at      timestamptz
+);
+
+-- Payments
+create table payments (
+  id              uuid primary key default uuid_generate_v4(),
+  tenant_id       uuid not null references tenants(id),
+  hostel_id       uuid not null references hostels(id),
+  amount          numeric(10,2) not null,
+  month           date not null,             -- first day of billing month
+  status          text not null default 'pending' check (status in ('pending','paid','overdue','disputed')),
+  method          text check (method in ('cash','upi','bank_transfer','razorpay','other')),
+  razorpay_id     text,
+  receipt_number  text unique,
+  notes           text,
+  paid_at         timestamptz,
+  ip_address      inet,
+  recorded_by     uuid references owners(id),
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+-- Notices
+create table notices (
+  id          uuid primary key default uuid_generate_v4(),
+  hostel_id   uuid not null references hostels(id) on delete cascade,
+  owner_id    uuid not null references owners(id),
+  title       text not null,
+  body        text not null,
+  created_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+
+-- Maintenance requests
+create table maintenance_requests (
+  id          uuid primary key default uuid_generate_v4(),
+  hostel_id   uuid not null references hostels(id),
+  room_id     uuid references rooms(id),
+  tenant_id   uuid references tenants(id),
+  title       text not null,
+  description text,
+  status      text not null default 'open' check (status in ('open','in_progress','resolved','closed')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+
+-- Subscriptions
+create table subscriptions (
+  id              uuid primary key default uuid_generate_v4(),
+  owner_id        uuid not null references owners(id),
+  plan            text not null,
+  status          text not null default 'active' check (status in ('active','cancelled','expired','grace_period')),
+  razorpay_sub_id text,
+  starts_at       timestamptz not null,
+  ends_at         timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+-- Invite codes for tenant registration
+create table invite_codes (
+  id          uuid primary key default uuid_generate_v4(),
+  owner_id    uuid not null references owners(id),
+  hostel_id   uuid not null references hostels(id),
+  code        text unique not null,
+  used_by     uuid references tenants(id),
+  used_at     timestamptz,
+  expires_at  timestamptz,
+  created_at  timestamptz not null default now()
+);
+
+-- Audit logs (append-only — never delete rows)
+create table audit_logs (
+  id          uuid primary key default uuid_generate_v4(),
+  owner_id    uuid references owners(id),
+  user_id     uuid references auth.users(id),
+  action      text not null,
+  table_name  text not null,
+  record_id   uuid,
+  old_value   jsonb,
+  new_value   jsonb,
+  ip_address  inet,
+  user_agent  text,
+  created_at  timestamptz not null default now()
+);
+
+-- Consent records (DPDP Act 2023)
+create table consent_records (
+  id              uuid primary key default uuid_generate_v4(),
+  user_id         uuid not null references auth.users(id),
+  consent_type    text not null check (consent_type in ('data_collection','marketing_email','whatsapp','third_party')),
+  consent_given   boolean not null,
+  ip_address      inet,
+  form_version    text,
+  created_at      timestamptz not null default now()
+);
+
+-- Data deletion requests (DPDP Act 2023)
+create table data_deletion_requests (
+  id              uuid primary key default uuid_generate_v4(),
+  requested_by    uuid not null references auth.users(id),
+  tenant_id       uuid references tenants(id),
+  status          text not null default 'pending' check (status in ('pending','processing','completed','rejected')),
+  reason          text,
+  processed_at    timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+```
+
+### Step 2 — Row Level Security (RLS) Policies
+
+```sql
+-- Enable RLS on all tables
+alter table owners                  enable row level security;
+alter table hostels                 enable row level security;
+alter table floors                  enable row level security;
+alter table rooms                   enable row level security;
+alter table tenants                 enable row level security;
+alter table payments                enable row level security;
+alter table notices                 enable row level security;
+alter table maintenance_requests    enable row level security;
+alter table subscriptions           enable row level security;
+alter table invite_codes            enable row level security;
+alter table audit_logs              enable row level security;
+alter table consent_records         enable row level security;
+alter table data_deletion_requests  enable row level security;
+
+-- Helper function: get owner id for the current user
+create or replace function current_owner_id()
+returns uuid language sql security definer stable as $$
+  select id from owners where auth_user_id = auth.uid() limit 1;
+$$;
+
+-- Owners: only see own row
+create policy "owner_select_own" on owners for select using (auth_user_id = auth.uid());
+create policy "owner_update_own" on owners for update using (auth_user_id = auth.uid());
+
+-- Hostels: owner CRUD on own hostels
+create policy "hostel_select" on hostels for select using (owner_id = current_owner_id());
+create policy "hostel_insert" on hostels for insert with check (owner_id = current_owner_id());
+create policy "hostel_update" on hostels for update using (owner_id = current_owner_id());
+create policy "hostel_delete" on hostels for delete using (owner_id = current_owner_id());
+
+-- Floors
+create policy "floor_select" on floors for select using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+create policy "floor_insert" on floors for insert with check (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+create policy "floor_update" on floors for update using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+
+-- Rooms
+create policy "room_select" on rooms for select using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+create policy "room_insert" on rooms for insert with check (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+create policy "room_update" on rooms for update using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+
+-- Tenants: owner sees own, tenant sees self
+create policy "tenant_select_owner" on tenants for select using (
+  owner_id = current_owner_id()
+  or auth_user_id = auth.uid()
+);
+create policy "tenant_insert_owner" on tenants for insert with check (owner_id = current_owner_id());
+create policy "tenant_update_owner" on tenants for update using (owner_id = current_owner_id());
+
+-- Payments
+create policy "payment_select" on payments for select using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+  or tenant_id in (select id from tenants where auth_user_id = auth.uid())
+);
+create policy "payment_insert" on payments for insert with check (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+create policy "payment_update" on payments for update using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+);
+
+-- Notices
+create policy "notice_select" on notices for select using (
+  owner_id = current_owner_id()
+  or hostel_id in (select hostel_id from tenants where auth_user_id = auth.uid() and status = 'active')
+);
+create policy "notice_insert" on notices for insert with check (owner_id = current_owner_id());
+create policy "notice_update" on notices for update using (owner_id = current_owner_id());
+
+-- Maintenance requests
+create policy "maint_select" on maintenance_requests for select using (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+  or tenant_id in (select id from tenants where auth_user_id = auth.uid())
+);
+create policy "maint_insert" on maintenance_requests for insert with check (
+  hostel_id in (select id from hostels where owner_id = current_owner_id())
+  or tenant_id in (select id from tenants where auth_user_id = auth.uid())
+);
+
+-- Subscriptions
+create policy "sub_select" on subscriptions for select using (owner_id = current_owner_id());
+create policy "sub_insert" on subscriptions for insert with check (owner_id = current_owner_id());
+
+-- Invite codes
+create policy "invite_select" on invite_codes for select using (owner_id = current_owner_id());
+create policy "invite_insert" on invite_codes for insert with check (owner_id = current_owner_id());
+
+-- Audit logs: owners see own logs only (append-only — no update/delete policies)
+create policy "audit_select" on audit_logs for select using (owner_id = current_owner_id());
+
+-- Consent records: user sees own
+create policy "consent_select" on consent_records for select using (user_id = auth.uid());
+create policy "consent_insert" on consent_records for insert with check (user_id = auth.uid());
+
+-- Data deletion requests
+create policy "deletion_req_select" on data_deletion_requests for select using (requested_by = auth.uid());
+create policy "deletion_req_insert" on data_deletion_requests for insert with check (requested_by = auth.uid());
+```
+
+### Step 3 — Triggers, Indexes & Storage
+
+```sql
+-- Auto-update updated_at on every table that has it
+create or replace function set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger owners_updated_at              before update on owners              for each row execute function set_updated_at();
+create trigger hostels_updated_at             before update on hostels             for each row execute function set_updated_at();
+create trigger rooms_updated_at               before update on rooms               for each row execute function set_updated_at();
+create trigger tenants_updated_at             before update on tenants             for each row execute function set_updated_at();
+create trigger payments_updated_at            before update on payments            for each row execute function set_updated_at();
+create trigger maintenance_requests_updated_at before update on maintenance_requests for each row execute function set_updated_at();
+create trigger subscriptions_updated_at       before update on subscriptions       for each row execute function set_updated_at();
+create trigger data_deletion_requests_updated_at before update on data_deletion_requests for each row execute function set_updated_at();
+
+-- Useful indexes
+create index idx_hostels_owner         on hostels(owner_id)   where deleted_at is null;
+create index idx_rooms_hostel          on rooms(hostel_id)    where deleted_at is null;
+create index idx_tenants_owner         on tenants(owner_id)   where deleted_at is null;
+create index idx_tenants_hostel        on tenants(hostel_id)  where deleted_at is null;
+create index idx_payments_tenant       on payments(tenant_id);
+create index idx_payments_hostel_month on payments(hostel_id, month);
+create index idx_audit_logs_owner      on audit_logs(owner_id, created_at desc);
+create index idx_consent_user          on consent_records(user_id, consent_type);
+
+-- Storage bucket for tenant documents (private — signed URLs only)
+-- Run in Supabase Storage SQL or create manually in the dashboard:
+insert into storage.buckets (id, name, public)
+values ('tenant-documents', 'tenant-documents', false);
+
+-- Only owners can upload to their own path, tenants can upload to their own
+create policy "tenant_docs_insert" on storage.objects for insert
+  with check (bucket_id = 'tenant-documents' and auth.role() = 'authenticated');
+
+create policy "tenant_docs_select" on storage.objects for select
+  using (bucket_id = 'tenant-documents' and auth.role() = 'authenticated');
+```
+
+---
+
+## 🔧 Updated Supabase File Structure
+
+Three files now exist instead of the original two:
+
+```
+src/lib/supabase/
+├── client.ts      # Browser client — uses validateSupabaseEnv()
+├── server.ts      # Server client — uses cookies() for SSR
+├── admin.ts       # Server-only admin client — bypasses RLS (service_role key)
+└── env-check.ts   # Shared env validator — descriptive startup errors
+```
+
+### `src/lib/supabase/admin.ts` (new)
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { validateSupabaseEnv, validateServiceRoleKey } from "./env-check";
+
+export function createAdminClient() {
+  const { url } = validateSupabaseEnv();
+  const serviceRoleKey = validateServiceRoleKey();
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+```
+
+### `src/lib/supabase/env-check.ts` (new)
+
+```ts
+export function validateSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || url === "https://YOUR_PROJECT_ID.supabase.co")
+    throw new Error("[NestDesk] NEXT_PUBLIC_SUPABASE_URL is missing");
+
+  if (!anonKey || anonKey === "YOUR_ANON_KEY")
+    throw new Error("[NestDesk] NEXT_PUBLIC_SUPABASE_ANON_KEY is missing");
+
+  return { url, anonKey };
+}
+
+export function validateServiceRoleKey() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey || serviceRoleKey === "YOUR_SERVICE_ROLE_KEY")
+    throw new Error(
+      "[NestDesk] SUPABASE_SERVICE_ROLE_KEY is missing — server side only",
+    );
+  return serviceRoleKey;
+}
+```
+
+---
+
+## 💰 Pricing Plans (Updated)
+
+`src/app/page.tsx` now renders a full landing page with 5 pricing tiers:
+
+| Plan       | Price/month | Properties | Tenants per property | Status        |
+| ---------- | ----------- | ---------- | -------------------- | ------------- |
+| Free       | ₹0          | 1          | Up to 30             | —             |
+| Starter    | ₹599        | 1          | Up to 75             | —             |
+| Pro        | ₹1,199      | 2          | Up to 100            | Most Popular  |
+| Business   | ₹2,499      | 5          | Up to 100 each       | —             |
+| Enterprise | Custom      | Unlimited  | Unlimited            | Contact sales |
+
+Enterprise CTA → `mailto:sales@nestdesk.in`
+
+---
+
+## 📁 Updated `.env.local` Structure
+
+```env
+# ── DEV environment (nestdesk-dev Supabase project) ──────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://qviwaspbhijvchmmbub.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<dev anon key>
+SUPABASE_SERVICE_ROLE_KEY=<dev service role key>
+```
+
+`.env.example` (committed, no real values):
+
+```env
+# ── DEV environment (nestdesk-dev Supabase project) ──────────────────────────
+# Copy this file to .env.local and fill in real values. NEVER commit .env.local.
+
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_DEV_PROJECT_ID.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_DEV_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_DEV_SERVICE_ROLE_KEY
+
+# ── PROD environment — set these in Vercel dashboard ONLY ────────────────────
+# NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROD_PROJECT_ID.supabase.co
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY
+# SUPABASE_SERVICE_ROLE_KEY=YOUR_PROD_SERVICE_ROLE_KEY
+```
+
+---
+
+## ⏳ Pending Tasks (Next Up)
+
+### Supabase DEV (do now)
+
+- [ ] Run SQL Steps 1 → 2 → 3 in **nestdesk-dev** Supabase SQL Editor
+- [ ] Create storage bucket `tenant-documents` (private) in nestdesk-dev Storage dashboard
+- [ ] Enable email verification in nestdesk-dev Auth → Settings
+- [ ] Set minimum password length to 8 in nestdesk-dev Auth settings
+
+### Supabase PROD (do now)
+
+- [ ] Create `nestdesk-prod` Supabase project (Mumbai region)
+- [ ] Run SQL Steps 1 → 2 → 3 in **nestdesk-prod** Supabase SQL Editor
+- [ ] Create storage bucket `tenant-documents` (private) in nestdesk-prod Storage dashboard
+- [ ] Enable email verification in nestdesk-prod Auth → Settings
+- [ ] Set minimum password length to 8 in nestdesk-prod Auth settings
+- [ ] Copy prod URL + anon key + service role key from nestdesk-prod → Settings → API
+
+### Vercel Dev Setup (do now)
+
+- [ ] Import GitHub repo to Vercel (if not already done)
+- [ ] Add env vars — check **Preview** environment only:
+  - `NEXT_PUBLIC_SUPABASE_URL` → `https://qviwaspbhijvchmmbub.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → nestdesk-dev anon key
+  - `SUPABASE_SERVICE_ROLE_KEY` → nestdesk-dev service role key
+- [ ] Verify `nestdesk-git-initial-xxxx.vercel.app` preview URL loads correctly
+
+### Vercel Production Setup (do now)
+
+- [ ] Add env vars — check **Production** environment only:
+  - `NEXT_PUBLIC_SUPABASE_URL` → nestdesk-prod project URL
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → nestdesk-prod anon key
+  - `SUPABASE_SERVICE_ROLE_KEY` → nestdesk-prod service role key
+- [ ] Vercel → Settings → Domains → Add `nestdesk.in` → assign to Production (main)
+- [ ] Vercel → Settings → Domains → Add `www.nestdesk.in` → assign to Production (main)
+- [ ] Confirm production branch is `main` in Vercel → Settings → Git
+
+### DNS (Hostinger) — do now
+
+- [ ] Log in to hpanel.hostinger.com → Domains → `nestdesk.in` → DNS Records
+- [ ] Add `A` record: Name `@` → Value `76.76.21.21` → TTL `3600`
+- [ ] Add `CNAME` record: Name `www` → Value from Vercel's domain config for `www.nestdesk.in` → TTL `3600`
+- [ ] Wait 5–30 min for DNS propagation
+- [ ] Click **Refresh** in Vercel → both domains should turn green
+- [ ] Verify SSL certificate active
+
+### Day 3 (Next)
+
+- [ ] Authentication UI — real Supabase login (email + password)
+- [ ] Email verification flow
+- [ ] Rate limiting on `/api/auth/*` routes (5 attempts → 15 min lockout)
+- [ ] Session timeout (30 min idle)
+- [ ] Secure httpOnly cookies
