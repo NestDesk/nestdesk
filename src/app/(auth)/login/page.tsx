@@ -41,51 +41,59 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm rounded-2xl shadow-lg">
-      <CardHeader className="space-y-3 pb-4">
+    <Card className="w-full rounded-3xl border border-white/10 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl dark:bg-white/5">
+      <CardHeader className="space-y-4 pb-4 pt-8">
         <div className="flex justify-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-            <Building2 className="h-5 w-5 text-white" />
+          <div className="glow-ring flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400">
+            <Building2 className="h-7 w-7 text-white drop-shadow" />
           </div>
         </div>
         <div className="text-center">
-          <CardTitle className="text-xl">Welcome back</CardTitle>
-          <CardDescription>Sign in to your NestDesk account</CardDescription>
+          <CardTitle className="text-2xl font-bold text-white">
+            Welcome back
+          </CardTitle>
+          <CardDescription className="text-white/60">
+            Sign in to your NestDesk account
+          </CardDescription>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-6 pb-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-white/80">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
               placeholder="you@example.com"
-              className="rounded-xl"
+              className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+              <p className="text-xs text-red-400">{errors.email.message}</p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-white/80">
+              Password
+            </Label>
             <Input
               id="password"
               type="password"
-              placeholder="********"
-              className="rounded-xl"
+              placeholder="••••••••"
+              className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
               {...register("password")}
             />
             {errors.password && (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
+              <p className="text-xs text-red-400">{errors.password.message}</p>
             )}
           </div>
 
           <Button
             type="submit"
-            className="w-full rounded-xl"
+            className="mt-2 w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:brightness-110"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -97,6 +105,16 @@ export default function LoginPage() {
             )}
           </Button>
         </form>
+
+        <p className="mt-6 text-center text-xs text-white/40">
+          Don&apos;t have an account?{" "}
+          <a
+            href="#"
+            className="font-medium text-white/70 underline underline-offset-2 hover:text-white"
+          >
+            Contact us
+          </a>
+        </p>
       </CardContent>
     </Card>
   );
