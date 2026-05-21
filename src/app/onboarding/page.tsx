@@ -36,14 +36,14 @@ const ownerSchema = z.object({
 const hostelSchema = z.object({
   hostelName: z.string().min(2, "Enter your property name."),
   propertyType: z.enum(["pg", "hostel", "coliving", "rental"], {
-    errorMap: () => ({ message: "Select a property type." }),
+    message: "Select a property type.",
   }),
   address: z.string().min(5, "Enter the full address."),
   hostelCity: z.string().min(2, "Enter city."),
   hostelState: z.string().min(2, "Enter state."),
   pincode: z.string().regex(/^\d{6}$/, "Enter a valid 6-digit pincode."),
-  totalRooms: z.coerce
-    .number({ invalid_type_error: "Enter a number." })
+  totalRooms: z
+    .number({ message: "Enter a number." })
     .int()
     .min(1, "Must have at least 1 room.")
     .max(9999),
@@ -513,7 +513,9 @@ export default function OnboardingPage() {
                     placeholder="24"
                     min={1}
                     className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
-                    {...hostelForm.register("totalRooms")}
+                    {...hostelForm.register("totalRooms", {
+                      valueAsNumber: true,
+                    })}
                   />
                 </Field>
               </div>

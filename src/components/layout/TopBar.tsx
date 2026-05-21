@@ -105,7 +105,9 @@ export function TopBar({ title }: TopBarProps) {
               aria-label="Open profile menu"
             >
               <Avatar className="h-8 w-8 border border-border/60">
-                {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.fullName} /> : null}
+                {user?.avatarUrl ? (
+                  <AvatarImage src={user.avatarUrl} alt={user.fullName} />
+                ) : null}
                 <AvatarFallback className="bg-primary text-xs text-primary-foreground">
                   {initials}
                 </AvatarFallback>
@@ -116,7 +118,9 @@ export function TopBar({ title }: TopBarProps) {
             <DropdownMenuLabel className="flex items-start gap-2">
               <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{user?.fullName || "My Account"}</p>
+                <p className="truncate text-sm font-medium">
+                  {user?.fullName || "My Account"}
+                </p>
                 <p className="truncate text-xs font-normal text-muted-foreground">
                   {user?.email || "Signed in"}
                 </p>

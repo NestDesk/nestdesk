@@ -12,7 +12,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/onboarding";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);
@@ -24,9 +23,6 @@ export async function GET(request: NextRequest) {
     value: string;
     options: Record<string, unknown>;
   }> = [];
-
-  // We need a mutable response to attach the session cookies
-  const response = NextResponse.redirect(`${origin}${next}`);
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {

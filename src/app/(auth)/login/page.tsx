@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,6 +27,18 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-3xl border border-white/10 bg-white/10 p-8" />
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
@@ -65,7 +77,6 @@ export default function LoginPage() {
         return;
       }
 
-      toast.success("Signed in successfully.");
       router.push(json.redirectTo ?? redirectTo);
       router.refresh();
     } catch {

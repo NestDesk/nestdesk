@@ -42,12 +42,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <Link href="/login" className="transition-colors hover:text-white">
               Sign in
             </Link>
-            <Link
-              href="/register"
-              className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-            >
-              Get started
-            </Link>
           </div>
         </div>
       </header>

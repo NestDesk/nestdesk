@@ -209,14 +209,16 @@ export async function POST(request: NextRequest) {
 
       const missingColumn = getMissingColumnName(updateOwner.error.message);
       if (missingColumn && missingColumn in updatePayload) {
-        const { [missingColumn]: _removed, ...nextPayload } = updatePayload;
+        const nextPayload = { ...updatePayload };
+        delete nextPayload[missingColumn];
         updatePayload = nextPayload;
         continue;
       }
 
       // Compatibility shim for environments where email isn't present.
       if (isMissingColumnError(updateOwner.error.message, "email")) {
-        const { email: _email, ...legacyOwnerPayload } = updatePayload;
+        const legacyOwnerPayload = { ...updatePayload };
+        delete legacyOwnerPayload.email;
         updatePayload = legacyOwnerPayload;
         continue;
       }
@@ -252,14 +254,16 @@ export async function POST(request: NextRequest) {
 
       const missingColumn = getMissingColumnName(insertOwner.error.message);
       if (missingColumn && missingColumn in insertPayload) {
-        const { [missingColumn]: _removed, ...nextPayload } = insertPayload;
+        const nextPayload = { ...insertPayload };
+        delete nextPayload[missingColumn];
         insertPayload = nextPayload;
         continue;
       }
 
       // Compatibility shim for environments where email isn't present.
       if (isMissingColumnError(insertOwner.error.message, "email")) {
-        const { email: _email, ...legacyOwnerPayload } = insertPayload;
+        const legacyOwnerPayload = { ...insertPayload };
+        delete legacyOwnerPayload.email;
         insertPayload = legacyOwnerPayload;
         continue;
       }
