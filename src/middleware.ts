@@ -5,6 +5,14 @@ import { validateSupabaseEnv } from "@/lib/supabase/env-check";
 const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email"];
 const AUTH_ONLY_PATHS = ["/login", "/register"];
 
+function shouldBypassAuthCheck(pathname: string) {
+  return (
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/api/auth/")
+  );
+}
+
 function isPublic(pathname: string) {
   return (
     PUBLIC_PATHS.some((p) => pathname === p) ||
@@ -16,8 +24,14 @@ function isPublic(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  const { url, anonKey } = validateSupabaseEnv();
   const { pathname } = request.nextUrl;
+
+  // Skip auth lookup for static/HMR/auth API requests to reduce duplicate dev traffic.
+  if (shouldBypassAuthCheck(pathname)) {
+    return NextResponse.next({ request });
+  }
+
+  const { url, anonKey } = validateSupabaseEnv();
 
   // Build a mutable response so Supabase can refresh the session cookie inline.
   let response = NextResponse.next({ request });

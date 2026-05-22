@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     .from("owners")
     .select("onboarding_completed")
     .eq("user_id", data.session.user.id)
-    .single();
+    .maybeSingle();
 
   const redirectPath = owner?.onboarding_completed ? "/dashboard" : "/onboarding";
   const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);

@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 
 const onboardingSchema = z.object({
   // Owner details
-  fullName: z.string().min(2).max(100),
   phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number."),
   addressLine1: z.string().min(5).max(200),
   addressLine2: z.string().max(150).optional(),
@@ -13,15 +12,17 @@ const onboardingSchema = z.object({
   city: z.string().min(2).max(100),
   state: z.string().min(2).max(100),
   ownerPincode: z.string().regex(/^\d{6}$/, "Enter a valid 6-digit pincode."),
-  // First hostel details
-  hostelName: z.string().min(2).max(200),
-  propertyType: z.enum(["pg", "hostel", "coliving", "rental"]),
-  address: z.string().min(5).max(300),
-  hostelCity: z.string().min(2).max(100),
-  hostelState: z.string().min(2).max(100),
-  pincode: z.string().regex(/^\d{6}$/, "Enter a valid 6-digit pincode."),
-  totalRooms: z.number().int().min(1).max(9999),
 });
+
+type OnboardingOwnerData = {
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  landmark: string;
+  city: string;
+  state: string;
+  ownerPincode: string;
+};
 
 function getClientIp(req: NextRequest): string {
   return (
@@ -29,30 +30,6 @@ function getClientIp(req: NextRequest): string {
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     "unknown"
   );
-}
-
-function isMissingColumnError(message?: string, column?: string): boolean {
-  if (!message || !column) return false;
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("could not find") && lower.includes(`'${column.toLowerCase()}'`)
-  );
-}
-
-function isOwnersIdForeignKeyError(message?: string): boolean {
-  if (!message) return false;
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("owners_id_fkey") ||
-    (lower.includes("violates foreign key constraint") &&
-      lower.includes('table "owners"'))
-  );
-}
-
-function getMissingColumnName(message?: string): string | null {
-  if (!message) return null;
-  const match = message.match(/could not find the '([^']+)' column/i);
-  return match?.[1] ?? null;
 }
 
 function getUserPhone(user: {
@@ -80,6 +57,103 @@ function getUserFullName(user: {
     return metaFullName.trim();
   }
   return null;
+}
+
+function toTenDigitPhone(raw: string | null | undefined): string {
+  return String(raw ?? "")
+    .replace(/\D/g, "")
+    .slice(-10);
+}
+
+function normalizeText(value: string): string {
+  return value.trim();
+}
+
+function normalizeOptionalText(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  const ownerResult = await admin
+    .from("owners")
+    .select(
+      "id, full_name, phone, address_line1, address_line2, landmark, city, state, pincode, onboarding_completed",
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (ownerResult.error) {
+    return NextResponse.json({ error: ownerResult.error.message }, { status: 500 });
+  }
+
+  const owner = ownerResult.data;
+  if (!owner) {
+    return NextResponse.json({
+      success: true,
+      ownerName:
+        getUserFullName({ user_metadata: user.user_metadata }) ||
+        user.email?.split("@")[0] ||
+        "Owner",
+      onboardingCompleted: false,
+      ownerData: null,
+      hostelData: null,
+    });
+  }
+
+  const hostelResult = await admin
+    .from("hostels")
+    .select("name, property_type, address, city, state, pincode, total_rooms")
+    .eq("owner_id", owner.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (hostelResult.error) {
+    return NextResponse.json({ error: hostelResult.error.message }, { status: 500 });
+  }
+
+  const ownerData: OnboardingOwnerData | null = {
+    phone: toTenDigitPhone(owner.phone),
+    addressLine1: owner.address_line1 ?? "",
+    addressLine2: owner.address_line2 ?? "",
+    landmark: owner.landmark ?? "",
+    city: owner.city ?? "",
+    state: owner.state ?? "",
+    ownerPincode: owner.pincode ?? "",
+  };
+
+  const hostel = hostelResult.data;
+  const hostelData = hostel
+    ? {
+        hostelName: hostel.name,
+        propertyType: hostel.property_type,
+        address: hostel.address,
+        hostelCity: hostel.city,
+        hostelState: hostel.state,
+        pincode: hostel.pincode,
+        totalRooms: hostel.total_rooms,
+      }
+    : null;
+
+  return NextResponse.json({
+    success: true,
+    ownerName: owner.full_name,
+    onboardingCompleted: owner.onboarding_completed,
+    ownerData,
+    hostelData,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -111,20 +185,10 @@ export async function POST(request: NextRequest) {
   const data = parsed.data;
   const ip = getClientIp(request);
   const admin = createAdminClient();
-  const authUserResult = await admin.auth.admin.getUserById(user.id);
-  const authUser = authUserResult.data.user;
-
-  const authEmail =
-    user.email?.trim().toLowerCase() ??
-    authUser?.email?.trim().toLowerCase() ??
-    null;
-
-  const phoneFromAuth = authUser
-    ? getUserPhone(authUser)
-    : getUserPhone({
-        phone: user.phone,
-        user_metadata: user.user_metadata,
-      });
+  const phoneFromAuth = getUserPhone({
+    phone: user.phone,
+    user_metadata: user.user_metadata,
+  });
 
   const inputDigits = String(data.phone ?? "")
     .replace(/\D/g, "")
@@ -133,13 +197,6 @@ export async function POST(request: NextRequest) {
     .replace(/\D/g, "")
     .slice(-10);
   const normalizedPhone = `+91${inputDigits || authDigits}`;
-
-  if (!authEmail) {
-    return NextResponse.json(
-      { error: "Authenticated user email is missing." },
-      { status: 400 },
-    );
-  }
 
   // ── 3. Check if owner already onboarded (idempotency guard) ────────────
   const existingByUserId = await admin
@@ -159,173 +216,74 @@ export async function POST(request: NextRequest) {
 
   if (existing?.onboarding_completed) {
     return NextResponse.json(
-      { error: "Onboarding already completed." },
-      { status: 409 },
+      { success: true, redirectTo: "/dashboard" },
+      { status: 200 },
     );
   }
 
   // ── 4. Save owner profile ───────────────────────────────────────────────
-  let owner: {
-    id: string;
-  } | null = null;
-  let ownerError: { message: string } | null = null;
-
-  const ownerPayloadBase = {
+  const ownerPayload = {
     user_id: user.id,
-    full_name:
-      data.fullName.trim() ||
-      getUserFullName(user) ||
-      (authUser ? getUserFullName(authUser) : null) ||
-      "Owner",
-    email: authEmail,
+    full_name: getUserFullName(user) || "Owner",
+    email: user.email?.trim().toLowerCase() ?? null,
     phone: normalizedPhone,
-    address_line1: data.addressLine1,
-    address_line2: data.addressLine2?.trim() || null,
-    landmark: data.landmark?.trim() || null,
-    city: data.city,
-    state: data.state,
+    address_line1: normalizeText(data.addressLine1),
+    address_line2: normalizeOptionalText(data.addressLine2),
+    landmark: normalizeOptionalText(data.landmark),
+    city: normalizeText(data.city),
+    state: normalizeText(data.state),
     pincode: data.ownerPincode,
-    plan: "free",
     kyc_address_verified: false,
-    onboarding_completed: false,
+    phone_verified: false,
+    phone_verified_at: null,
+    onboarding_completed: existing?.onboarding_completed ?? false,
   };
-  const ownerPayload = ownerPayloadBase;
 
-  if (existing?.id) {
-    let updatePayload: Record<string, unknown> = { ...ownerPayload };
-    while (true) {
-      const updateOwner = await admin
-        .from("owners")
-        .update(updatePayload)
-        .eq("id", existing.id)
-        .select("id")
-        .single();
+  const ownerResult = await admin
+    .from("owners")
+    .upsert(ownerPayload, { onConflict: "user_id" })
+    .select("id")
+    .single();
 
-      if (!updateOwner.error) {
-        owner = updateOwner.data;
-        ownerError = null;
-        break;
-      }
-
-      const missingColumn = getMissingColumnName(updateOwner.error.message);
-      if (missingColumn && missingColumn in updatePayload) {
-        const nextPayload = { ...updatePayload };
-        delete nextPayload[missingColumn];
-        updatePayload = nextPayload;
-        continue;
-      }
-
-      // Compatibility shim for environments where email isn't present.
-      if (isMissingColumnError(updateOwner.error.message, "email")) {
-        const legacyOwnerPayload = { ...updatePayload };
-        delete legacyOwnerPayload.email;
-        updatePayload = legacyOwnerPayload;
-        continue;
-      }
-
-      owner = null;
-      ownerError = { message: updateOwner.error.message };
-      break;
-    }
-  } else {
-    let insertPayload: Record<string, unknown> = { ...ownerPayload };
-    let insertId = crypto.randomUUID();
-
-    while (true) {
-      const insertOwner = await admin
-        .from("owners")
-        .upsert({ id: insertId, ...insertPayload }, { onConflict: "user_id" })
-        .select("id")
-        .single();
-
-      if (!insertOwner.error) {
-        owner = insertOwner.data;
-        ownerError = null;
-        break;
-      }
-
-      if (
-        isOwnersIdForeignKeyError(insertOwner.error.message) &&
-        insertId !== user.id
-      ) {
-        insertId = user.id;
-        continue;
-      }
-
-      const missingColumn = getMissingColumnName(insertOwner.error.message);
-      if (missingColumn && missingColumn in insertPayload) {
-        const nextPayload = { ...insertPayload };
-        delete nextPayload[missingColumn];
-        insertPayload = nextPayload;
-        continue;
-      }
-
-      // Compatibility shim for environments where email isn't present.
-      if (isMissingColumnError(insertOwner.error.message, "email")) {
-        const legacyOwnerPayload = { ...insertPayload };
-        delete legacyOwnerPayload.email;
-        insertPayload = legacyOwnerPayload;
-        continue;
-      }
-
-      owner = null;
-      ownerError = { message: insertOwner.error.message };
-      break;
-    }
-  }
-
-  if (ownerError || !owner) {
+  if (ownerResult.error || !ownerResult.data) {
     return NextResponse.json(
       {
-        error: ownerError?.message ?? "Failed to save owner profile.",
+        error: ownerResult.error?.message ?? "Failed to save owner profile.",
       },
       { status: 500 },
     );
   }
 
-  // ── 5. Create first hostel ──────────────────────────────────────────────
-  const { error: hostelError } = await admin.from("hostels").insert({
-    owner_id: owner.id,
-    name: data.hostelName,
-    property_type: data.propertyType,
-    address: data.address,
-    city: data.hostelCity,
-    state: data.hostelState,
-    pincode: data.pincode,
-    total_rooms: data.totalRooms,
-  });
+  const owner = ownerResult.data;
 
-  if (hostelError) {
-    // Only rollback owner when this request created it.
-    if (!existing?.id) {
-      await admin.from("owners").delete().eq("id", owner.id);
-    }
-    return NextResponse.json(
-      { error: "Failed to save property details." },
-      { status: 500 },
-    );
-  }
-
-  // ── 6. Mark onboarding complete ─────────────────────────────────────────
-  await admin
+  // ── 5. Mark onboarding complete ─────────────────────────────────────────
+  const { error: completionError } = await admin
     .from("owners")
     .update({ onboarding_completed: true })
     .eq("id", owner.id);
 
-  // ── 7. Write audit log ──────────────────────────────────────────────────
+  if (completionError) {
+    return NextResponse.json(
+      { error: "Failed to finalize onboarding." },
+      { status: 500 },
+    );
+  }
+
+  // ── 6. Write audit log ──────────────────────────────────────────────────
   await admin.from("audit_logs").insert({
+    owner_id: owner.id,
     user_id: user.id,
-    action: "CREATE",
+    action: existing ? "UPDATE" : "CREATE",
     table_name: "owners",
     record_id: owner.id,
     new_value: {
-      full_name: data.fullName,
+      full_name: getUserFullName(user) || "Owner",
       phone: normalizedPhone,
-      address_line1: data.addressLine1,
-      address_line2: data.addressLine2?.trim() || null,
-      landmark: data.landmark?.trim() || null,
-      city: data.city,
-      state: data.state,
+      address_line1: normalizeText(data.addressLine1),
+      address_line2: normalizeOptionalText(data.addressLine2),
+      landmark: normalizeOptionalText(data.landmark),
+      city: normalizeText(data.city),
+      state: normalizeText(data.state),
       pincode: data.ownerPincode,
     },
     ip_address: ip,

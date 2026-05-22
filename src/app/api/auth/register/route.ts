@@ -4,6 +4,17 @@ import { z } from "zod";
 import { validateSupabaseEnv } from "@/lib/supabase/env-check";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+function buildValidationDetails(issues: z.ZodIssue[]) {
+  return issues.map((issue) => ({
+    field: issue.path.join(".") || "form",
+    message: issue.message,
+  }));
+}
+
+function buildSupabaseErrorDetails(message: string) {
+  return [message];
+}
+
 const registerSchema = z.object({
   email: z.string().email("Enter a valid email address."),
   password: z
@@ -26,8 +37,13 @@ export async function POST(request: NextRequest) {
 
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? "Validation failed.";
-    return NextResponse.json({ error: firstError }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Validation failed.",
+        details: buildValidationDetails(parsed.error.issues),
+      },
+      { status: 400 },
+    );
   }
 
   const { email, password, fullName } = parsed.data;
@@ -63,7 +79,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ error: adminError.message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Account creation failed.",
+        details: buildSupabaseErrorDetails(adminError.message),
+      },
+      { status: 400 },
+    );
   }
 
   // ── 2. Create user via Supabase Auth ────────────────────────────────────
@@ -147,7 +169,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return NextResponse.json({ error: adminError.message }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Account creation failed.",
+          details: buildSupabaseErrorDetails(adminError.message),
+        },
+        { status: 400 },
+      );
     }
 
     // Map Supabase error messages to safe user-facing messages
@@ -162,7 +190,13 @@ export async function POST(request: NextRequest) {
         { status: 200 },
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Account creation failed.",
+        details: buildSupabaseErrorDetails(error.message),
+      },
+      { status: 400 },
+    );
   }
 
   if (!data.user) {

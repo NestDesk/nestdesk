@@ -23,7 +23,7 @@ export default async function DashboardLayout({
     .from("owners")
     .select("onboarding_completed")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!owner?.onboarding_completed) {
     redirect("/onboarding");

@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     .from("owners")
     .select("onboarding_completed")
     .eq("user_id", data.user.id)
-    .single();
+    .maybeSingle();
 
   const redirectTo = owner?.onboarding_completed ? "/dashboard" : "/onboarding";
 

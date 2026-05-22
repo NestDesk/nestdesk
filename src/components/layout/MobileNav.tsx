@@ -12,12 +12,12 @@ export function MobileNav() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden rounded-xl">
+        <Button variant="ghost" size="icon" className="rounded-xl md:hidden">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-60 p-0">
-        <Sidebar />
+        <Sidebar mobile onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

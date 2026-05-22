@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
-import { Bell, LogOut, User } from "lucide-react";
+import { Bell, LogOut, PanelLeft, PanelRight, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileNav } from "./MobileNav";
@@ -25,14 +25,26 @@ type TopBarUser = {
 
 interface TopBarProps {
   title?: string;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
-export function TopBar({ title }: TopBarProps) {
+export function TopBar({
+  title,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
+}: TopBarProps) {
   const router = useRouter();
   const [user, setUser] = useState<TopBarUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const userLoadedRef = useRef(false);
 
   useEffect(() => {
+    if (userLoadedRef.current) {
+      return;
+    }
+    userLoadedRef.current = true;
+
     async function loadUser() {
       const supabase = createBrowserClient();
       const {
@@ -79,7 +91,6 @@ export function TopBar({ title }: TopBarProps) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       router.push("/login");
-      router.refresh();
     } finally {
       setLoggingOut(false);
     }
@@ -89,6 +100,20 @@ export function TopBar({ title }: TopBarProps) {
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-sm md:px-6">
       <div className="flex items-center gap-3">
         <MobileNav />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="hidden rounded-xl md:inline-flex"
+          onClick={onToggleSidebar}
+          aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isSidebarCollapsed ? (
+            <PanelRight className="h-4 w-4" />
+          ) : (
+            <PanelLeft className="h-4 w-4" />
+          )}
+        </Button>
         {title && <h1 className="text-sm font-semibold text-foreground">{title}</h1>}
       </div>
       <div className="flex items-center gap-2">
