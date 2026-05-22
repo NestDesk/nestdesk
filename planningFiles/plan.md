@@ -92,6 +92,7 @@ File:
 2. Enhanced property cards with clearer setup progress indicators.
 3. Added per-property "Setup Floor Plan & Rooms" action button.
 4. Added dedicated setup hub route at /hostels/[id]/setup for floor, room, and other setup sections.
+5. Anchored the setup action to the bottom of each property card for consistent card layouts.
 
 ### Floor and Room CRUD (Implemented)
 
@@ -106,6 +107,7 @@ File:
 2. Floor and room lists refresh after each create/edit/delete to stay source-of-truth with tables.
 3. Replaced disabled setup card buttons with active actions that jump to Floors/Rooms sections.
 4. Updated setup hub copy to clearly reflect live DB-backed behavior.
+5. Removed unused setup helper imports in PropertySetupManager to keep lint checks clean.
 
 ## Files Updated Recently
 
