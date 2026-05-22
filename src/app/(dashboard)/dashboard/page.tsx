@@ -8,6 +8,7 @@ import {
   TrendingUp,
   ArrowRight,
   MapPin,
+  AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -102,6 +103,9 @@ export default async function DashboardPage() {
   let setupRequired = false;
   let setupProperty: { id: string; name: string } | null = null;
   let hasProperties = false;
+  let totalCount = 0;
+  let activeCount = 0;
+  let inactiveCount = 0;
 
   if (user) {
     const { data: owner } = await admin
@@ -120,6 +124,10 @@ export default async function DashboardPage() {
 
       if (hostels && hostels.length > 0) {
         hasProperties = true;
+        totalCount = hostels.length;
+        activeCount = hostels.filter((h) => h.is_active).length;
+        inactiveCount = hostels.filter((h) => !h.is_active).length;
+
         // Check if there's any property without floors set up
         const firstHostel = hostels[0];
         const { count: floorCount } = await admin
@@ -152,8 +160,8 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* ── Setup required banner ─────────────────────────── */}
-      {setupRequired && (
+      {/* ── Setup required / inactive banner ─────────────────────────── */}
+      {!hasProperties && (
         <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
@@ -162,47 +170,93 @@ export default async function DashboardPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">
-                  {setupProperty
-                    ? "Complete your property setup"
-                    : "Welcome to NestDesk - add your first property"}
+                  Welcome to NestDesk — add your first property
                 </h3>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  {setupProperty ? (
-                    <>
-                      <span className="font-medium text-foreground">
-                        {setupProperty.name}
-                      </span>{" "}
-                      has no floors or rooms configured yet. Set up the floor plan to
-                      start managing tenants.
-                    </>
-                  ) : (
-                    "Your owner profile is ready. Add your first property to start managing rooms, tenants, and rent collection."
-                  )}
+                  Your owner profile is ready. Add your first property to start
+                  managing rooms, tenants, and rent collection.
                 </p>
-                {setupProperty && (
-                  <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground/70">
-                    <MapPin className="h-3 w-3" />
-                    Property created — floors &amp; rooms pending
-                  </div>
-                )}
               </div>
             </div>
             <div className="shrink-0">
-              {setupProperty ? (
-                <Button asChild className="rounded-xl gap-2">
-                  <Link href={`/hostels/${setupProperty.id}/setup`}>
-                    Set Up Floor Plan
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button asChild className="rounded-xl gap-2">
-                  <Link href="/hostels/new">
-                    Add Property
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
+              <Button asChild className="rounded-xl gap-2">
+                <Link href="/hostels/new">
+                  Add Property
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasProperties && setupRequired && setupProperty && (
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+                <Building2 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  Complete your property setup
+                </h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {setupProperty.name}
+                  </span>{" "}
+                  has no floors or rooms configured yet. Set up the floor plan to
+                  start managing tenants.
+                </p>
+                <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground/70">
+                  <MapPin className="h-3 w-3" />
+                  Property created — floors &amp; rooms pending
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0">
+              <Button asChild className="rounded-xl gap-2">
+                <Link href={`/hostels/${setupProperty.id}/setup`}>
+                  Set Up Floor Plan
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasProperties && !setupRequired && inactiveCount > 0 && activeCount === 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/8 to-amber-400/4 p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15">
+                <AlertCircle className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  {inactiveCount === 1
+                    ? "Your property is inactive"
+                    : `All ${inactiveCount} properties are inactive`}
+                </h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {inactiveCount === 1
+                    ? "Your property has been added and the floor plan is ready. Activate it to start accepting tenants and managing rooms."
+                    : `You have ${inactiveCount} properties with floor plans ready. Activate them to start accepting tenants and managing rooms.`}
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              <Button
+                asChild
+                variant="outline"
+                className="rounded-xl gap-2 border-amber-400/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+              >
+                <Link href="/hostels">
+                  Go to My Properties
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
           </div>
         </div>

@@ -18,13 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BuildingBlueprint } from "./setup/BuildingBlueprint";
 import { FloorRoomGenerator } from "./setup/FloorRoomGenerator";
-import {
-  autoFloorName,
-  autoPrefix,
-  occupancyColor,
-  occupancyLabel,
-  bedIcons,
-} from "./setup/helpers";
+import { autoFloorName, autoPrefix } from "./setup/helpers";
 import type { Floor, Room } from "./setup/types";
 
 type Props = {

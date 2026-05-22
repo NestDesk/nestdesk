@@ -198,11 +198,11 @@ export default async function PropertiesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
           {propertiesWithPlanState.map((property) => (
             <Card
               key={property.id}
-              className="overflow-hidden rounded-2xl border-border/70 bg-gradient-to-b from-background to-muted/20"
+              className="flex h-full flex-col overflow-hidden rounded-2xl border-border/70 bg-gradient-to-b from-background to-muted/20"
             >
               <CardHeader className="space-y-3 pb-3">
                 <div className="flex items-start justify-between gap-3">
@@ -219,59 +219,61 @@ export default async function PropertiesPage() {
                 </Badge>
               </CardHeader>
 
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Home className="h-4 w-4" />
-                  <span>
-                    Floor plan: {property.floorCount} floor(s), {property.roomCount}{" "}
-                    room(s)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  {property.isFloorPlanComplete ? (
-                    <>
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                      <span className="text-emerald-600 dark:text-emerald-400">
-                        Floor plan configured
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Layers3 className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-amber-700 dark:text-amber-400">
-                        Setup pending
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4" />
-                  <p className="line-clamp-2">
-                    {property.address}, {property.city}, {property.state}{" "}
-                    {property.pincode}
-                  </p>
-                </div>
-
-                {!property.is_active ? (
-                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-3">
+              <CardContent className="flex flex-1 flex-col text-sm text-muted-foreground">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-3.5 w-3.5" />
+                    <span>
+                      Floor plan: {property.floorCount} floor(s), {property.roomCount}{" "}
+                      room(s)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
                     {property.isFloorPlanComplete ? (
-                      <div className="space-y-2">
-                        <p className="text-xs text-foreground/80">
-                          Floor plan complete. You can activate this property now.
-                        </p>
-                        <ActivatePropertyButton hostelId={property.id} />
-                      </div>
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          Floor plan configured
+                        </span>
+                      </>
                     ) : (
-                      <p className="text-xs text-muted-foreground">
-                        At least one floor and rooms on that floor must be setup to
-                        unlock property activation.
-                      </p>
+                      <>
+                        <Layers3 className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="text-amber-700 dark:text-amber-400">
+                          Setup pending
+                        </span>
+                      </>
                     )}
                   </div>
-                ) : null}
 
-                <div className="pt-1">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-5 w-5" />
+                    <p className="line-clamp-3">
+                      {property.address}, {property.city}, {property.state}{" "}
+                      {property.pincode}
+                    </p>
+                  </div>
+
+                  {!property.is_active ? (
+                    <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-3">
+                      {property.isFloorPlanComplete ? (
+                        <div className="space-y-2">
+                          <p className="text-xs text-foreground/80">
+                            Floor plan complete. You can activate this property now.
+                          </p>
+                          <ActivatePropertyButton hostelId={property.id} />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          At least one floor and rooms on that floor must be setup to
+                          unlock property activation.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-auto pt-4">
                   <Button asChild variant="outline" className="w-full rounded-xl">
                     <Link href={`/hostels/${property.id}/setup`}>
                       Setup Floor Plan & Rooms
