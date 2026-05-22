@@ -132,6 +132,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string[]>([]);
 
   const {
     register,
@@ -147,6 +148,8 @@ export default function RegisterPage() {
   }, [watch]);
 
   async function onSubmit(data: RegisterForm) {
+    setSubmitErrorDetails([]);
+
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -161,7 +164,23 @@ export default function RegisterPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        toast.error(json.error ?? "Registration failed.");
+        const details: string[] = Array.isArray(json.details)
+          ? json.details.map((item: unknown) => {
+              if (typeof item === "string") return item;
+              if (
+                item &&
+                typeof item === "object" &&
+                "field" in item &&
+                "message" in item
+              ) {
+                return `${String(item.field)}: ${String(item.message)}`;
+              }
+              return JSON.stringify(item);
+            })
+          : [];
+
+        setSubmitErrorDetails(details);
+        toast.error(json.error ?? details[0] ?? "Registration failed.");
         return;
       }
 
@@ -314,6 +333,19 @@ export default function RegisterPage() {
               "Create account"
             )}
           </Button>
+
+          {submitErrorDetails.length > 0 && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-red-300">
+                Registration details:
+              </p>
+              <ul className="space-y-1 text-xs text-red-200">
+                {submitErrorDetails.map((detail) => (
+                  <li key={detail}>{detail}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </form>
 
         <p className="mt-6 text-center text-xs text-white/40">

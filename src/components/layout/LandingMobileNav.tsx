@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Menu, X, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import type { LandingAccountUser } from "@/components/layout/LandingAccountMenu";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -12,8 +14,22 @@ const navLinks = [
   { label: "Pricing", href: "#pricing" },
 ];
 
-export function LandingMobileNav() {
+export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) {
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const router = useRouter();
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setOpen(false);
+      router.push("/login");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -67,11 +83,29 @@ export function LandingMobileNav() {
 
         {/* CTA */}
         <div className="mt-6 flex flex-col gap-3 px-5">
-          <Link href="/login" onClick={() => setOpen(false)}>
-            <Button className="w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:brightness-110">
-              Sign in
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link href="/dashboard" onClick={() => setOpen(false)}>
+                <Button className="w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:brightness-110">
+                  My Account
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                className="w-full rounded-xl text-red-500 hover:text-red-500"
+                onClick={handleLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut ? "Logging out..." : "Logout"}
+              </Button>
+            </>
+          ) : (
+            <Link href="/login" onClick={() => setOpen(false)}>
+              <Button className="w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:brightness-110">
+                Sign in
+              </Button>
+            </Link>
+          )}
         </div>
       </SheetContent>
     </Sheet>

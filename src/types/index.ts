@@ -12,6 +12,8 @@ export interface Owner {
   user_id: string;
   full_name: string;
   phone: string | null;
+  phone_verified: boolean;
+  phone_verified_at: string | null;
   address_line1: string | null;
   address_line2: string | null;
   landmark: string | null;

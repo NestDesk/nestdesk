@@ -4,8 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import HeroSvg from "@/components/layout/HeroSvg";
 import { LandingMobileNav } from "@/components/layout/LandingMobileNav";
+import {
+  LandingAccountMenu,
+  type LandingAccountUser,
+} from "@/components/layout/LandingAccountMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/server";
 import {
   Building2,
   Zap,
@@ -225,7 +230,7 @@ const trustBadges = [
 const stats = [
   { value: "50+", label: "Property Owners" },
   { value: "1,200+", label: "Tenants Managed" },
-  { value: "₹ 8L+", label: "Rent Collected" },
+  { value: "₹ 30L+", label: "Rent Collected Monthly" },
   { value: "99.9%", label: "Uptime SLA" },
 ];
 
@@ -233,7 +238,24 @@ const stats = [
    PAGE
 ───────────────────────────────────────────── */
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const landingUser: LandingAccountUser | null = user
+    ? {
+        fullName:
+          (user.user_metadata?.full_name as string | undefined)?.trim() ||
+          user.email?.split("@")[0] ||
+          "Owner",
+        email: user.email ?? "",
+        avatarUrl:
+          (user.user_metadata?.avatar_url as string | undefined)?.trim() || null,
+      }
+    : null;
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-background bg-mesh-light dark:bg-mesh-dark">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-background to-background dark:from-primary/[0.1] dark:via-background dark:to-background" />
@@ -298,7 +320,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <LandingMobileNav />
+            <LandingMobileNav user={landingUser} />
             <Link href="/" className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
                 <Building2 className="h-4 w-4 text-white" />
@@ -330,11 +352,17 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
-            <Link href="/login" className="hidden sm:block">
-              <Button variant="ghost" size="sm" className="rounded-xl">
-                Sign in
-              </Button>
-            </Link>
+            {landingUser ? (
+              <div className="hidden sm:block">
+                <LandingAccountMenu user={landingUser} />
+              </div>
+            ) : (
+              <Link href="/login" className="hidden sm:block">
+                <Button variant="ghost" size="sm" className="rounded-xl">
+                  Sign in
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>

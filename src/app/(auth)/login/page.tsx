@@ -78,7 +78,6 @@ function LoginPageContent() {
       }
 
       router.push(json.redirectTo ?? redirectTo);
-      router.refresh();
     } catch {
       toast.error("Network error. Please try again.");
     }
