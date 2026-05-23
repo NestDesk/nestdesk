@@ -1,126 +1,225 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { CreditCard, IndianRupee } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+"use client";
 
-const STATUS_VARIANT: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  paid: "default",
-  pending: "secondary",
-  overdue: "destructive",
-  disputed: "outline",
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { CreditCard, IndianRupee, Loader2, Receipt } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+type PaymentRow = {
+  id: string;
+  amount: number;
+  month: string;
+  status: "pending" | "paid" | "overdue" | "disputed";
+  method: string | null;
+  receipt_number: string | null;
+  notes: string | null;
+  paid_at: string | null;
+  created_at: string;
 };
 
-function formatMonth(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-}
+type Summary = {
+  totalPaid: number;
+  pendingAmount: number;
+  total: number;
+};
 
-function formatAmount(amount: number) {
+const STATUS_CHIP: Record<string, string> = {
+  paid: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
+  pending:
+    "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
+  overdue:
+    "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300",
+  disputed:
+    "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300",
+};
+
+const METHOD_LABEL: Record<string, string> = {
+  cash: "Cash",
+  upi: "UPI",
+  bank_transfer: "Bank Transfer",
+  razorpay: "Razorpay",
+  other: "Other",
+};
+
+function formatAmount(n: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(n);
 }
 
-export default async function TenantPaymentsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+function formatMonth(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+}
 
-  const admin = createAdminClient();
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-  const { data: tenant } = await admin
-    .from("tenants")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  if (!tenant) redirect("/login");
+export default function TenantPaymentsPage() {
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [summary, setSummary] = useState<Summary>({
+    totalPaid: 0,
+    pendingAmount: 0,
+    total: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
-  const { data: payments } = await admin
-    .from("payments")
-    .select("id, month, amount, status, method, paid_at, receipt_number")
-    .eq("tenant_id", tenant.id)
-    .order("month", { ascending: false });
-
-  const rows = payments ?? [];
-
-  const totalPaid = rows
-    .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + Number(p.amount), 0);
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/tenant/payments", { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok) {
+          toast.error(json.error ?? "Could not load payments.");
+          return;
+        }
+        setPayments((json.payments ?? []) as PaymentRow[]);
+        setSummary(json.summary ?? { totalPaid: 0, pendingAmount: 0, total: 0 });
+      } catch {
+        toast.error("Network error. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load().catch(() => {
+      // handled
+    });
+  }, []);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Payment History
-        </h1>
-        <p className="text-muted-foreground">All your rent payments in one place.</p>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <CreditCard className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Payment History
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Your rent payments and receipts.
+          </p>
+        </div>
       </div>
 
-      {/* Summary */}
-      <Card className="rounded-2xl border-border/70">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
-            <IndianRupee className="h-4 w-4" />
-            Total paid
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-foreground">
-            {formatAmount(totalPaid)}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Payment list */}
-      {rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-16 text-center">
-          <CreditCard className="h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">No payment records yet.</p>
-          <p className="text-xs text-muted-foreground">
-            Payments recorded by your property owner will appear here.
-          </p>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="space-y-3">
-          {rows.map((p) => (
-            <Card key={p.id} className="rounded-2xl border-border/70">
-              <CardContent className="flex items-center justify-between gap-4 p-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {formatMonth(p.month)}
-                  </p>
-                  {p.receipt_number && (
-                    <p className="text-xs text-muted-foreground">
-                      Receipt: {p.receipt_number}
-                    </p>
+        <>
+          {/* Summary */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                Total Paid
+              </p>
+              <p className="mt-1 text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                {formatAmount(summary.totalPaid)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Pending / Overdue
+              </p>
+              <p className="mt-1 text-xl font-bold text-amber-700 dark:text-amber-300">
+                {formatAmount(summary.pendingAmount)}
+              </p>
+            </div>
+          </div>
+
+          {payments.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-16 text-center">
+              <IndianRupee className="h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm font-medium text-foreground">
+                No payments recorded yet
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your rent payment history will appear here once recorded by your
+                owner.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {payments.map((p) => (
+                <Card
+                  key={p.id}
+                  className={cn(
+                    "rounded-2xl border transition-shadow hover:shadow-sm",
+                    p.status === "overdue"
+                      ? "border-rose-200/70 dark:border-rose-500/20"
+                      : "border-border/70",
                   )}
-                  {p.paid_at && (
-                    <p className="text-xs text-muted-foreground">
-                      Paid on {new Date(p.paid_at).toLocaleDateString("en-IN")}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-sm font-semibold text-foreground">
-                    {formatAmount(Number(p.amount))}
-                  </span>
-                  <Badge variant={STATUS_VARIANT[p.status] ?? "outline"}>
-                    {p.status}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <IndianRupee className="h-4 w-4" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {formatMonth(p.month)}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "h-5 text-[11px]",
+                                STATUS_CHIP[p.status] ?? "",
+                              )}
+                            >
+                              {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <p className="text-base font-bold text-foreground">
+                            {formatAmount(Number(p.amount))}
+                            {p.method && (
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                via {METHOD_LABEL[p.method] ?? p.method}
+                              </span>
+                            )}
+                          </p>
+                          {p.paid_at && (
+                            <p className="text-xs text-muted-foreground">
+                              Paid on {formatDate(p.paid_at)}
+                            </p>
+                          )}
+                          {p.notes && (
+                            <p className="text-xs text-muted-foreground">
+                              Note: {p.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {p.receipt_number && (
+                        <div className="shrink-0 text-right">
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <Receipt className="h-3 w-3" />
+                            {p.receipt_number}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

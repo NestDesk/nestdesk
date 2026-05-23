@@ -31,6 +31,25 @@ The active product flow is:
    - Owner can filter/search by status, property, and tenant details.
    - Owner can update tenant profile info, status, join/move-out dates, room assignment, and agreed rent amount.
    - Room occupancy state is synchronized when tenant status or room assignment changes.
+9. Notices module is now fully implemented:
+   - Owner can create notices (draft or published) for any of their properties.
+   - Owner can edit notice title and body.
+   - Owner can publish or unpublish notices with a single toggle.
+   - Owner can soft-delete notices.
+   - Owner notices page supports search, property filter, and status filter (published / draft).
+   - Published notices are immediately visible to all active tenants of the property.
+   - Tenant notices page is refactored to use the /api/tenant/notices API (only active tenants see notices).
+   - notices table now has is_published and published_at columns (migration 006).
+10. Payments module is now fully implemented:
+
+- Owner can record received payments for active tenants with amount, month, method, status, and notes.
+- A receipt number (ND-YYYYMM-XXXXXX) is auto-generated when a payment is recorded or updated as paid.
+- Owner can edit existing payment amount, status, method, and notes.
+- Marking a payment as paid auto-stamps paid_at and generates receipt number.
+- Owner can delete payments.
+- Owner payments page supports search (by tenant/receipt), property filter, month filter, and status filter.
+- Summary stats show total collected, pending, overdue, and disputed amounts.
+- Tenant payments page is refactored to use the /api/tenant/payments API with summary totals.
 
 ## Implemented Modules
 

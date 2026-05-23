@@ -14,6 +14,7 @@ NestDesk currently uses a simple two-file development database workflow:
 4. Property code enhancement: supabase/migrations/003_property_code.sql
 5. Maintenance owner workflow: supabase/migrations/004_maintenance_owner_workflow.sql
 6. Tenant agreed rent amount: supabase/migrations/005_tenants_agreed_rent.sql
+7. Notices published state: supabase/migrations/006_notices_published.sql
 
 Run order in Supabase SQL Editor:
 

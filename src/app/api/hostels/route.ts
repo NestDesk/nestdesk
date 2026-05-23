@@ -24,6 +24,50 @@ function getClientIp(req: NextRequest): string {
   );
 }
 
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+
+  const ownerResult = await admin
+    .from("owners")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (ownerResult.error) {
+    return NextResponse.json({ error: ownerResult.error.message }, { status: 500 });
+  }
+
+  const ownerId = ownerResult.data?.id;
+  if (!ownerId) {
+    return NextResponse.json({ hostels: [] });
+  }
+
+  const hostelsResult = await admin
+    .from("hostels")
+    .select("id, name, city, state")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: true });
+
+  if (hostelsResult.error) {
+    return NextResponse.json(
+      { error: hostelsResult.error.message },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({ hostels: hostelsResult.data ?? [] });
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {

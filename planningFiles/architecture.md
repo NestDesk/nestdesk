@@ -159,6 +159,52 @@ The app is split into five main layers:
    - Enforces owner scope and room occupancy validation
    - Synchronizes room status transitions when assignments change
 
+### Notices Workflow
+
+1. src/app/(dashboard)/notices/page.tsx
+   - Owner notices management workspace
+   - Create, edit, publish/unpublish, and soft-delete notices per property
+   - Filters by property, status (published/draft), and search query
+
+2. src/app/api/notices/route.ts
+   - GET: Owner lists all notices across owned properties (draft + published)
+   - POST: Owner creates a new notice, optionally publishing immediately
+
+3. src/app/api/notices/[id]/route.ts
+   - PATCH: Owner edits title, body, or publish state; sets published_at on first publish
+   - DELETE: Owner soft-deletes a notice
+
+4. src/app/api/tenant/notices/route.ts
+   - GET: Active tenant reads published notices for their hostel only
+   - Returns empty with inactive flag if tenant status is not active
+
+5. src/app/(tenant)/tenant/notices/page.tsx
+   - Tenant notices view (client component, uses /api/tenant/notices)
+   - Shows inactive prompt when tenancy is not yet approved
+
+### Payments Workflow
+
+1. src/app/(dashboard)/payments/page.tsx
+   - Owner payments management workspace
+   - Record new payments, edit status/method/amount, delete payments
+   - Filters by property, month, status, and search by tenant name or receipt number
+   - Summary cards for collected, pending, overdue, and disputed totals
+
+2. src/app/api/payments/route.ts
+   - GET: Owner lists all payments across owned properties with hostel/tenant context; supports hostel_id, month, status query params
+   - POST: Owner records a new payment; receipt number auto-generated when status is paid
+
+3. src/app/api/payments/[id]/route.ts
+   - PATCH: Owner edits amount, status, method, notes; auto-stamps paid_at and receipt on first paid transition
+   - DELETE: Owner hard-deletes a payment record
+
+4. src/app/api/tenant/payments/route.ts
+   - GET: Tenant reads own payment history with summary totals (totalPaid, pendingAmount)
+
+5. src/app/(tenant)/tenant/payments/page.tsx
+   - Tenant payment history view (client component, uses /api/tenant/payments)
+   - Shows summary totals and itemized receipt list
+
 ## Feature Modules
 
 ### Auth

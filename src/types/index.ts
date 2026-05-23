@@ -43,6 +43,39 @@ export interface Hostel {
   deleted_at: string | null;
 }
 
+export type PaymentStatus = "pending" | "paid" | "overdue" | "disputed";
+export type PaymentMethod = "cash" | "upi" | "bank_transfer" | "razorpay" | "other";
+
+export interface Payment {
+  id: string;
+  tenant_id: string;
+  hostel_id: string;
+  amount: number;
+  month: string;
+  status: PaymentStatus;
+  method: PaymentMethod | null;
+  razorpay_id: string | null;
+  receipt_number: string | null;
+  notes: string | null;
+  paid_at: string | null;
+  recorded_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Notice {
+  id: string;
+  hostel_id: string;
+  owner_id: string;
+  title: string;
+  body: string;
+  is_published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 export interface LoginActivity {
   id: string;
   user_id: string | null;
