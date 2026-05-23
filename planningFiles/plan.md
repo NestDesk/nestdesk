@@ -24,6 +24,13 @@ The active product flow is:
    - Owners can open a dedicated Maintenance area, add comments, and change status.
    - Tenant maintenance view now shows owner comments and status changes.
 5. Tenant maintenance requests are now editable and deletable from tenant portal.
+6. Owner maintenance dashboard request count now correctly includes open requests by fixing owner-hostel lookup filters.
+7. Tenant maintenance edit/delete is now restricted to open status only; owner actions remain unrestricted.
+8. Owner portal now includes a complete Tenants management module:
+   - Owner can list all tenants across properties.
+   - Owner can filter/search by status, property, and tenant details.
+   - Owner can update tenant profile info, status, join/move-out dates, room assignment, and agreed rent amount.
+   - Room occupancy state is synchronized when tenant status or room assignment changes.
 
 ## Implemented Modules
 
@@ -123,29 +130,29 @@ The following tables are actively used by the application code today:
 2. hostels
 3. floors
 4. rooms
-5. login_activity
-6. audit_logs
-7. phone_otp_challenges
+5. tenants
+6. login_activity
+7. audit_logs
+8. phone_otp_challenges
 
 The following tables exist in the schema but do not yet have active UI or full feature flows:
 
-1. tenants
-2. payments
-3. notices
-4. maintenance_requests
-5. subscriptions
-6. invite_codes
-7. consent_records
-8. data_deletion_requests
+1. payments
+2. notices
+3. maintenance_requests
+4. subscriptions
+5. invite_codes
+6. consent_records
+7. data_deletion_requests
 
 ## Current Gaps and Known Follow-up Work
 
 ### Immediate Product Gaps
 
 1. Dashboard stats are still placeholder values, not live aggregates.
-2. No tenant management screens or APIs are wired yet.
-3. No payment collection, receipt, or reconciliation flows are wired yet.
-4. No notices, maintenance, subscription, or settings pages are implemented yet.
+2. No payment collection, receipt, or reconciliation flows are wired yet.
+3. Notices and subscription modules are not fully implemented yet.
+4. Owner settings page is still placeholder-level.
 5. Phone OTP is available in isolation but not integrated into the main owner flow.
 
 ### Technical / Architecture Gaps

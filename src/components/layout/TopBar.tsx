@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
-import { Bell, LogOut, PanelLeft, PanelRight } from "lucide-react";
+import { LogOut, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileNav } from "./MobileNav";
@@ -117,9 +117,6 @@ export function TopBar({
         {title && <h1 className="text-sm font-semibold text-foreground">{title}</h1>}
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="rounded-xl">
-          <Bell className="h-4 w-4" />
-        </Button>
         <ThemeToggle />
 
         <DropdownMenu>

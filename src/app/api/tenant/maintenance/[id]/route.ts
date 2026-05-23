@@ -62,7 +62,7 @@ export async function PATCH(
   const admin = createAdminClient();
   const { data: existing } = await admin
     .from("maintenance_requests")
-    .select("id")
+    .select("id, status")
     .eq("id", params.id)
     .eq("tenant_id", resolved.tenantId)
     .is("deleted_at", null)
@@ -70,6 +70,16 @@ export async function PATCH(
 
   if (!existing) {
     return NextResponse.json({ error: "Request not found." }, { status: 404 });
+  }
+
+  if (existing.status !== "open") {
+    return NextResponse.json(
+      {
+        error:
+          "Only open maintenance requests can be edited by tenants. Contact your property owner for further updates.",
+      },
+      { status: 403 },
+    );
   }
 
   const { data: updated, error } = await admin
@@ -102,7 +112,7 @@ export async function DELETE(
   const admin = createAdminClient();
   const { data: existing } = await admin
     .from("maintenance_requests")
-    .select("id")
+    .select("id, status")
     .eq("id", params.id)
     .eq("tenant_id", resolved.tenantId)
     .is("deleted_at", null)
@@ -110,6 +120,16 @@ export async function DELETE(
 
   if (!existing) {
     return NextResponse.json({ error: "Request not found." }, { status: 404 });
+  }
+
+  if (existing.status !== "open") {
+    return NextResponse.json(
+      {
+        error:
+          "Only open maintenance requests can be deleted by tenants. Contact your property owner for further updates.",
+      },
+      { status: 403 },
+    );
   }
 
   const { error } = await admin

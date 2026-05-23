@@ -30,11 +30,14 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
     return NextResponse.json({ error: "Owner account not found." }, { status: 403 });
   }
 
-  const { data: hostels } = await admin
+  const { data: hostels, error: hostelsError } = await admin
     .from("hostels")
     .select("id, name, city, state")
-    .eq("owner_id", owner.id)
-    .is("deleted_at", null);
+    .eq("owner_id", owner.id);
+
+  if (hostelsError) {
+    return NextResponse.json({ error: hostelsError.message }, { status: 500 });
+  }
 
   const hostelMap = new Map<string, { name: string; city: string; state: string }>();
   for (const row of hostels ?? []) {

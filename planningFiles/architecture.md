@@ -84,6 +84,11 @@ The app is split into five main layers:
    - Owner maintenance operations workspace
    - Lets owners review tenant issues, change status, and add comments
 
+10. src/app/(dashboard)/tenants/page.tsx
+
+- Owner tenant management workspace
+- Supports tenant listing, filtering, and lifecycle operations (approve, activate, move out, reject)
+
 ## Layout and UI Shell Components
 
 ### Global Shell
@@ -131,6 +136,7 @@ The app is split into five main layers:
 1. src/app/api/tenant/maintenance/[id]/route.ts
    - Tenant edits and soft-deletes own maintenance requests
    - Enforces tenant ownership before mutation
+   - Allows edit/delete only when request status is open
 
 1. src/app/api/maintenance/route.ts
    - Owner reads maintenance requests across owned properties
@@ -141,6 +147,17 @@ The app is split into five main layers:
 
 1. src/app/api/maintenance/[id]/comments/route.ts
    - Owner adds comments to maintenance requests for tenant visibility
+
+### Owner Tenant Management Workflow
+
+1. src/app/api/tenants/route.ts
+   - Owner reads tenant roster across owned properties
+   - Returns list data, summary counts, property filters, and assignable room options
+
+2. src/app/api/tenants/[id]/route.ts
+   - Owner updates tenant profile fields, status, room assignment, agreed rent, and key dates
+   - Enforces owner scope and room occupancy validation
+   - Synchronizes room status transitions when assignments change
 
 ## Feature Modules
 
@@ -290,9 +307,10 @@ Important schema behavior:
 ## Known Architecture Gaps
 
 1. Dashboard metrics are still placeholder values.
-2. Tenant, payment, notices, maintenance, settings, and subscription flows are not yet implemented even though some menu items and tables already exist.
+2. Payment, notices, settings, and subscription flows remain partially implemented.
 3. Audit logging is incomplete for setup mutations.
 4. The app already assumes a deleted_at field for hostels in some places, but the schema does not define it yet.
+5. Owner maintenance counting previously under-reported requests due to hostels deleted_at filter assumptions; owner queries were updated to avoid this mismatch.
 
 ## Fast Lookup by Task
 

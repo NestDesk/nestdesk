@@ -63,8 +63,13 @@ export function Sidebar({
             <Building2 className="h-4 w-4 text-white" />
           </div>
           {(!collapsed || mobile) && (
-            <span className="text-sm font-bold text-sidebar-foreground">
-              NestDesk
+            <span className="flex flex-col">
+              <span className="text-sm font-bold leading-tight text-sidebar-foreground">
+                NestDesk
+              </span>
+              <span className="text-[11px] leading-tight text-sidebar-foreground/60">
+                Owner Portal
+              </span>
             </span>
           )}
         </Link>

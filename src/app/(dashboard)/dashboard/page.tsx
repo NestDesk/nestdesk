@@ -116,12 +116,15 @@ export default async function DashboardPage() {
       .maybeSingle();
 
     if (owner) {
-      const { data: hostels } = await admin
+      const { data: hostels, error: hostelsError } = await admin
         .from("hostels")
         .select("id, name, is_active")
         .eq("owner_id", owner.id)
-        .is("deleted_at", null)
         .order("created_at", { ascending: true });
+
+      if (hostelsError) {
+        console.error("[dashboard] failed to load owner hostels", hostelsError);
+      }
 
       if (hostels && hostels.length > 0) {
         hasProperties = true;

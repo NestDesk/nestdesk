@@ -13,6 +13,7 @@ NestDesk currently uses a simple two-file development database workflow:
 3. Tenant join token enhancement: supabase/migrations/002_tenant_join_token.sql
 4. Property code enhancement: supabase/migrations/003_property_code.sql
 5. Maintenance owner workflow: supabase/migrations/004_maintenance_owner_workflow.sql
+6. Tenant agreed rent amount: supabase/migrations/005_tenants_agreed_rent.sql
 
 Run order in Supabase SQL Editor:
 
@@ -60,30 +61,35 @@ This is important because the application code depends on owners.user_id in:
    - Supports capacity, status, and soft delete via deleted_at.
    - Used by room CRUD APIs, bulk generator, activation checks, and setup UI.
 
-5. login_activity
+5. tenants
+   - Stores tenant profile, status, and property/room linkage.
+   - Stores agreed_rent_amount for finalized owner-tenant commercial terms.
+   - Written by tenant registration and owner tenant management APIs.
+   - Read by tenant dashboard/profile flows and owner tenant management screen.
+
+6. login_activity
    - Stores login attempts with email, IP, user agent, and success/failure.
    - Used by the login rate limiter and login audit flow.
 
-6. audit_logs
+7. audit_logs
    - Stores app audit events.
    - Currently written for onboarding create/update, property creation, and property activation.
 
-7. phone_otp_challenges
-8. maintenance_request_comments
+8. phone_otp_challenges
+9. maintenance_request_comments
    - Stores hashed OTP challenges.
    - Used by phone OTP request/verify endpoints and OTP service helpers.
    - Present even though OTP is not required in the active owner flow.
 
 ### Present in Schema but Not Yet Wired into Active UI Flows
 
-1. tenants
-2. payments
-3. notices
-4. maintenance_requests
-5. subscriptions
-6. invite_codes
-7. consent_records
-8. data_deletion_requests
+1. payments
+2. notices
+3. maintenance_requests
+4. subscriptions
+5. invite_codes
+6. consent_records
+7. data_deletion_requests
 
 These tables are already part of the bootstrap, but the corresponding screens and route flows are still pending.
 
@@ -150,6 +156,6 @@ This should be treated as a follow-up item. Either add deleted_at to hostels and
 
 ## Notes for Future Work
 
-1. Tenant, payment, notices, maintenance, subscription, consent, and deletion-request modules can build directly on the existing schema.
+1. Payment, notices, subscription, consent, and deletion-request modules can build directly on the existing schema.
 2. If phone verification is re-enabled, the existing phone_otp_challenges table and OTP service can be reused.
 3. Storage bucket policies and document storage flows are not yet defined in migrations and should be added separately when document upload work starts.

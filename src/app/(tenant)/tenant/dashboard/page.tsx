@@ -12,6 +12,7 @@ import {
   CreditCard,
   Home,
   Megaphone,
+  User,
   Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,7 +172,7 @@ export default async function TenantDashboardPage() {
               className="group rounded-xl border border-border/70 bg-background/80 px-3 py-2.5 text-sm transition-colors hover:bg-background"
             >
               <span className="flex items-center text-foreground">
-                <Home className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                <User className="mr-1.5 h-3.5 w-3.5 text-primary" />
                 My Profile
               </span>
               <span className="mt-1 inline-flex items-center text-xs text-muted-foreground">
