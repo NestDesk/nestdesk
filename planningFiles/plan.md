@@ -1,131 +1,172 @@
-# NestDesk - Implementation Plan
+# NestDesk - Current Implementation Plan
 
-## Current Focus
+## Product State
 
-1. Keep owner onboarding simple for rapid development.
-2. Keep OTP libraries in the codebase but disable OTP dependency in active flows.
-3. Stabilize auth to onboarding to dashboard navigation.
+NestDesk is currently implemented as an owner-first property management app built on Next.js 14 App Router, Supabase Auth, Supabase Postgres, Tailwind CSS, and Radix-based UI primitives.
 
-## Latest Implementations
+The active product flow is:
 
-### Owner-Only Onboarding
+1. Owner registers with email and password.
+2. Owner signs in.
+3. Owner completes a simple onboarding form with profile and address details.
+4. Owner reaches the dashboard.
+5. Owner adds one or more properties.
+6. Owner configures floors and rooms for each property.
+7. Owner activates a property after at least one floor and one room exist.
 
-1. Simplified onboarding to collect only owner profile details.
-2. Removed first-property fields and second step from onboarding UI.
-3. Updated onboarding API to stop creating/updating hostels during onboarding.
-4. Owners now reach dashboard after onboarding and add properties later from /hostels/new.
+## Implemented Modules
 
-### Migration Reset Simplification
+### 1. Auth and Session Management
 
-1. Standardized to exactly two SQL migration files for fresh-start workflow.
-2. Kept one destructive reset script: supabase/migrations/000_dev_drop_all.sql.
-3. Kept one full schema creation script: supabase/migrations/001_init_simple.sql.
-4. Removed extra SQL scripts: 000_dev_truncate_all.sql and 003_rooms_status_inactive.sql.
-5. Merged the room status 'inactive' support into 001_init_simple.sql.
+Implemented:
 
-### Simple DB Bootstrap Script
+1. Email/password registration with strong password validation.
+2. Production-ready email verification callback flow through Supabase.
+3. Dev-mode shortcut registration with confirmed users to avoid email delivery blockers.
+4. Login API with Supabase cookie session handling.
+5. Login rate limiting backed by the login_activity table.
+6. Logout API that clears Supabase session cookies.
+7. Middleware-based route protection with redirects for unauthenticated users.
+8. Idle timeout logout after 30 minutes of inactivity in dashboard routes.
 
-1. Upgraded to a full SQL bootstrap script based on plan.txt core schema.
-2. Includes all currently planned core tables and supporting indexes.
-3. Keeps owners.user_id so it remains compatible with current app code.
+Current behavior notes:
 
-File:
+1. Public routes are limited to landing, login, register, verify-email, auth callback, and auth APIs.
+2. Authenticated users are redirected away from login and register.
+3. Non-public routes require a valid Supabase session.
 
-1. supabase/migrations/001_init_simple.sql
+### 2. Owner Onboarding
 
-### Dev Speedup - Owner Mobile OTP Bypassed
+Implemented:
 
-1. Registration flow works without OTP requirement.
-2. Onboarding flow does not enforce mobile verification.
-3. Owner phone is still captured and saved.
-4. OTP files remain available for future re-enable.
+1. Single-step onboarding focused only on owner details.
+2. Owner profile fields: phone, address lines, landmark, city, state, and pincode.
+3. Onboarding prefill API for resumed sessions.
+4. Local draft persistence in the browser.
+5. Idempotent owner upsert keyed by owners.user_id.
+6. Onboarding completion gate before dashboard access.
+7. Audit log write on onboarding create/update.
 
-### Onboarding Flow Cleanup
+Current behavior notes:
 
-1. Added onboarding prefill API for smoother resume behavior.
-2. Added completed-onboarding redirect to dashboard.
-3. Made onboarding submission idempotent.
-4. Prevented duplicate first-property creation by updating existing first property.
-5. Added input normalization and pincode sanitization.
-6. Synced owner persistence with full schema by storing owner email during onboarding.
-7. Added owner-linked audit logs for both owner and hostel writes.
-8. Hardened login/callback/dashboard onboarding checks using maybeSingle for fresh accounts.
+1. Onboarding no longer creates the first hostel.
+2. Owner phone is captured but not verified in the active flow.
+3. Phone OTP infrastructure still exists but is not required for registration or onboarding.
 
-### Dev Request Noise Reduction
+### 3. Dashboard Shell and Navigation
 
-1. Optimized middleware to bypass auth checks for \_next, favicon, and /api/auth requests.
-2. Removed redundant router.refresh calls after push redirects.
-3. Added one-time effect guards on onboarding/bootstrap and topbar auth fetch in dev.
-4. Disabled sidebar link prefetch to reduce background RSC traffic while developing.
+Implemented:
 
-### Landing Auth-Aware Header
+1. Shared dashboard layout that checks auth and onboarding completion server-side.
+2. Sidebar navigation for dashboard, properties, tenants, payments, notices, and settings.
+3. Top bar with theme toggle, user menu, mobile nav, and logout action.
+4. Landing page that detects signed-in users server-side and swaps CTA behavior.
+5. Placeholder dashboard cards plus setup/activation guidance banners.
 
-1. Landing page now detects signed-in user server-side.
-2. Replaced desktop Sign in button with avatar account menu for authenticated users.
-3. Added account actions: Dashboard, Onboarding, Logout.
-4. Updated mobile landing nav to show My Account/Onboarding/Logout when logged in.
+Current behavior notes:
 
-### Properties Page (Dashboard)
+1. The dashboard overview is still mostly static and onboarding/setup-driven.
+2. Navigation entries for tenants, payments, notices, and settings exist in UI but their route implementations are not present yet.
 
-1. Added dashboard route page at /hostels.
-2. Integrated real data fetch from hostels table using authenticated server client.
-3. Added empty state when owner has no properties yet.
-4. Added property cards with name, type, status, rooms, and address.
+### 4. Property Management
 
-### Add Property Flow
+Implemented:
 
-1. Enabled Add Property CTA on /hostels.
-2. Added /hostels/new page with validated property form.
-3. Added POST /api/hostels route with owner-auth checks and validation.
-4. Added audit log entry for hostel creation.
+1. Properties listing page at /hostels.
+2. Add property page at /hostels/new.
+3. Property creation API with owner lookup, validation, and audit logging.
+4. Property cards showing type, address, active status, floor count, and room count.
+5. Property activation endpoint gated by setup completeness.
+6. Activation UI for inactive properties once requirements are met.
 
-### Property Activation Gating
+Current behavior notes:
 
-1. New properties now always start as inactive.
-2. Added floor-plan completeness check (at least one floor and one room).
-3. Added secure POST /api/hostels/[id]/activate endpoint with owner checks.
-4. Activation button appears only for inactive properties with complete floor plan.
+1. New properties are created as inactive by the app layer.
+2. A property becomes eligible for activation only after at least one floor and one room exist.
 
-### Properties UI Refresh + Setup Hub
+### 5. Floor and Room Setup
 
-1. Redesigned /hostels with improved visual header and quick stats.
-2. Enhanced property cards with clearer setup progress indicators.
-3. Added per-property "Setup Floor Plan & Rooms" action button.
-4. Added dedicated setup hub route at /hostels/[id]/setup for floor, room, and other setup sections.
-5. Anchored the setup action to the bottom of each property card for consistent card layouts.
+Implemented:
 
-### Floor and Room CRUD (Implemented)
+1. Dedicated setup hub at /hostels/[id]/setup.
+2. Building shell step to create floors in sequence.
+3. Add-rooms step with bulk room generation by prefix and range.
+4. Blueprint step to edit and delete floors and rooms.
+5. Floor CRUD APIs.
+6. Room CRUD APIs.
+7. Bulk room insert API that skips duplicate room numbers.
+8. Soft delete behavior for floors and rooms using deleted_at.
+9. DB re-sync after every setup mutation so the UI stays source-of-truth with the database.
 
-1. Added full floor CRUD APIs under /api/hostels/[id]/floors.
-2. Added full room CRUD APIs under /api/hostels/[id]/rooms.
-3. Added owner/property authorization checks on all setup APIs.
-4. Wired setup page with live floor/room manager for create, edit, delete, and list operations.
+Current behavior notes:
 
-### Setup Flow End-to-End Fix
+1. Duplicate room numbers are blocked per property.
+2. Deleting a floor soft-deletes its child rooms.
+3. Floor and room mutations currently do not write audit log rows.
 
-1. Setup manager now syncs floors and rooms directly from DB-backed APIs.
-2. Floor and room lists refresh after each create/edit/delete to stay source-of-truth with tables.
-3. Replaced disabled setup card buttons with active actions that jump to Floors/Rooms sections.
-4. Updated setup hub copy to clearly reflect live DB-backed behavior.
-5. Removed unused setup helper imports in PropertySetupManager to keep lint checks clean.
-6. Removed an unused dashboard property counter to keep TypeScript lint checks clean.
+## Database-backed Features That Are Live
 
-## Files Updated Recently
+The following tables are actively used by the application code today:
 
-1. src/app/api/onboarding/route.ts
-2. src/app/onboarding/page.tsx
-3. src/app/api/auth/register/route.ts
-4. src/app/(auth)/register/page.tsx
+1. owners
+2. hostels
+3. floors
+4. rooms
+5. login_activity
+6. audit_logs
+7. phone_otp_challenges
 
-## Next Development Tasks
+The following tables exist in the schema but do not yet have active UI or full feature flows:
 
-1. Improve onboarding validation and error UX.
-2. Add dashboard starter widgets with real API-backed values.
-3. Add onboarding success analytics/event hook.
-4. Add regression tests for auth and onboarding routes.
-5. Prepare a feature flag to re-enable OTP quickly when needed.
+1. tenants
+2. payments
+3. notices
+4. maintenance_requests
+5. subscriptions
+6. invite_codes
+7. consent_records
+8. data_deletion_requests
 
-## Notes
+## Current Gaps and Known Follow-up Work
 
-1. Keep this file focused on implementation status and upcoming tasks.
-2. Track flow decisions here whenever auth or onboarding behavior changes.
+### Immediate Product Gaps
+
+1. Dashboard stats are still placeholder values, not live aggregates.
+2. No tenant management screens or APIs are wired yet.
+3. No payment collection, receipt, or reconciliation flows are wired yet.
+4. No notices, maintenance, subscription, or settings pages are implemented yet.
+5. Phone OTP is available in isolation but not integrated into the main owner flow.
+
+### Technical / Architecture Gaps
+
+1. Audit logging is partial and currently covers onboarding, property creation, and property activation only.
+2. The TypeScript Hostel shape and one dashboard query assume a hostel deleted_at field, but the current hostels table does not define it.
+3. There are no automated regression tests yet for auth, onboarding, or property setup flows.
+4. Some navigation items are ahead of implementation and should be treated as placeholders.
+
+## Recommended Next Tasks
+
+### Priority 1
+
+1. Replace dashboard placeholder stats with live queries.
+2. Add tenant management routes, forms, and owner-scoped APIs.
+3. Extend audit logging to floor and room mutations.
+4. Resolve the hostel soft-delete mismatch between schema, types, and queries.
+
+### Priority 2
+
+1. Add payments module basics using existing schema tables.
+2. Add notices and maintenance request flows.
+3. Add tests for login, onboarding, property creation, activation, and setup APIs.
+
+### Priority 3
+
+1. Re-enable phone OTP behind a feature flag if required.
+2. Add subscription enforcement and billing UX.
+3. Add consent and data deletion user flows on top of the existing schema.
+
+## Planning Notes
+
+1. Treat this file as the implementation status summary.
+2. Keep it aligned with actual routes, APIs, and schema behavior.
+3. Use architecture.md for file-level references and code navigation.

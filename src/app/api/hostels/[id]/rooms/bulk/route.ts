@@ -98,7 +98,7 @@ export async function POST(
   }
 
   // Verify all referenced floor IDs belong to this hostel
-  const floorIds = [...new Set(parsedBody.data.rooms.map((r) => r.floorId))];
+  const floorIds = Array.from(new Set(parsedBody.data.rooms.map((r) => r.floorId)));
   const floorsResult = await resolved.admin
     .from("floors")
     .select("id")

@@ -212,7 +212,7 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
     }
   }
 
-  const capacitiesPresent = [...new Set(rooms.map((r) => r.capacity))].sort(
+  const capacitiesPresent = Array.from(new Set(rooms.map((r) => r.capacity))).sort(
     (a, b) => a - b,
   );
 

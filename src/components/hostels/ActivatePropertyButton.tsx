@@ -55,7 +55,7 @@ export function ActivatePropertyButton({ hostelId }: ActivatePropertyButtonProps
   return (
     <Button
       type="button"
-      size="xs"
+      size="sm"
       className="rounded-lg h-6 px-2 text-xs"
       onClick={onActivate}
       disabled={activating}

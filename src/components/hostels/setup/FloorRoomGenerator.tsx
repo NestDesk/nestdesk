@@ -289,7 +289,7 @@ export function FloorRoomGenerator({
                   capacityOptions={capacityOptions}
                   onChangeCapacity={updateDraftCapacity}
                   onRemove={(localId) =>
-                    setRemoved((prev) => new Set([...prev, localId]))
+                    setRemoved((prev) => new Set(Array.from(prev).concat(localId)))
                   }
                 />
               )}

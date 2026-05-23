@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
 import {
   LayoutDashboard,
   Building2,
@@ -55,12 +56,16 @@ export function Sidebar({
           collapsed && !mobile ? "justify-center px-2" : "gap-2.5 px-5",
         )}
       >
-        <div className="glow-ring flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400">
-          <Building2 className="h-4 w-4 text-white" />
-        </div>
-        {(!collapsed || mobile) && (
-          <span className="text-sm font-bold text-sidebar-foreground">NestDesk</span>
-        )}
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="glow-ring flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400">
+            <Building2 className="h-4 w-4 text-white" />
+          </div>
+          {(!collapsed || mobile) && (
+            <span className="text-sm font-bold text-sidebar-foreground">
+              NestDesk
+            </span>
+          )}
+        </Link>
       </div>
 
       <TooltipProvider delayDuration={100}>
@@ -70,7 +75,6 @@ export function Sidebar({
               <Link
                 key={href}
                 href={href}
-                prefetch={false}
                 onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",

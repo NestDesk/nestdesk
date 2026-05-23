@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
-import { Bell, LogOut, PanelLeft, PanelRight, User } from "lucide-react";
+import { Bell, LogOut, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileNav } from "./MobileNav";
@@ -140,16 +140,13 @@ export function TopBar({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 rounded-xl">
-            <DropdownMenuLabel className="flex items-start gap-2">
-              <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {user?.fullName || "My Account"}
-                </p>
-                <p className="truncate text-xs font-normal text-muted-foreground">
-                  {user?.email || "Signed in"}
-                </p>
-              </div>
+            <DropdownMenuLabel className="min-w-0 px-2 py-1.5">
+              <p className="truncate text-sm font-medium">
+                {user?.fullName || "Owner"}
+              </p>
+              <p className="truncate text-xs font-normal text-muted-foreground">
+                {user?.email || "Signed in"}
+              </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem

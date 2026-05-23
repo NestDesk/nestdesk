@@ -227,13 +227,6 @@ const trustBadges = [
   { icon: TrendingUp, label: "Useful reports" },
 ];
 
-const stats = [
-  { value: "50+", label: "Property Owners" },
-  { value: "1,200+", label: "Tenants Managed" },
-  { value: "₹ 30L+", label: "Rent Collected Monthly" },
-  { value: "99.9%", label: "Uptime SLA" },
-];
-
 /* ─────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────── */
@@ -453,7 +446,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── Stats ──────────────────────────────── */}
-      <section className="border-y border-border bg-muted/40">
+      {/* <section className="border-y border-border bg-muted/40">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {stats.map(({ value, label }) => (
@@ -469,7 +462,12 @@ export default async function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
+
+      {/* ── Divider ────────────────────────────── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <Separator />
+      </div>
 
       {/* ── Features ───────────────────────────── */}
       <section id="features" className="mx-auto max-w-7xl px-4 py-14 sm:px-6">

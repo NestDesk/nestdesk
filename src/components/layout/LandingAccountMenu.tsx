@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, User } from "lucide-react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 
 export type LandingAccountUser = {
   fullName: string;
@@ -63,16 +63,11 @@ export function LandingAccountMenu({ user }: { user: LandingAccountUser }) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-60 rounded-xl">
-        <DropdownMenuLabel className="flex items-start gap-2">
-          <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {user.fullName || "My Account"}
-            </p>
-            <p className="truncate text-xs font-normal text-muted-foreground">
-              {user.email || "Signed in"}
-            </p>
-          </div>
+        <DropdownMenuLabel className="min-w-0 px-2 py-1.5">
+          <p className="truncate text-sm font-medium">{user.fullName || ""}</p>
+          <p className="truncate text-xs font-normal text-muted-foreground">
+            {user.email || "Signed in"}
+          </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -81,7 +76,7 @@ export function LandingAccountMenu({ user }: { user: LandingAccountUser }) {
           onClick={() => router.push("/dashboard")}
         >
           <LayoutDashboard className="h-4 w-4" />
-          Dashboard
+          My Account
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
