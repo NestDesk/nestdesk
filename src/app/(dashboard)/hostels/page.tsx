@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActivatePropertyButton } from "@/components/hostels/ActivatePropertyButton";
+import { PropertyCardInvite } from "@/components/hostels/PropertyCardInvite";
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   pg: "PG",
@@ -32,6 +33,8 @@ type HostelRow = {
   total_rooms: number;
   is_active: boolean;
   created_at: string;
+  tenant_join_token: string | null;
+  property_code: string | null;
 };
 
 type FloorOrRoomRow = {
@@ -44,7 +47,7 @@ export default async function PropertiesPage() {
   const { data: hostels, error } = await supabase
     .from("hostels")
     .select(
-      "id, name, property_type, address, city, state, pincode, total_rooms, is_active, created_at",
+      "id, name, property_type, address, city, state, pincode, total_rooms, is_active, created_at, tenant_join_token, property_code",
     )
     .order("created_at", { ascending: false });
 
@@ -224,8 +227,8 @@ export default async function PropertiesPage() {
                   <div className="flex items-center gap-2">
                     <Home className="h-3.5 w-3.5" />
                     <span>
-                      Floor plan: {property.floorCount} floor(s), {property.roomCount}{" "}
-                      room(s)
+                      Floor plan: {property.floorCount} floor(s),{" "}
+                      {property.roomCount} room(s)
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
@@ -254,7 +257,15 @@ export default async function PropertiesPage() {
                     </p>
                   </div>
 
-                  {!property.is_active ? (
+                  {property.is_active ? (
+                    property.tenant_join_token ? (
+                      <PropertyCardInvite
+                        joinToken={property.tenant_join_token}
+                        propertyCode={property.property_code ?? undefined}
+                        propertyName={property.name}
+                      />
+                    ) : null
+                  ) : (
                     <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-3">
                       {property.isFloorPlanComplete ? (
                         <div className="space-y-2">
@@ -270,7 +281,7 @@ export default async function PropertiesPage() {
                         </p>
                       )}
                     </div>
-                  ) : null}
+                  )}
                 </div>
 
                 <div className="mt-auto pt-4">

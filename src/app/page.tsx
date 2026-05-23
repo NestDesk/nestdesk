@@ -26,7 +26,6 @@ import {
   TrendingUp,
   ClipboardList,
   MessageSquare,
-  ChevronRight,
   BadgeCheck,
 } from "lucide-react";
 
@@ -406,14 +405,14 @@ export default async function LandingPage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-                <Link href="/dashboard">
+                <Link href="/join">
                   <Button
                     size="default"
                     variant="outline"
                     className="h-10 rounded-xl px-6 text-sm hover:border-primary/40 hover:bg-primary/5"
                   >
-                    View Live Demo
-                    <ChevronRight className="ml-1 h-4 w-4" />
+                    <Users className="mr-2 h-4 w-4" />
+                    Join as Tenant
                   </Button>
                 </Link>
               </div>

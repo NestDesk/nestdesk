@@ -9,6 +9,7 @@ import {
   ArrowRight,
   MapPin,
   AlertCircle,
+  Wrench,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -105,6 +106,7 @@ export default async function DashboardPage() {
   let hasProperties = false;
   let activeCount = 0;
   let inactiveCount = 0;
+  let openMaintenanceCount = 0;
 
   if (user) {
     const { data: owner } = await admin
@@ -137,6 +139,18 @@ export default async function DashboardPage() {
         if (!floorCount || floorCount === 0) {
           setupRequired = true;
           setupProperty = { id: firstHostel.id, name: firstHostel.name };
+        }
+
+        const hostelIds = hostels.map((h) => h.id);
+        if (hostelIds.length > 0) {
+          const { count } = await admin
+            .from("maintenance_requests")
+            .select("id", { count: "exact", head: true })
+            .in("hostel_id", hostelIds)
+            .eq("status", "open")
+            .is("deleted_at", null);
+
+          openMaintenanceCount = count ?? 0;
         }
       } else {
         // No properties at all
@@ -252,6 +266,36 @@ export default async function DashboardPage() {
               >
                 <Link href="/hostels">
                   Go to My Properties
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openMaintenanceCount > 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/8 to-amber-400/4 p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15">
+                <Wrench className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  {openMaintenanceCount} new maintenance request
+                  {openMaintenanceCount === 1 ? "" : "s"}
+                </h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Tenants have raised new issues. Open maintenance to review,
+                  comment, and update statuses.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              <Button asChild className="rounded-xl gap-2">
+                <Link href="/maintenance">
+                  Open Maintenance
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>

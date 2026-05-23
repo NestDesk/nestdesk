@@ -4,11 +4,15 @@ NestDesk currently uses a simple two-file development database workflow:
 
 1. Optional destructive reset for a clean start.
 2. Full schema bootstrap for the current app and planned modules.
+3. Incremental feature migrations for post-bootstrap enhancements.
 
 ## Migration Files
 
 1. Reset script: supabase/migrations/000_dev_drop_all.sql
 2. Full schema bootstrap: supabase/migrations/001_init_simple.sql
+3. Tenant join token enhancement: supabase/migrations/002_tenant_join_token.sql
+4. Property code enhancement: supabase/migrations/003_property_code.sql
+5. Maintenance owner workflow: supabase/migrations/004_maintenance_owner_workflow.sql
 
 Run order in Supabase SQL Editor:
 
@@ -65,6 +69,7 @@ This is important because the application code depends on owners.user_id in:
    - Currently written for onboarding create/update, property creation, and property activation.
 
 7. phone_otp_challenges
+8. maintenance_request_comments
    - Stores hashed OTP challenges.
    - Used by phone OTP request/verify endpoints and OTP service helpers.
    - Present even though OTP is not required in the active owner flow.
@@ -82,6 +87,13 @@ This is important because the application code depends on owners.user_id in:
 
 These tables are already part of the bootstrap, but the corresponding screens and route flows are still pending.
 
+Maintenance is now partially wired:
+
+1. Tenants can create and view maintenance requests.
+2. Owners can view tenant-raised requests, update status, and add comments.
+3. Tenant maintenance timelines now include owner comments.
+4. Tenants can edit and soft-delete their own maintenance requests (deleted_at based).
+
 ## Important Constraints and Design Choices
 
 1. All primary keys use UUID with gen_random_uuid().
@@ -91,6 +103,7 @@ These tables are already part of the bootstrap, but the corresponding screens an
 5. rooms enforce unique room_number per hostel where deleted_at is null.
 6. floors and rooms use deleted_at soft deletes instead of hard deletes in the implemented flows.
 7. updated_at triggers are installed for mutable entities.
+8. maintenance_requests status constraint now supports owner workflow statuses including rejected and completed (plus legacy resolved/closed values).
 
 ## RLS Coverage
 

@@ -25,7 +25,21 @@ export default async function DashboardLayout({
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!owner?.onboarding_completed) {
+  if (!owner) {
+    const { data: tenant } = await admin
+      .from("tenants")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (tenant) {
+      redirect("/tenant/dashboard");
+    }
+
+    redirect("/onboarding");
+  }
+
+  if (!owner.onboarding_completed) {
     redirect("/onboarding");
   }
 

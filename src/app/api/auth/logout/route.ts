@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   await supabase.auth.signOut();
 
-  const response = NextResponse.json({ success: true });
+  const response = NextResponse.redirect(new URL("/", request.url));
 
   // Clear session cookies by applying any cookie changes from signOut
   cookiesToSet.forEach(({ name, value, options }) => {

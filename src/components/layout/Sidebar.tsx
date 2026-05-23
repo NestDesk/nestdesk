@@ -9,6 +9,7 @@ import {
   Users,
   CreditCard,
   Bell,
+  Wrench,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Properties", href: "/hostels", icon: Building2 },
   { label: "Tenants", href: "/tenants", icon: Users },
+  { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Notices", href: "/notices", icon: Bell },
   { label: "Settings", href: "/settings", icon: Settings },

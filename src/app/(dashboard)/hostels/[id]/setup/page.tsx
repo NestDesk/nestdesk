@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PropertySetupManager } from "@/components/hostels/PropertySetupManager";
+import { PropertyInviteCard } from "@/components/hostels/PropertyInviteCard";
 
 type Props = {
   params: Promise<{ id: string }> | { id: string };
@@ -19,7 +20,7 @@ export default async function PropertySetupPage({ params }: Props) {
 
   const { data: property } = await supabase
     .from("hostels")
-    .select("id, name, property_type, is_active")
+    .select("id, name, property_type, is_active, tenant_join_token, property_code")
     .eq("id", propertyId)
     .single();
 
@@ -80,6 +81,14 @@ export default async function PropertySetupPage({ params }: Props) {
         initialFloors={floors}
         initialRooms={rooms}
       />
+
+      {property.is_active && property.tenant_join_token ? (
+        <PropertyInviteCard
+          joinToken={property.tenant_join_token}
+          propertyName={property.name}
+          propertyCode={property.property_code ?? undefined}
+        />
+      ) : null}
 
       {!property.is_active && (!floorStepDone || !roomStepDone) ? (
         <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5">

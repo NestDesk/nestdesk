@@ -72,6 +72,18 @@ The app is split into five main layers:
 6. src/app/(dashboard)/hostels/[id]/setup/page.tsx
    - Floor/room setup hub for a single property
 
+7. src/app/(tenant)/layout.tsx
+   - Protected tenant portal layout
+   - Enforces tenant role and renders branded tenant shell
+
+8. src/app/(tenant)/tenant/dashboard/page.tsx
+   - Tenant summary dashboard
+   - Shows account status, property details, room details, and quick actions
+
+9. src/app/(dashboard)/maintenance/page.tsx
+   - Owner maintenance operations workspace
+   - Lets owners review tenant issues, change status, and add comments
+
 ## Layout and UI Shell Components
 
 ### Global Shell
@@ -101,6 +113,34 @@ The app is split into five main layers:
 
 5. src/hooks/use-idle-timeout.ts
    - Watches browser events and triggers logout after 30 minutes
+
+### Tenant Shell
+
+1. src/components/layout/TenantNav.tsx
+   - Tenant-specific navigation with active-route highlighting and hints
+
+2. src/app/(tenant)/layout.tsx
+   - Branded tenant portal frame with top header, status chip, and responsive nav rail
+
+### Maintenance Workflow
+
+1. src/app/api/tenant/maintenance/route.ts
+   - Tenant creates requests and reads their own request timeline
+   - Includes owner comments in tenant response payload
+
+1. src/app/api/tenant/maintenance/[id]/route.ts
+   - Tenant edits and soft-deletes own maintenance requests
+   - Enforces tenant ownership before mutation
+
+1. src/app/api/maintenance/route.ts
+   - Owner reads maintenance requests across owned properties
+   - Returns tenant/property context and owner comment timeline
+
+1. src/app/api/maintenance/[id]/route.ts
+   - Owner updates request status (open, in_progress, rejected, completed)
+
+1. src/app/api/maintenance/[id]/comments/route.ts
+   - Owner adds comments to maintenance requests for tenant visibility
 
 ## Feature Modules
 

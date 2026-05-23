@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── 5. Check onboarding status ──────────────────────────────────────────
+  // ── 5. Determine redirect based on user role ──────────────────────────────
   const admin = createAdminClient();
   const { data: owner } = await admin
     .from("owners")
@@ -123,7 +123,18 @@ export async function POST(request: NextRequest) {
     .eq("user_id", data.user.id)
     .maybeSingle();
 
-  const redirectTo = owner?.onboarding_completed ? "/dashboard" : "/onboarding";
+  let redirectTo: string;
+  if (owner) {
+    redirectTo = owner.onboarding_completed ? "/dashboard" : "/onboarding";
+  } else {
+    // Check if this user is a registered tenant
+    const { data: tenant } = await admin
+      .from("tenants")
+      .select("id")
+      .eq("auth_user_id", data.user.id)
+      .maybeSingle();
+    redirectTo = tenant ? "/tenant/dashboard" : "/onboarding";
+  }
 
   // ── 6. Build response and attach session cookies ─────────────────────────
   const response = NextResponse.json({ success: true, redirectTo });

@@ -2,14 +2,17 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { validateSupabaseEnv } from "@/lib/supabase/env-check";
 
-const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email"];
-const AUTH_ONLY_PATHS = ["/login", "/register"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email", "/join"];
+// Paths that require guest state (redirect logged-in users away)
+const AUTH_ONLY_PATHS = ["/login", "/register", "/tenant/register"];
 
 function shouldBypassAuthCheck(pathname: string) {
   return (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api/auth/")
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/join/") ||
+    pathname === "/api/tenant/register"
   );
 }
 
@@ -17,9 +20,13 @@ function isPublic(pathname: string) {
   return (
     PUBLIC_PATHS.some((p) => pathname === p) ||
     pathname.startsWith("/auth/") ||
+    pathname.startsWith("/join/") ||
+    pathname.startsWith("/tenant/register") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api/auth/")
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/join/") ||
+    pathname === "/api/tenant/register"
   );
 }
 
@@ -58,9 +65,13 @@ export async function middleware(request: NextRequest) {
 
   const isLoggedIn = !!user;
 
-  // Redirect authenticated users away from login/register
+  // Redirect authenticated users away from auth-only pages
   if (isLoggedIn && AUTH_ONLY_PATHS.includes(pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    // /tenant/register → send to tenant portal; others → owner dashboard
+    const dest = pathname.startsWith("/tenant/")
+      ? "/tenant/dashboard"
+      : "/dashboard";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   // Protect non-public routes

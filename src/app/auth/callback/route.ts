@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=invalid_link`);
   }
 
-  // Check onboarding status to send user to the right place
+  // Check role to send user to the right place
   const admin = createAdminClient();
   const { data: owner } = await admin
     .from("owners")
@@ -49,7 +49,17 @@ export async function GET(request: NextRequest) {
     .eq("user_id", data.session.user.id)
     .maybeSingle();
 
-  const redirectPath = owner?.onboarding_completed ? "/dashboard" : "/onboarding";
+  let redirectPath: string;
+  if (owner) {
+    redirectPath = owner.onboarding_completed ? "/dashboard" : "/onboarding";
+  } else {
+    const { data: tenant } = await admin
+      .from("tenants")
+      .select("id")
+      .eq("auth_user_id", data.session.user.id)
+      .maybeSingle();
+    redirectPath = tenant ? "/tenant/dashboard" : "/onboarding";
+  }
   const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);
 
   cookiesToSet.forEach(({ name, value, options }) => {

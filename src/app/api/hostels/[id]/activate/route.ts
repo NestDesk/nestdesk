@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { generatePropertyCode } from "@/lib/property-code";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -60,7 +61,7 @@ export async function POST(
 
   const hostelResult = await admin
     .from("hostels")
-    .select("id, is_active")
+    .select("id, name, is_active, tenant_join_token, property_code")
     .eq("id", hostelId)
     .eq("owner_id", ownerId)
     .maybeSingle();
@@ -73,10 +74,25 @@ export async function POST(
     return NextResponse.json({ error: "Property not found." }, { status: 404 });
   }
 
+  // If already active, backfill any missing tokens/codes generated after this feature shipped
   if (hostelResult.data.is_active) {
+    let joinToken: string = hostelResult.data.tenant_join_token ?? "";
+    let propertyCode: string = hostelResult.data.property_code ?? "";
+    const needsBackfill = !joinToken || !propertyCode;
+    if (needsBackfill) {
+      if (!joinToken) joinToken = crypto.randomUUID().replace(/-/g, "");
+      if (!propertyCode)
+        propertyCode = generatePropertyCode(hostelResult.data.name ?? "");
+      await admin
+        .from("hostels")
+        .update({ tenant_join_token: joinToken, property_code: propertyCode })
+        .eq("id", hostelId);
+    }
     return NextResponse.json({
       success: true,
       message: "Property is already active.",
+      tenant_join_token: joinToken,
+      property_code: propertyCode,
     });
   }
 
@@ -121,12 +137,19 @@ export async function POST(
     );
   }
 
+  const newJoinToken = crypto.randomUUID().replace(/-/g, "");
+  const newPropertyCode = generatePropertyCode(hostelResult.data.name ?? "");
+
   const activateResult = await admin
     .from("hostels")
-    .update({ is_active: true })
+    .update({
+      is_active: true,
+      tenant_join_token: newJoinToken,
+      property_code: newPropertyCode,
+    })
     .eq("id", hostelId)
     .eq("owner_id", ownerId)
-    .select("id")
+    .select("id, tenant_join_token, property_code")
     .single();
 
   if (activateResult.error) {
@@ -150,5 +173,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     message: "Property activated successfully.",
+    tenant_join_token: activateResult.data.tenant_join_token,
+    property_code: activateResult.data.property_code,
   });
 }

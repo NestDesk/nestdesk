@@ -14,6 +14,17 @@ The active product flow is:
 6. Owner configures floors and rooms for each property.
 7. Owner activates a property after at least one floor and one room exist.
 
+## Recent Updates
+
+1. Tenant workspace visuals were upgraded with a branded portal shell.
+2. Tenant navigation now has active-state highlighting and clearer section cues.
+3. Tenant dashboard UI was refreshed with a professional hero panel, quick actions, and improved status/property hierarchy.
+4. Maintenance workflow is now bi-directional:
+   - Tenant-raised requests appear in owner dashboard as notification count.
+   - Owners can open a dedicated Maintenance area, add comments, and change status.
+   - Tenant maintenance view now shows owner comments and status changes.
+5. Tenant maintenance requests are now editable and deletable from tenant portal.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management
