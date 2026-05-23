@@ -108,6 +108,7 @@ File:
 3. Replaced disabled setup card buttons with active actions that jump to Floors/Rooms sections.
 4. Updated setup hub copy to clearly reflect live DB-backed behavior.
 5. Removed unused setup helper imports in PropertySetupManager to keep lint checks clean.
+6. Removed an unused dashboard property counter to keep TypeScript lint checks clean.
 
 ## Files Updated Recently
 
