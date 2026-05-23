@@ -103,7 +103,6 @@ export default async function DashboardPage() {
   let setupRequired = false;
   let setupProperty: { id: string; name: string } | null = null;
   let hasProperties = false;
-  let totalCount = 0;
   let activeCount = 0;
   let inactiveCount = 0;
 
@@ -124,7 +123,6 @@ export default async function DashboardPage() {
 
       if (hostels && hostels.length > 0) {
         hasProperties = true;
-        totalCount = hostels.length;
         activeCount = hostels.filter((h) => h.is_active).length;
         inactiveCount = hostels.filter((h) => !h.is_active).length;
 
