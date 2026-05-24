@@ -59,7 +59,8 @@ function generateReceiptNumber(): string {
   let suffix = "";
   const arr = new Uint8Array(6);
   crypto.getRandomValues(arr);
-  for (const byte of arr) {
+  for (let i = 0; i < arr.length; i += 1) {
+    const byte = arr[i];
     suffix += chars[byte % chars.length];
   }
   return `ND-${yyyymm}-${suffix}`;
@@ -175,7 +176,7 @@ const createSchema = z.object({
   tenant_id: z.string().uuid("Invalid tenant."),
   hostel_id: z.string().uuid("Invalid property."),
   amount: z
-    .number({ invalid_type_error: "Amount must be a number." })
+    .number({ message: "Amount must be a number." })
     .min(0, "Amount cannot be negative.")
     .max(9999999, "Amount too large."),
   month: z.string().regex(/^\d{4}-\d{2}$/, "Month must be YYYY-MM format."),
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.errors[0]?.message ?? "Validation error." },
+      { error: parsed.error.issues[0]?.message ?? "Validation error." },
       { status: 400 },
     );
   }

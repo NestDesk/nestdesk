@@ -10,7 +10,6 @@ import {
   FileImage,
   IndianRupee,
   Loader2,
-  MapPin,
   Search,
   ShieldCheck,
   User,

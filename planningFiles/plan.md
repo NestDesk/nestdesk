@@ -69,6 +69,15 @@ The active product flow is:
 - Clicking tenant profile picture or review action opens full tenant profile review with uploaded KYC documents.
 - Owner can approve tenant profile as active directly from review dialog by assigning room, agreed rent, and join date.
 
+13. API TypeScript compatibility fixes were applied:
+
+- Payments create schema now uses Zod v4-compatible number validation message options in /api/payments.
+- Tenant profile upload API now uses a typed document-column map and static tenant column selection to avoid Supabase dynamic select parser typing errors.
+
+14. Branding asset update was applied:
+
+- App favicon file content at src/app/favicon.ico was replaced with the NestDesk icon logo SVG.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

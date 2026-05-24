@@ -5,12 +5,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const TENANT_DOCS_BUCKET = "tenant-documents";
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
-const DOC_COLUMN_MAP: Record<string, string> = {
+const DOC_COLUMN_MAP = {
   profile_photo: "profile_photo_path",
   aadhar_front: "aadhar_front_path",
   aadhar_back: "aadhar_back_path",
   alternate_id: "alternate_id_path",
+} as const;
+
+type DocType = keyof typeof DOC_COLUMN_MAP;
+type TenantDocColumn = (typeof DOC_COLUMN_MAP)[DocType];
+type TenantDocRow = {
+  id: string;
+  profile_photo_path: string | null;
+  aadhar_front_path: string | null;
+  aadhar_back_path: string | null;
+  alternate_id_path: string | null;
 };
+
+function isDocType(value: string): value is DocType {
+  return value in DOC_COLUMN_MAP;
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -33,10 +47,11 @@ export async function POST(request: Request) {
   const docType = String(formData.get("docType") ?? "").trim();
   const file = formData.get("file");
 
-  const columnName = DOC_COLUMN_MAP[docType];
-  if (!columnName) {
+  if (!isDocType(docType)) {
     return NextResponse.json({ error: "Invalid document type." }, { status: 400 });
   }
+
+  const columnName: TenantDocColumn = DOC_COLUMN_MAP[docType];
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No image file provided." }, { status: 400 });
@@ -60,9 +75,11 @@ export async function POST(request: Request) {
 
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
-    .select(`id, ${columnName}`)
+    .select(
+      "id, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
+    )
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .maybeSingle<TenantDocRow>();
 
   if (tenantError) {
     return NextResponse.json({ error: tenantError.message }, { status: 500 });
@@ -93,7 +110,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const previousPath = (tenant as Record<string, unknown>)[columnName];
+  const previousPath = tenant[columnName];
 
   const { error: updateError } = await admin
     .from("tenants")
