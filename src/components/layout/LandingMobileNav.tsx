@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Menu, X, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -17,7 +16,6 @@ const navLinks = [
 export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const router = useRouter();
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -25,7 +23,7 @@ export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) 
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setOpen(false);
-      router.push("/login");
+      window.location.replace("/");
     } finally {
       setLoggingOut(false);
     }

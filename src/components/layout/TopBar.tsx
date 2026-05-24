@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { LogOut, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +33,6 @@ export function TopBar({
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: TopBarProps) {
-  const router = useRouter();
   const [user, setUser] = useState<TopBarUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const userLoadedRef = useRef(false);
@@ -90,7 +88,7 @@ export function TopBar({
     setLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
+      window.location.replace("/");
     } finally {
       setLoggingOut(false);
     }

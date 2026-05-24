@@ -22,7 +22,7 @@ export function useIdleTimeout() {
     } catch {
       // Best-effort — proceed to redirect regardless
     }
-    router.push("/login?reason=idle");
+    window.location.replace("/");
   }, [router]);
 
   const resetTimer = useCallback(() => {

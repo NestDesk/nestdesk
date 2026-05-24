@@ -95,6 +95,12 @@ The active product flow is:
 - Unassigned tenants are highlighted per property for quick operational follow-up.
 - Occupancy module is added to the owner sidebar navigation.
 
+17. Public legal policy surface is now implemented:
+
+- Landing page footer legal links now open a detailed modal for Privacy Policy, Terms of Service, Cookie Policy, and Refund Policy.
+- Standalone policy pages now exist at /privacy, /terms, /cookies, and /refund for direct access and consent flows.
+- Policy content now covers data collection, retention, sharing, cookies, user rights, acceptable use, refunds, and service limitations.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

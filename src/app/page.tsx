@@ -11,6 +11,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
+import { LegalPolicyLauncher } from "@/components/legal/LegalPolicyLauncher";
 import {
   Building2,
   Zap,
@@ -20,13 +21,13 @@ import {
   FileText,
   BarChart3,
   CheckCircle2,
-  ArrowRight,
   Star,
   Globe,
   TrendingUp,
   ClipboardList,
   MessageSquare,
   BadgeCheck,
+  User,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -50,7 +51,7 @@ const features = [
     icon: CreditCard,
     title: "Payments & Receipts",
     description:
-      "Accept UPI, cards, and net banking. Send payment confirmations and receipts automatically.",
+      "AccSend payment confirmations and receipts automatically.",
   },
   {
     icon: Bell,
@@ -212,8 +213,8 @@ const pricing = [
       "Priority onboarding and migration",
       "Custom SLA",
     ],
-    cta: "Connect to Sales Office",
-    ctaHref: "mailto:sales@nestdesk.in",
+    cta: "Contact Sales",
+    ctaHref: "mailto:support@nestdesk.in",
     highlighted: false,
   },
 ];
@@ -401,8 +402,8 @@ export default async function LandingPage() {
                     size="default"
                     className="h-10 rounded-xl bg-gradient-to-r from-primary to-blue-500 px-6 text-sm font-semibold shadow-lg shadow-primary/30 hover:brightness-110 hover:shadow-primary/50"
                   >
-                    Start Free
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <User className="mr-2 h-4 w-4" />
+                    Join as Owner
                   </Button>
                 </Link>
                 <Link href="/join">
@@ -471,12 +472,6 @@ export default async function LandingPage() {
       {/* ── Features ───────────────────────────── */}
       <section id="features" className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div className="mb-10 flex flex-col items-center text-center">
-          <Badge
-            variant="secondary"
-            className="mb-4 rounded-full px-4 py-1.5 text-sm"
-          >
-            Everything you need
-          </Badge>
           <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Built for how managed properties actually work
           </h2>
@@ -512,14 +507,8 @@ export default async function LandingPage() {
       <section id="how-it-works" className="bg-muted/30 py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex flex-col items-center text-center">
-            <Badge
-              variant="secondary"
-              className="mb-4 rounded-full px-4 py-1.5 text-sm"
-            >
-              Simple setup
-            </Badge>
             <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Up and running in minutes
+              Up and running in minutes - simple!
             </h2>
           </div>
 
@@ -592,12 +581,6 @@ export default async function LandingPage() {
       <section id="pricing" className="bg-muted/30 py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex flex-col items-center text-center">
-            <Badge
-              variant="secondary"
-              className="mb-4 rounded-full px-4 py-1.5 text-sm"
-            >
-              Simple pricing
-            </Badge>
             <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Plans that grow with you
             </h2>
@@ -703,9 +686,9 @@ export default async function LandingPage() {
       {/* ── Footer ─────────────────────────────── */}
       <footer className="border-t border-border bg-background">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-16">
             {/* Brand */}
-            <div className="lg:col-span-2">
+            <div className="max-w-md">
               <Link href="/" className="mb-4 flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
                   <Building2 className="h-4 w-4 text-white" />
@@ -721,60 +704,28 @@ export default async function LandingPage() {
               </p>
             </div>
 
-            {/* Product */}
-            <div>
-              <h4 className="mb-3 text-sm font-semibold text-foreground">Product</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                {["Features", "Pricing", "Demo", "Changelog"].map((item) => (
-                  <li key={item}>
-                    <Link
-                      href="#"
-                      className="transition-colors hover:text-foreground"
-                    >
-                      {item}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Footer nav */}
+            <div className="grid gap-10 sm:grid-cols-2 sm:items-start">
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-foreground">Product</h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {["About", "Contact Us", "Careers"].map((item) => (
+                    <li key={item}>
+                      <Link
+                        href="#"
+                        className="transition-colors hover:text-foreground"
+                      >
+                        {item}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-            {/* Company */}
-            <div>
-              <h4 className="mb-3 text-sm font-semibold text-foreground">Company</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                {["About", "Blog", "Contact", "Careers"].map((item) => (
-                  <li key={item}>
-                    <Link
-                      href="#"
-                      className="transition-colors hover:text-foreground"
-                    >
-                      {item}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Legal */}
-            <div>
-              <h4 className="mb-3 text-sm font-semibold text-foreground">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                {[
-                  "Privacy Policy",
-                  "Terms of Service",
-                  "Cookie Policy",
-                  "Refund Policy",
-                ].map((item) => (
-                  <li key={item}>
-                    <Link
-                      href="#"
-                      className="transition-colors hover:text-foreground"
-                    >
-                      {item}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-foreground">Legal</h4>
+                <LegalPolicyLauncher />
+              </div>
             </div>
           </div>
 
