@@ -78,6 +78,23 @@ The active product flow is:
 
 - App favicon file content at src/app/favicon.ico was replaced with the NestDesk icon logo SVG.
 
+15. Owner expense management module is now implemented end-to-end:
+
+- New expenses schema migration adds owner-scoped operating expense tracking with category, status, payment mode, recurring schedule fields, and soft delete support.
+- New owner APIs are added for expenses list/create/update/delete with strict owner-property access checks and request validation.
+- Owner portal now includes a full Expenses dashboard for quick entry, filtering, editing, deleting, and analytics.
+- Expenses dashboard includes property-wise totals, category breakdown totals, monthly trend, and total expense summary cards.
+- Expenses are added to owner sidebar navigation for direct access.
+- Dashboard overview now includes this-month expenses and net cash flow (paid rent minus expenses).
+
+16. Owner occupancy visualization module is now implemented:
+
+- New Occupancy page at /occupancy shows visual room allocation by property and floor.
+- Each room card displays room type, status, bed capacity, occupied/available beds, and rent.
+- Allocated tenant list is rendered per room with status, join date, phone, and agreed rent.
+- Unassigned tenants are highlighted per property for quick operational follow-up.
+- Occupancy module is added to the owner sidebar navigation.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management
@@ -122,7 +139,7 @@ Current behavior notes:
 Implemented:
 
 1. Shared dashboard layout that checks auth and onboarding completion server-side.
-2. Sidebar navigation for dashboard, properties, tenants, payments, notices, and settings.
+2. Sidebar navigation for dashboard, properties, tenants, occupancy, payments, notices, and settings.
 3. Top bar with theme toggle, user menu, mobile nav, and logout action.
 4. Landing page that detects signed-in users server-side and swaps CTA behavior.
 5. Placeholder dashboard cards plus setup/activation guidance banners.
@@ -147,6 +164,22 @@ Current behavior notes:
 
 1. New properties are created as inactive by the app layer.
 2. A property becomes eligible for activation only after at least one floor and one room exist.
+
+### 6. Occupancy Visualization
+
+Implemented:
+
+1. Occupancy page at /occupancy for owner users.
+2. Owner-scoped aggregation of hostels, floors, rooms, and tenants.
+3. Property-level occupancy summary with occupied beds vs total beds and vacancy count.
+4. Floor-wise room grids with tenant allocation visibility.
+5. Room-level details including type label, operational status, capacity, and rent.
+6. Unassigned tenant listing by property to support allocation actions.
+
+Current behavior notes:
+
+1. Occupancy is read-only and reflects real-time allocation from room_id on tenant records.
+2. Bed occupancy counts use active tenants assigned to each room.
 
 ### 5. Floor and Room Setup
 

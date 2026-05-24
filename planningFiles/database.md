@@ -15,6 +15,10 @@ NestDesk currently uses a simple two-file development database workflow:
 5. Maintenance owner workflow: supabase/migrations/004_maintenance_owner_workflow.sql
 6. Tenant agreed rent amount: supabase/migrations/005_tenants_agreed_rent.sql
 7. Notices published state: supabase/migrations/006_notices_published.sql
+8. Tenant profile document support: supabase/migrations/007_tenant_profile_docs.sql
+9. Tenant gender support: supabase/migrations/008_tenant_gender.sql
+10. Tenant profile schema repair: supabase/migrations/009_repair_tenant_profile_schema.sql
+11. Owner expense management: supabase/migrations/010_expenses_management.sql
 
 Run order in Supabase SQL Editor:
 
@@ -83,7 +87,13 @@ This is important because the application code depends on owners.user_id in:
    - Stores hashed OTP challenges.
    - Used by phone OTP request/verify endpoints and OTP service helpers.
    - Present even though OTP is not required in the active owner flow.
-10. storage.buckets + storage.objects (Supabase managed)
+10. expenses
+
+- Stores owner-scoped property running expenses across utility, staffing, maintenance, compliance, and operational categories.
+- Supports paid/pending/disputed states, recurring expense schedules, payment mode capture, and soft delete.
+- Used by owner expense APIs and the owner expenses dashboard for property-wise and total analytics.
+
+11. storage.buckets + storage.objects (Supabase managed)
 
 - Bucket tenant-documents is used for tenant profile and ID image storage.
 - Object naming convention is user-scoped: {auth_user_id}/{doc_type}/{file_name}.
@@ -134,6 +144,7 @@ High-level policy model:
 5. audit_logs are readable by the owner who owns the event context.
 6. consent_records and data_deletion_requests are scoped to the requesting auth user.
 7. phone_otp_challenges are blocked from direct client access through a deny-all policy.
+8. expenses rows are scoped to current_owner_id() through owner_id-based policies.
 
 ## Current App-to-Table Mapping
 
@@ -155,6 +166,13 @@ High-level policy model:
 3. Floor APIs read and mutate floors.
 4. Room APIs read and mutate rooms.
 5. Bulk room API inserts rooms in batches and skips duplicates.
+
+### Expenses
+
+1. GET /api/expenses lists owner-scoped expenses with property/month/category/status/search filters.
+2. POST /api/expenses creates owner expense rows with full validation and recurring support.
+3. PATCH /api/expenses/[id] updates owner expense rows.
+4. DELETE /api/expenses/[id] soft-deletes owner expense rows.
 
 ## Known Schema / Code Mismatches
 

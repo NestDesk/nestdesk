@@ -89,6 +89,18 @@ The app is split into five main layers:
 - Owner tenant management workspace
 - Supports tenant listing, filtering, and lifecycle operations (approve, activate, move out, reject)
 
+11. src/app/(dashboard)/expenses/page.tsx
+
+- Owner expense management workspace
+- Supports expense creation, editing, soft delete, and quick input flows
+- Includes property-wise totals, category breakdown, monthly trend, and total expense analytics
+
+12. src/app/(dashboard)/occupancy/page.tsx
+
+- Owner occupancy visualization workspace
+- Renders property -> floor -> room hierarchy with live tenant allocation details
+- Shows room type, capacity, room status, bed occupancy, rent, and unassigned tenants
+
 ## Layout and UI Shell Components
 
 ### Global Shell
@@ -108,7 +120,7 @@ The app is split into five main layers:
 
 2. src/components/layout/Sidebar.tsx
    - Desktop and mobile navigation source for dashboard areas
-   - Some nav entries are placeholders for future modules
+   - Includes owner modules for properties, tenants, occupancy, maintenance, payments, expenses, notices, and settings
 
 3. src/components/layout/TopBar.tsx
    - Theme toggle, profile menu, logout action, and mobile nav trigger
@@ -235,6 +247,23 @@ The app is split into five main layers:
 5. src/app/(tenant)/tenant/payments/page.tsx
    - Tenant payment history view (client component, uses /api/tenant/payments)
    - Shows summary totals and itemized receipt list
+
+### Expenses Workflow
+
+1. src/app/(dashboard)/expenses/page.tsx
+   - Owner expense operations workspace
+   - Supports fast add/edit/delete, filters, and operational analytics
+
+2. src/app/api/expenses/route.ts
+   - GET: Owner lists expenses across owned properties with property/month/category/status/search filters
+   - POST: Owner records property running expenses with recurring schedule support
+
+3. src/app/api/expenses/[id]/route.ts
+   - PATCH: Owner updates existing expense details
+   - DELETE: Owner soft-deletes expense rows
+
+4. src/lib/expenses.ts
+   - Shared expense categories, statuses, payment mode constants, and labels
 
 ## Feature Modules
 
