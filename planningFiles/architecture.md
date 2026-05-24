@@ -30,6 +30,7 @@ The app is split into five main layers:
 1. src/app/page.tsx
    - Marketing landing page
    - Detects logged-in user server-side and adjusts account actions
+   - Footer legal links open a detailed policy modal for Privacy, Terms, Cookie, and Refund policies
 
 2. src/app/(auth)/layout.tsx
    - Shared auth visual shell
@@ -45,9 +46,32 @@ The app is split into five main layers:
 5. src/app/(auth)/verify-email/page.tsx
    - Post-registration verification instruction screen
 
-6. src/app/auth/callback/route.ts
+6. src/app/(auth)/forgot-password/page.tsx
+   - Public password recovery request screen
+   - Uses the auth API to send reset links without exposing account existence
+
+7. src/app/(auth)/reset-password/page.tsx
+   - Secure password reset screen reached from email recovery links
+   - Requires a recovery session established by the auth callback
+
+8. src/app/auth/callback/route.ts
    - Exchanges Supabase email verification code for a session
-   - Redirects to onboarding or dashboard
+   - Also verifies recovery tokens and redirects to the reset-password screen
+
+9. src/app/privacy/page.tsx
+   - Public Privacy Policy page
+
+10. src/app/terms/page.tsx
+
+- Public Terms of Service page
+
+11. src/app/cookies/page.tsx
+
+- Public Cookie Policy page
+
+12. src/app/refund/page.tsx
+
+- Public Refund Policy page
 
 ### Onboarding and Protected Screens
 

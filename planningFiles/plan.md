@@ -95,6 +95,19 @@ The active product flow is:
 - Unassigned tenants are highlighted per property for quick operational follow-up.
 - Occupancy module is added to the owner sidebar navigation.
 
+17. Public legal policy surface is now implemented:
+
+- Landing page footer legal links now open a detailed modal for Privacy Policy, Terms of Service, Cookie Policy, and Refund Policy.
+- Standalone policy pages now exist at /privacy, /terms, /cookies, and /refund for direct access and consent flows.
+- Policy content now covers data collection, retention, sharing, cookies, user rights, acceptable use, refunds, and service limitations.
+
+18. Password recovery flow is now implemented:
+
+- Public forgot-password screen now lets both owners and tenants request a password reset link.
+- Supabase auth callback now supports password recovery tokens in addition to signup verification links.
+- Recovery links establish a secure reset session and redirect to a dedicated reset-password screen.
+- Reset-password submission validates strong passwords server-side and clears the recovery session after a successful change.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management
@@ -109,12 +122,14 @@ Implemented:
 6. Logout API that clears Supabase session cookies.
 7. Middleware-based route protection with redirects for unauthenticated users.
 8. Idle timeout logout after 30 minutes of inactivity in dashboard routes.
+9. Forgot-password and reset-password flow for both owner and tenant accounts.
 
 Current behavior notes:
 
-1. Public routes are limited to landing, login, register, verify-email, auth callback, and auth APIs.
-2. Authenticated users are redirected away from login and register.
+1. Public routes include landing, login, register, verify-email, forgot-password, reset-password, auth callback, and auth APIs.
+2. Authenticated users are redirected away from login, register, and forgot-password.
 3. Non-public routes require a valid Supabase session.
+4. Password reset requests use a generic success response to avoid exposing whether an email address exists.
 
 ### 2. Owner Onboarding
 

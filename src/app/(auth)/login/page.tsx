@@ -46,7 +46,16 @@ function LoginPageContent() {
 
   // Show friendly message if redirected due to idle timeout
   const reason = searchParams.get("reason");
+  const authError = searchParams.get("error");
+  const passwordReset = searchParams.get("passwordReset");
   const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
+
+  const authErrorMessage =
+    authError === "missing_code"
+      ? "That sign-in link is incomplete. Please try again."
+      : authError === "invalid_link"
+        ? "That verification or recovery link is no longer valid. Request a new one."
+        : null;
 
   const {
     register,
@@ -109,6 +118,20 @@ function LoginPageContent() {
           </div>
         )}
 
+        {passwordReset === "success" && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Your password was updated. Sign in with your new password.
+          </div>
+        )}
+
+        {authErrorMessage && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {authErrorMessage}
+          </div>
+        )}
+
         {rateLimitMsg && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -135,9 +158,17 @@ function LoginPageContent() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-white/80">
-              Password
-            </Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="password" className="text-white/80">
+                Password
+              </Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-white/60 underline underline-offset-2 transition-colors hover:text-white"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <div className="relative">
               <Input
                 id="password"

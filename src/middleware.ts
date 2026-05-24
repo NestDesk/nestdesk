@@ -2,9 +2,22 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { validateSupabaseEnv } from "@/lib/supabase/env-check";
 
-const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email", "/join"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+  "/join",
+];
 // Paths that require guest state (redirect logged-in users away)
-const AUTH_ONLY_PATHS = ["/login", "/register", "/tenant/register"];
+const AUTH_ONLY_PATHS = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/tenant/register",
+];
 
 function shouldBypassAuthCheck(pathname: string) {
   return (
