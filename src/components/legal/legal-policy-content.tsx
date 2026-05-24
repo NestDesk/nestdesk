@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type LegalPolicyKey = "privacy" | "terms" | "cookies" | "refund";
+export type LegalPolicyKey = "privacy" | "terms" | "cookies" | "refund";
 
 type PolicySection = {
   title: string;
@@ -345,8 +345,6 @@ const POLICY_CONTENT: Record<LegalPolicyKey, PolicySection[]> = {
     },
   ],
 };
-
-export type LegalPolicyKey = keyof typeof LEGAL_POLICY_META;
 
 export function getLegalPolicyContent(policy: LegalPolicyKey) {
   return {
