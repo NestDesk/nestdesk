@@ -1,15 +1,18 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CalendarDays,
   CheckCircle2,
   Clock,
+  FileImage,
   IndianRupee,
   Loader2,
   MapPin,
   Search,
+  ShieldCheck,
   User,
   UserCheck,
   UserX,
@@ -19,6 +22,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -36,6 +46,9 @@ type TenantRow = {
   email: string | null;
   phone: string | null;
   status: TenantStatus;
+  first_activated_at: string | null;
+  profile_photo_url: string | null;
+  profile_completion_percentage: number;
   agreed_rent_amount: number | null;
   join_date: string | null;
   move_out_date: string | null;
@@ -76,6 +89,39 @@ type TenantDraft = {
   agreedRentAmount: string;
   joinDate: string;
   moveOutDate: string;
+};
+
+type TenantProfileDetail = {
+  id: string;
+  hostel_id: string;
+  hostel_name: string;
+  hostel_location: string | null;
+  room_id: string | null;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  status: TenantStatus;
+  occupation_type: string | null;
+  institution_name: string | null;
+  aadhar_number: string | null;
+  profile_photo_url: string | null;
+  aadhar_front_url: string | null;
+  aadhar_back_url: string | null;
+  alternate_id_url: string | null;
+  profile_completion_percentage: number;
+  profile_completion_missing: string[];
+  agreed_rent_amount: number | null;
+  join_date: string | null;
+  move_out_date: string | null;
+  first_activated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApprovalDraft = {
+  roomId: string;
+  agreedRentAmount: string;
+  joinDate: string;
 };
 
 const STATUS_CHIP_CLASS: Record<TenantStatus, string> = {
@@ -170,6 +216,16 @@ export default function OwnerTenantsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, TenantDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewTenantId, setReviewTenantId] = useState<string | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewTenant, setReviewTenant] = useState<TenantProfileDetail | null>(null);
+  const [approveSaving, setApproveSaving] = useState(false);
+  const [approvalDraft, setApprovalDraft] = useState<ApprovalDraft>({
+    roomId: "",
+    agreedRentAmount: "",
+    joinDate: "",
+  });
 
   async function loadTenants() {
     setLoading(true);
@@ -269,6 +325,14 @@ export default function OwnerTenantsPage() {
     });
   }
 
+  function availableRoomsForHostel(hostelId: string, roomId: string | null) {
+    const allRooms = roomsByHostel[hostelId] ?? [];
+    return allRooms.filter((room) => {
+      if (room.id === roomId) return true;
+      return room.status === "vacant";
+    });
+  }
+
   async function saveTenant(tenant: TenantRow) {
     const draft = drafts[tenant.id];
     if (!draft) {
@@ -319,6 +383,7 @@ export default function OwnerTenantsPage() {
               email: string | null;
               phone: string | null;
               status: TenantStatus;
+              first_activated_at: string | null;
               agreed_rent_amount: number | null;
               join_date: string | null;
               move_out_date: string | null;
@@ -344,6 +409,8 @@ export default function OwnerTenantsPage() {
               full_name: payload.fullName,
               phone: payload.phone || null,
               status: payload.status,
+              first_activated_at: row.first_activated_at,
+              profile_completion_percentage: row.profile_completion_percentage,
               room_id: payload.roomId,
               agreed_rent_amount: payload.agreedRentAmount,
               room_number:
@@ -362,6 +429,8 @@ export default function OwnerTenantsPage() {
             email: updatedTenant.email,
             phone: updatedTenant.phone,
             status: updatedTenant.status,
+            first_activated_at: updatedTenant.first_activated_at,
+            profile_completion_percentage: row.profile_completion_percentage,
             room_id: updatedTenant.room_id,
             agreed_rent_amount: updatedTenant.agreed_rent_amount,
             room_number:
@@ -405,6 +474,116 @@ export default function OwnerTenantsPage() {
       toast.error("Network error. Please try again.");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  function maskAadhaar(value: string | null) {
+    if (!value || value.length < 4) {
+      return "-";
+    }
+    return `XXXX XXXX ${value.slice(-4)}`;
+  }
+
+  async function openReview(tenant: TenantRow) {
+    setReviewOpen(true);
+    setReviewTenantId(tenant.id);
+    setReviewLoading(true);
+    setReviewTenant(null);
+
+    setApprovalDraft({
+      roomId: tenant.room_id ?? "",
+      agreedRentAmount:
+        tenant.agreed_rent_amount !== null ? String(tenant.agreed_rent_amount) : "",
+      joinDate: tenant.join_date ?? "",
+    });
+
+    try {
+      const response = await fetch(`/api/tenants/${tenant.id}`, {
+        cache: "no-store",
+      });
+      const json = (await response.json()) as
+        | { error?: string }
+        | { tenant?: TenantProfileDetail };
+
+      if (!response.ok) {
+        const error = "error" in json ? json.error : undefined;
+        toast.error(error ?? "Could not load tenant profile.");
+        return;
+      }
+
+      const profile = "tenant" in json ? json.tenant : undefined;
+      if (!profile) {
+        toast.error("Could not load tenant profile.");
+        return;
+      }
+
+      setReviewTenant(profile);
+      setApprovalDraft((prev) => ({
+        roomId: profile.room_id ?? prev.roomId,
+        agreedRentAmount:
+          profile.agreed_rent_amount !== null
+            ? String(profile.agreed_rent_amount)
+            : prev.agreedRentAmount,
+        joinDate: profile.join_date ?? prev.joinDate,
+      }));
+    } catch {
+      toast.error("Network error while loading tenant profile.");
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
+  function closeReview(open: boolean) {
+    setReviewOpen(open);
+    if (!open) {
+      setReviewLoading(false);
+      setReviewTenantId(null);
+      setReviewTenant(null);
+      setApproveSaving(false);
+    }
+  }
+
+  async function approveTenantProfile() {
+    if (!reviewTenantId || !reviewTenant) {
+      return;
+    }
+
+    if (!approvalDraft.roomId) {
+      toast.error("Assign a room to approve this tenant.");
+      return;
+    }
+
+    if (!approvalDraft.agreedRentAmount) {
+      toast.error("Add agreed rent to approve this tenant.");
+      return;
+    }
+
+    setApproveSaving(true);
+    try {
+      const response = await fetch(`/api/tenants/${reviewTenantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "active",
+          roomId: approvalDraft.roomId,
+          agreedRentAmount: Number(approvalDraft.agreedRentAmount),
+          joinDate: approvalDraft.joinDate || null,
+        }),
+      });
+
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not approve tenant.");
+        return;
+      }
+
+      toast.success("Tenant profile approved and activated.");
+      await loadTenants();
+      closeReview(false);
+    } catch {
+      toast.error("Network error while approving tenant.");
+    } finally {
+      setApproveSaving(false);
     }
   }
 
@@ -564,15 +743,32 @@ export default function OwnerTenantsPage() {
                 <CardContent className="p-0">
                   <div className="flex flex-col gap-0 sm:flex-row sm:items-stretch">
                     {/* Left: avatar + status bar */}
-                    <div className="flex items-center gap-4 border-b border-border/60 px-4 py-4 sm:border-b-0 sm:border-r sm:py-5">
-                      <div
-                        className={cn(
-                          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-sm",
-                          AVATAR_BG[tenant.status],
-                        )}
+                    <div className="flex items-center gap-4 border-b border-border/60 px-4 py-4 sm:w-[250px] sm:flex-none sm:border-b-0 sm:border-r sm:py-5">
+                      <button
+                        type="button"
+                        onClick={() => openReview(tenant)}
+                        className="rounded-xl transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label={`Open ${tenant.full_name} profile review`}
                       >
-                        {initials}
-                      </div>
+                        {tenant.profile_photo_url ? (
+                          <Image
+                            src={tenant.profile_photo_url}
+                            alt={`${tenant.full_name} profile`}
+                            width={44}
+                            height={44}
+                            className="h-11 w-11 rounded-xl object-cover shadow-sm"
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-sm",
+                              AVATAR_BG[tenant.status],
+                            )}
+                          >
+                            {initials}
+                          </div>
+                        )}
+                      </button>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">
                           {tenant.full_name}
@@ -598,13 +794,6 @@ export default function OwnerTenantsPage() {
                           {tenant.room_number ? ` · Room ${tenant.room_number}` : ""}
                         </span>
 
-                        {tenant.hostel_location ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                            {tenant.hostel_location}
-                          </span>
-                        ) : null}
-
                         {tenant.join_date ? (
                           <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                             <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
@@ -625,6 +814,16 @@ export default function OwnerTenantsPage() {
 
                       {/* Right side: badge + manage */}
                       <div className="flex shrink-0 items-center gap-2.5">
+                        <span
+                          className={cn(
+                            "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                            tenant.profile_completion_percentage >= 100
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
+                          )}
+                        >
+                          Profile {tenant.profile_completion_percentage}%
+                        </span>
                         <Badge
                           className={cn(
                             "text-[11px]",
@@ -633,6 +832,16 @@ export default function OwnerTenantsPage() {
                         >
                           {statusLabel(tenant.status)}
                         </Badge>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-lg border-border px-3 text-xs font-medium"
+                          onClick={() => openReview(tenant)}
+                        >
+                          Review Profile
+                        </Button>
 
                         {!isEditing ? (
                           <Button
@@ -940,6 +1149,252 @@ export default function OwnerTenantsPage() {
           })}
         </div>
       )}
+
+      <Dialog open={reviewOpen} onOpenChange={closeReview}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Tenant Profile Review</DialogTitle>
+            <DialogDescription>
+              Review complete profile and uploaded documents before approving this
+              tenant as active.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reviewLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !reviewTenant ? (
+            <p className="text-sm text-muted-foreground">
+              Unable to load tenant profile.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-[84px_1fr]">
+                {reviewTenant.profile_photo_url ? (
+                  <Image
+                    src={reviewTenant.profile_photo_url}
+                    alt={`${reviewTenant.full_name} profile photo`}
+                    width={80}
+                    height={80}
+                    className="h-20 w-20 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
+                    {reviewTenant.full_name
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <p className="text-base font-semibold text-foreground">
+                    {reviewTenant.full_name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {reviewTenant.email ?? "No email"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {reviewTenant.phone ?? "No phone"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {reviewTenant.hostel_name}
+                    {reviewTenant.hostel_location
+                      ? `, ${reviewTenant.hostel_location}`
+                      : ""}
+                  </p>
+                  <div className="pt-1">
+                    <Badge
+                      className={cn(
+                        "text-[11px]",
+                        STATUS_CHIP_CLASS[reviewTenant.status],
+                      )}
+                    >
+                      {statusLabel(reviewTenant.status)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-xl border border-border/70 p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Occupation</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {reviewTenant.occupation_type ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Institution</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {reviewTenant.institution_name ?? "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Aadhaar</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {maskAadhaar(reviewTenant.aadhar_number)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Profile Completion</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {reviewTenant.profile_completion_percentage}%
+                  </p>
+                </div>
+              </div>
+
+              {reviewTenant.profile_completion_missing.length > 0 ? (
+                <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                  Missing: {reviewTenant.profile_completion_missing.join(", ")}
+                </div>
+              ) : null}
+
+              <div className="space-y-2 rounded-xl border border-border/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  Uploaded Documents
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    {
+                      label: "Aadhaar Front",
+                      url: reviewTenant.aadhar_front_url,
+                    },
+                    {
+                      label: "Aadhaar Back",
+                      url: reviewTenant.aadhar_back_url,
+                    },
+                    {
+                      label: "Alternate ID",
+                      url: reviewTenant.alternate_id_url,
+                    },
+                  ].map((doc) => (
+                    <div
+                      key={doc.label}
+                      className="rounded-lg border border-border/70 p-2"
+                    >
+                      <p className="mb-2 text-xs font-medium text-foreground">
+                        {doc.label}
+                      </p>
+                      {doc.url ? (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block"
+                        >
+                          <Image
+                            src={doc.url}
+                            alt={doc.label}
+                            width={240}
+                            height={112}
+                            className="h-28 w-full rounded-md object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex h-28 w-full items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
+                          <FileImage className="mr-1 h-3.5 w-3.5" /> Not uploaded
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Approval
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="approval-room" className="text-xs">
+                      Room
+                    </Label>
+                    <select
+                      id="approval-room"
+                      className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
+                      value={approvalDraft.roomId}
+                      onChange={(e) =>
+                        setApprovalDraft((prev) => ({
+                          ...prev,
+                          roomId: e.target.value,
+                        }))
+                      }
+                      disabled={approveSaving || reviewTenant.status === "active"}
+                    >
+                      <option value="">Select room</option>
+                      {availableRoomsForHostel(
+                        reviewTenant.hostel_id,
+                        reviewTenant.room_id,
+                      ).map((room) => (
+                        <option key={room.id} value={room.id}>
+                          Room {room.room_number}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="approval-rent" className="text-xs">
+                      Agreed Rent
+                    </Label>
+                    <Input
+                      id="approval-rent"
+                      value={approvalDraft.agreedRentAmount}
+                      onChange={(e) =>
+                        setApprovalDraft((prev) => ({
+                          ...prev,
+                          agreedRentAmount: normalizeRentInput(e.target.value),
+                        }))
+                      }
+                      disabled={approveSaving || reviewTenant.status === "active"}
+                      className="mt-1 h-9"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="approval-join-date" className="text-xs">
+                      Join Date
+                    </Label>
+                    <Input
+                      id="approval-join-date"
+                      type="date"
+                      value={approvalDraft.joinDate}
+                      onChange={(e) =>
+                        setApprovalDraft((prev) => ({
+                          ...prev,
+                          joinDate: e.target.value,
+                        }))
+                      }
+                      disabled={approveSaving || reviewTenant.status === "active"}
+                      className="mt-1 h-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={approveTenantProfile}
+                    disabled={approveSaving || reviewTenant.status === "active"}
+                  >
+                    {approveSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : reviewTenant.status === "active" ? (
+                      "Already Active"
+                    ) : (
+                      "Approve As Active"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

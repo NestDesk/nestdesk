@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
 
 const STATUS_CONFIG = {
   pending: {
@@ -63,7 +64,7 @@ export default async function TenantDashboardPage() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, status, join_date, room_id, hostel_id, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
+      "id, full_name, email, phone, status, join_date, room_id, hostel_id, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -97,6 +98,7 @@ export default async function TenantDashboardPage() {
         year: "numeric",
       })
     : "Not available";
+  const completion = getTenantProfileCompletion(tenant);
 
   return (
     <div className="space-y-6">
@@ -202,6 +204,29 @@ export default async function TenantDashboardPage() {
         </Card>
       )}
 
+      {completion.percentage < 100 && (
+        <Card className="rounded-2xl border-primary/30 bg-primary/5">
+          <CardContent className="flex items-start gap-3 p-4">
+            <User className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div className="w-full">
+              <p className="text-sm font-medium text-foreground">
+                Profile completion: {completion.percentage}%
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Complete your profile and ID uploads to become eligible for
+                activation.
+              </p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-primary/15">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${completion.percentage}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Rejected banner */}
       {status === "rejected" && (
         <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
@@ -230,6 +255,30 @@ export default async function TenantDashboardPage() {
           <CardContent className="flex items-center gap-2">
             <StatusIcon className={`h-5 w-5 ${statusCfg.color}`} />
             <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-border/70">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">
+              Profile Completion
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">
+                {completion.percentage}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {completion.completeCount}/{completion.totalCount}
+              </p>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${completion.percentage}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
 

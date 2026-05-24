@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+
+const TENANT_DOCS_BUCKET = "tenant-documents";
+
+async function createSignedUrl(
+  path: string | null,
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string | null> {
+  if (!path) {
+    return null;
+  }
+
+  const { data, error } = await admin.storage
+    .from(TENANT_DOCS_BUCKET)
+    .createSignedUrl(path, 60 * 30);
+
+  if (error || !data?.signedUrl) {
+    return null;
+  }
+
+  return data.signedUrl;
+}
 
 type OwnerContext = {
   ownerId: string;
@@ -85,7 +107,7 @@ export async function GET() {
   const { data: tenants, error: tenantsError } = await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, join_date, move_out_date, created_at, updated_at",
+      "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, join_date, move_out_date, created_at, updated_at, first_activated_at",
     )
     .eq("owner_id", ctx.ownerId)
     .is("deleted_at", null)
@@ -123,28 +145,38 @@ export async function GET() {
     });
   }
 
-  const tenantRows = (tenants ?? []).map((tenant) => {
-    const hostel = hostelMap.get(tenant.hostel_id);
-    const room = tenant.room_id ? roomMap.get(tenant.room_id) : null;
+  const tenantRows = await Promise.all(
+    (tenants ?? []).map(async (tenant) => {
+      const hostel = hostelMap.get(tenant.hostel_id);
+      const room = tenant.room_id ? roomMap.get(tenant.room_id) : null;
+      const completion = getTenantProfileCompletion(tenant);
+      const profilePhotoUrl = await createSignedUrl(
+        tenant.profile_photo_path,
+        admin,
+      );
 
-    return {
-      id: tenant.id,
-      hostel_id: tenant.hostel_id,
-      hostel_name: hostel?.name ?? "Property",
-      hostel_location: hostel?.location ?? null,
-      room_id: tenant.room_id,
-      room_number: room?.room_number ?? null,
-      full_name: tenant.full_name,
-      email: tenant.email,
-      phone: tenant.phone,
-      status: tenant.status,
-      agreed_rent_amount: tenant.agreed_rent_amount,
-      join_date: tenant.join_date,
-      move_out_date: tenant.move_out_date,
-      created_at: tenant.created_at,
-      updated_at: tenant.updated_at,
-    };
-  });
+      return {
+        id: tenant.id,
+        hostel_id: tenant.hostel_id,
+        hostel_name: hostel?.name ?? "Property",
+        hostel_location: hostel?.location ?? null,
+        room_id: tenant.room_id,
+        room_number: room?.room_number ?? null,
+        full_name: tenant.full_name,
+        email: tenant.email,
+        phone: tenant.phone,
+        status: tenant.status,
+        first_activated_at: tenant.first_activated_at,
+        profile_photo_url: profilePhotoUrl,
+        profile_completion_percentage: completion.percentage,
+        agreed_rent_amount: tenant.agreed_rent_amount,
+        join_date: tenant.join_date,
+        move_out_date: tenant.move_out_date,
+        created_at: tenant.created_at,
+        updated_at: tenant.updated_at,
+      };
+    }),
+  );
 
   const summary = tenantRows.reduce(
     (acc, tenant) => {

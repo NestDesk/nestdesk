@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+
+const TENANT_DOCS_BUCKET = "tenant-documents";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -25,6 +28,25 @@ type OwnerContext = {
   ownerId: string;
   userId: string;
 };
+
+async function createSignedUrl(
+  path: string | null,
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string | null> {
+  if (!path) {
+    return null;
+  }
+
+  const { data, error } = await admin.storage
+    .from(TENANT_DOCS_BUCKET)
+    .createSignedUrl(path, 60 * 30);
+
+  if (error || !data?.signedUrl) {
+    return null;
+  }
+
+  return data.signedUrl;
+}
 
 function todayDateString() {
   return new Date().toISOString().slice(0, 10);
@@ -57,6 +79,89 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
   }
 
   return { ownerId: owner.id, userId: user.id };
+}
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> | { id: string } },
+) {
+  const params = await Promise.resolve(context.params);
+  const parsedParams = paramsSchema.safeParse(params);
+
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Invalid tenant id." }, { status: 400 });
+  }
+
+  const ctx = await getOwnerContext();
+  if (ctx instanceof NextResponse) {
+    return ctx;
+  }
+
+  const admin = createAdminClient();
+
+  const { data: tenant, error: tenantError } = await admin
+    .from("tenants")
+    .select(
+      "id, owner_id, hostel_id, room_id, full_name, email, phone, status, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state)",
+    )
+    .eq("id", parsedParams.data.id)
+    .eq("owner_id", ctx.ownerId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (tenantError) {
+    return NextResponse.json({ error: tenantError.message }, { status: 500 });
+  }
+
+  if (!tenant) {
+    return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
+  }
+
+  // @ts-expect-error supabase nested select type
+  const hostel = tenant.hostels as {
+    name: string;
+    city: string;
+    state: string;
+  } | null;
+  const completion = getTenantProfileCompletion(tenant);
+
+  const [profilePhotoUrl, aadharFrontUrl, aadharBackUrl, alternateIdUrl] =
+    await Promise.all([
+      createSignedUrl(tenant.profile_photo_path, admin),
+      createSignedUrl(tenant.aadhar_front_path, admin),
+      createSignedUrl(tenant.aadhar_back_path, admin),
+      createSignedUrl(tenant.alternate_id_path, admin),
+    ]);
+
+  return NextResponse.json({
+    tenant: {
+      id: tenant.id,
+      hostel_id: tenant.hostel_id,
+      hostel_name: hostel?.name ?? "Property",
+      hostel_location:
+        [hostel?.city, hostel?.state].filter(Boolean).join(", ") || null,
+      room_id: tenant.room_id,
+      full_name: tenant.full_name,
+      email: tenant.email,
+      phone: tenant.phone,
+      status: tenant.status,
+      occupation_type: tenant.occupation_type,
+      institution_name: tenant.institution_name,
+      aadhar_number: tenant.aadhar_number,
+      profile_photo_url: profilePhotoUrl,
+      aadhar_front_url: aadharFrontUrl,
+      aadhar_back_url: aadharBackUrl,
+      alternate_id_url: alternateIdUrl,
+      profile_completion_percentage: completion.percentage,
+      profile_completion_missing: completion.missingFields,
+      agreed_rent_amount: tenant.agreed_rent_amount,
+      join_date: tenant.join_date,
+      move_out_date: tenant.move_out_date,
+      first_activated_at: tenant.first_activated_at,
+      created_at: tenant.created_at,
+      updated_at: tenant.updated_at,
+    },
+  });
 }
 
 export async function PATCH(
@@ -93,7 +198,7 @@ export async function PATCH(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, status, agreed_rent_amount, join_date, move_out_date, full_name, phone",
+      "id, owner_id, hostel_id, room_id, status, agreed_rent_amount, join_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -119,8 +224,25 @@ export async function PATCH(
     input.joinDate === undefined ? tenant.join_date : input.joinDate;
   let nextMoveOutDate =
     input.moveOutDate === undefined ? tenant.move_out_date : input.moveOutDate;
+  let nextFirstActivatedAt = tenant.first_activated_at;
 
   if (nextStatus === "active") {
+    const completion = getTenantProfileCompletion({
+      ...tenant,
+      full_name:
+        input.fullName !== undefined ? input.fullName.trim() : tenant.full_name,
+      phone: input.phone !== undefined ? input.phone || null : tenant.phone,
+    });
+    if (completion.percentage < 100) {
+      return NextResponse.json(
+        {
+          error:
+            "Tenant profile must be 100% complete before activation. Ask tenant to complete all required profile and ID uploads.",
+        },
+        { status: 400 },
+      );
+    }
+
     if (!nextRoomId) {
       return NextResponse.json(
         { error: "Assign a room before setting tenant status to active." },
@@ -138,10 +260,22 @@ export async function PATCH(
     if (!nextJoinDate) {
       nextJoinDate = todayDateString();
     }
+    if (!nextFirstActivatedAt) {
+      nextFirstActivatedAt = new Date().toISOString();
+    }
     nextMoveOutDate = null;
   }
 
   if (nextStatus === "moved_out") {
+    if (!tenant.first_activated_at && tenant.status !== "active") {
+      return NextResponse.json(
+        {
+          error:
+            "Moved out is allowed only for tenants that were activated earlier.",
+        },
+        { status: 400 },
+      );
+    }
     nextRoomId = null;
     if (!nextMoveOutDate) {
       nextMoveOutDate = todayDateString();
@@ -213,6 +347,7 @@ export async function PATCH(
     agreed_rent_amount: number | null;
     join_date: string | null;
     move_out_date: string | null;
+    first_activated_at: string | null;
     updated_at: string;
   } = {
     status: nextStatus,
@@ -220,6 +355,7 @@ export async function PATCH(
     agreed_rent_amount: nextAgreedRentAmount,
     join_date: nextJoinDate,
     move_out_date: nextMoveOutDate,
+    first_activated_at: nextFirstActivatedAt,
     updated_at: new Date().toISOString(),
   };
 
@@ -280,13 +416,14 @@ export async function PATCH(
       agreed_rent_amount: nextAgreedRentAmount,
       join_date: nextJoinDate,
       move_out_date: nextMoveOutDate,
+      first_activated_at: nextFirstActivatedAt,
     },
   });
 
   const { data: updatedTenant, error: fetchError } = await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, join_date, move_out_date, created_at, updated_at",
+      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at",
     )
     .eq("id", tenant.id)
     .maybeSingle();

@@ -2,9 +2,16 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { BadgeCheck, Building2, LogOut, Sparkles } from "lucide-react";
+import { Building2, LogOut, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TenantNav } from "@/components/layout/TenantNav";
+
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  pg: "PG",
+  hostel: "Hostel",
+  coliving: "Co-living",
+  rental: "Rental",
+};
 
 export default async function TenantLayout({
   children,
@@ -23,7 +30,9 @@ export default async function TenantLayout({
   const admin = createAdminClient();
   const { data: tenant } = await admin
     .from("tenants")
-    .select("id, full_name, status, hostel_id, hostels(name)")
+    .select(
+      "id, full_name, status, hostel_id, email, phone, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, hostels(name, address, city, state, pincode, property_type)",
+    )
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -32,18 +41,29 @@ export default async function TenantLayout({
     redirect("/dashboard");
   }
 
-  const hostelName =
+  const hostel =
     // @ts-expect-error supabase nested select type
-    (tenant.hostels as { name: string } | null)?.name ?? "Your Property";
+    (tenant.hostels as {
+      name: string;
+      address: string | null;
+      city: string | null;
+      state: string | null;
+      pincode: string | null;
+      property_type: string | null;
+    } | null) ?? null;
 
-  const statusLabel =
-    tenant.status === "active"
-      ? "Active"
-      : tenant.status === "rejected"
-        ? "Rejected"
-        : tenant.status === "moved_out"
-          ? "Moved Out"
-          : "Pending Approval";
+  const hostelName = hostel?.name ?? "Your Property";
+  const propertyType = hostel?.property_type
+    ? (PROPERTY_TYPE_LABELS[hostel.property_type] ?? hostel.property_type)
+    : null;
+  const propertyAddress = [
+    hostel?.address,
+    hostel?.city,
+    hostel?.state,
+    hostel?.pincode,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -111,10 +131,14 @@ export default async function TenantLayout({
               <p className="line-clamp-1 text-sm font-medium text-foreground">
                 {hostelName}
               </p>
-              <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <BadgeCheck className="h-3 w-3" />
-                {statusLabel}
-              </p>
+              {propertyType ? (
+                <p className="mt-1 text-xs text-muted-foreground">{propertyType}</p>
+              ) : null}
+              {propertyAddress ? (
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {propertyAddress}
+                </p>
+              ) : null}
             </div>
           </div>
 

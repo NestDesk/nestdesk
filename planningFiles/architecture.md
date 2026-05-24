@@ -155,9 +155,40 @@ The app is split into five main layers:
    - Returns list data, summary counts, property filters, and assignable room options
 
 2. src/app/api/tenants/[id]/route.ts
+   - GET returns owner-scoped full tenant profile + signed document URLs for review
    - Owner updates tenant profile fields, status, room assignment, agreed rent, and key dates
    - Enforces owner scope and room occupancy validation
+   - Enforces profile-completion gate for active status transitions
+   - Enforces first-activation prerequisite before moved_out transition
    - Synchronizes room status transitions when assignments change
+
+3. src/app/(dashboard)/tenants/page.tsx
+   - Owner list shows tenant profile pictures from signed URLs
+   - Clicking avatar/review opens a full tenant profile review dialog
+   - Review dialog renders tenant KYC documents and supports approve-as-active action
+
+### Tenant Profile and KYC Workflow
+
+1. src/app/tenant/register/page.tsx
+   - Public tenant account creation form from invite link
+   - Captures occupation type, institution name, and Aadhaar number with checksum validation
+
+2. src/app/api/tenant/register/route.ts
+   - Creates tenant auth account and tenant row with enriched profile fields
+   - Validates Aadhaar checksum and stores normalized Aadhaar + last4
+
+3. src/app/(tenant)/tenant/profile/page.tsx
+   - Tenant self-service profile screen with personal info + KYC upload slots
+   - Shows profile completion percentage and missing requirements
+   - Applies client-side image crop/compression before upload
+
+4. src/app/api/tenant/profile/route.ts
+   - GET returns tenant profile, completion percentage, and signed URLs for private docs
+   - PATCH updates editable fields including Aadhaar with checksum validation
+
+5. src/app/api/tenant/profile/upload/route.ts
+   - Receives processed image uploads and stores them in tenant-documents bucket
+   - Maintains per-doc path pointers on tenant record and rotates old files on replace
 
 ### Notices Workflow
 

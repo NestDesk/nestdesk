@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@supabase/ssr";
 import { validateSupabaseEnv } from "@/lib/supabase/env-check";
+import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
 
 function getClientIp(req: NextRequest): string {
   return (
@@ -28,6 +29,21 @@ const bodySchema = z.object({
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter.")
     .regex(/[a-z]/, "Password must contain at least one lowercase letter.")
     .regex(/[0-9]/, "Password must contain at least one number."),
+  occupationType: z.enum(["student", "working_professional", "business", "other"], {
+    message: "Select a valid occupation type.",
+  }),
+  institutionName: z
+    .string()
+    .min(2, "Institution name must be at least 2 characters.")
+    .max(120),
+  gender: z.enum(["male", "female", "rather_not_say"], {
+    message: "Select a valid gender option.",
+  }),
+  aadharNumber: z
+    .string()
+    .regex(/^\d{12}$/, "Enter a valid 12-digit Aadhaar number.")
+    .optional()
+    .or(z.literal("")),
   consentGiven: z.boolean().refine((v) => v === true, {
     message: "You must agree to the privacy policy to continue.",
   }),
@@ -53,8 +69,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { token, hostelId, fullName, email, phone, password, consentGiven } =
-    parsed.data;
+  const {
+    token,
+    hostelId,
+    fullName,
+    email,
+    phone,
+    password,
+    occupationType,
+    institutionName,
+    gender,
+    aadharNumber,
+    consentGiven,
+  } = parsed.data;
+
+  const normalizedAadhaar = aadharNumber
+    ? normalizeAadhaarNumber(aadharNumber)
+    : null;
+  if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
+    return NextResponse.json(
+      { error: "Invalid Aadhaar number checksum. Please verify and try again." },
+      { status: 400 },
+    );
+  }
   const ip = getClientIp(request);
   const admin = createAdminClient();
 
@@ -175,10 +212,23 @@ export async function POST(request: NextRequest) {
     full_name: fullName,
     email,
     phone: phone || null,
+    occupation_type: occupationType,
+    institution_name: institutionName,
+    gender,
+    aadhar_number: normalizedAadhaar,
+    aadhar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : null,
     status: "pending",
   });
 
   if (tenantError) {
+    if (
+      tenantError.message.toLowerCase().includes("idx_tenants_aadhar_number_unique")
+    ) {
+      return NextResponse.json(
+        { error: "This Aadhaar number is already linked to an existing tenant." },
+        { status: 409 },
+      );
+    }
     // If tenant row insert fails but auth user was created in prod,
     // the verification email is already sent — user can still verify and we
     // can handle orphan cleanup separately. For now return the error.

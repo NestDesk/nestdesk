@@ -51,6 +51,24 @@ The active product flow is:
 - Summary stats show total collected, pending, overdue, and disputed amounts.
 - Tenant payments page is refactored to use the /api/tenant/payments API with summary totals.
 
+11. Tenant registration and profile refinement is now implemented:
+
+- Tenant signup now captures occupation type, institution name, and Aadhaar number.
+- Tenant signup now captures gender via dropdown (male, female, rather not say).
+- Aadhaar numbers are validated using checksum validation before tenant record creation/update.
+- Tenant profile now supports uploads for profile photo, Aadhaar front, Aadhaar back, and alternate ID image.
+- Client-side image pipeline auto-crops document boundaries and compresses uploads before storage.
+- Profile completion percentage is visible in tenant portal (layout, dashboard, and profile screen).
+- Profile completion percentage is also visible in owner tenants management.
+- Tenant activation is now blocked unless profile completion is 100%.
+- Tenant moved-out status is now blocked unless tenant was activated at least once before.
+
+12. Owner tenant verification UX is now expanded:
+
+- Owner tenants list now renders tenant profile pictures (signed URLs from private storage).
+- Clicking tenant profile picture or review action opens full tenant profile review with uploaded KYC documents.
+- Owner can approve tenant profile as active directly from review dialog by assigning room, agreed rent, and join date.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

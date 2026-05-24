@@ -65,8 +65,10 @@ This is important because the application code depends on owners.user_id in:
 5. tenants
    - Stores tenant profile, status, and property/room linkage.
    - Stores agreed_rent_amount for finalized owner-tenant commercial terms.
+   - Stores occupation_type, institution_name, gender, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, and first_activated_at for richer KYC/profile lifecycle checks.
    - Written by tenant registration and owner tenant management APIs.
    - Read by tenant dashboard/profile flows and owner tenant management screen.
+   - Owner tenant management now also reads profile_photo_path / document paths to generate short-lived signed URLs for owner review.
 
 6. login_activity
    - Stores login attempts with email, IP, user agent, and success/failure.
@@ -81,6 +83,12 @@ This is important because the application code depends on owners.user_id in:
    - Stores hashed OTP challenges.
    - Used by phone OTP request/verify endpoints and OTP service helpers.
    - Present even though OTP is not required in the active owner flow.
+10. storage.buckets + storage.objects (Supabase managed)
+
+- Bucket tenant-documents is used for tenant profile and ID image storage.
+- Object naming convention is user-scoped: {auth_user_id}/{doc_type}/{file_name}.
+- Private bucket with RLS policies scoped to authenticated user folder ownership.
+- Owner review APIs use service-role storage access to issue signed URLs for tenant document review in owner portal.
 
 ### Present in Schema but Not Yet Wired into Active UI Flows
 
@@ -111,6 +119,7 @@ Maintenance is now partially wired:
 6. floors and rooms use deleted_at soft deletes instead of hard deletes in the implemented flows.
 7. updated_at triggers are installed for mutable entities.
 8. maintenance_requests status constraint now supports owner workflow statuses including rejected and completed (plus legacy resolved/closed values).
+9. tenants.first_activated_at tracks first time a tenant reaches active state to enforce move-out lifecycle rules.
 
 ## RLS Coverage
 

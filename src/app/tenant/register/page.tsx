@@ -27,6 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
 import { cn } from "@/lib/utils";
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -46,6 +47,26 @@ const tenantRegisterSchema = z
       .regex(/[A-Z]/, "Add at least one uppercase letter.")
       .regex(/[a-z]/, "Add at least one lowercase letter.")
       .regex(/[0-9]/, "Add at least one number."),
+    occupationType: z.enum(
+      ["student", "working_professional", "business", "other"],
+      {
+        message: "Select your occupation type.",
+      },
+    ),
+    institutionName: z
+      .string()
+      .min(2, "Enter your institution or company name.")
+      .max(120),
+    gender: z.enum(["male", "female", "rather_not_say"], {
+      message: "Select your gender option.",
+    }),
+    aadharNumber: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine((v) => !v || (/^\d{12}$/.test(v) && isValidAadhaarNumber(v)), {
+        message: "Enter a valid 12-digit Aadhaar number.",
+      }),
     confirmPassword: z.string(),
     consentGiven: z.boolean().refine((v) => v === true, {
       message: "You must agree to the privacy policy to continue.",
@@ -134,6 +155,19 @@ const PROPERTY_TYPE_LABELS: Record<string, string> = {
   rental: "Rental Property",
 };
 
+const OCCUPATION_LABELS: Record<string, string> = {
+  student: "Student",
+  working_professional: "Working Professional",
+  business: "Business",
+  other: "Other",
+};
+
+const GENDER_LABELS: Record<string, string> = {
+  male: "Male",
+  female: "Female",
+  rather_not_say: "Rather not say",
+};
+
 function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/8 p-3">
@@ -213,11 +247,16 @@ function TenantRegisterPageContent() {
   const {
     register,
     handleSubmit,
+    setValue,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<TenantRegisterForm>({
     resolver: zodResolver(tenantRegisterSchema),
-    defaultValues: { consentGiven: false },
+    defaultValues: {
+      consentGiven: false,
+      occupationType: "student",
+      gender: "rather_not_say",
+    },
   });
 
   useEffect(() => {
@@ -237,6 +276,12 @@ function TenantRegisterPageContent() {
           email: data.email,
           phone: data.phone,
           password: data.password,
+          occupationType: data.occupationType,
+          institutionName: data.institutionName,
+          gender: data.gender,
+          aadharNumber: data.aadharNumber
+            ? normalizeAadhaarNumber(data.aadharNumber)
+            : "",
           consentGiven: data.consentGiven,
         }),
       });
@@ -352,24 +397,6 @@ function TenantRegisterPageContent() {
                 )}
               </div>
 
-              {/* Email */}
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-white/80">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-xs text-red-400">{errors.email.message}</p>
-                )}
-              </div>
-
               {/* Phone (optional) */}
               <div className="space-y-1.5">
                 <Label htmlFor="phone" className="text-white/80">
@@ -387,6 +414,117 @@ function TenantRegisterPageContent() {
                 />
                 {errors.phone && (
                   <p className="text-xs text-red-400">{errors.phone.message}</p>
+                )}
+              </div>
+
+              {/* Occupation */}
+              <div className="space-y-1.5">
+                <Label htmlFor="occupationType" className="text-white/80">
+                  Occupation type
+                </Label>
+                <select
+                  id="occupationType"
+                  className="block h-10 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  {...register("occupationType")}
+                >
+                  {Object.entries(OCCUPATION_LABELS).map(([value, label]) => (
+                    <option key={value} value={value} className="text-black">
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {errors.occupationType && (
+                  <p className="text-xs text-red-400">
+                    {errors.occupationType.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Institution */}
+              <div className="space-y-1.5">
+                <Label htmlFor="institutionName" className="text-white/80">
+                  Institution name
+                </Label>
+                <Input
+                  id="institutionName"
+                  type="text"
+                  placeholder="College / company / organization"
+                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  {...register("institutionName")}
+                />
+                {errors.institutionName && (
+                  <p className="text-xs text-red-400">
+                    {errors.institutionName.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Gender */}
+              <div className="space-y-1.5">
+                <Label htmlFor="gender" className="text-white/80">
+                  Gender
+                </Label>
+                <select
+                  id="gender"
+                  className="h-10 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  {...register("gender")}
+                >
+                  {Object.entries(GENDER_LABELS).map(([value, label]) => (
+                    <option key={value} value={value} className="text-black">
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {errors.gender && (
+                  <p className="text-xs text-red-400">{errors.gender.message}</p>
+                )}
+              </div>
+
+              {/* Aadhaar */}
+              <div className="space-y-1.5">
+                <Label htmlFor="aadharNumber" className="text-white/80">
+                  Aadhaar number{" "}
+                  <span className="text-white/40 font-normal">(optional)</span>
+                </Label>
+                <Input
+                  id="aadharNumber"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={12}
+                  placeholder="12-digit Aadhaar number"
+                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  {...register("aadharNumber", {
+                    onChange: (e) => {
+                      setValue(
+                        "aadharNumber",
+                        normalizeAadhaarNumber(e.target.value),
+                        { shouldValidate: true },
+                      );
+                    },
+                  })}
+                />
+                {errors.aadharNumber && (
+                  <p className="text-xs text-red-400">
+                    {errors.aadharNumber.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-white/80">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  {...register("email")}
+                />
+                {errors.email && (
+                  <p className="text-xs text-red-400">{errors.email.message}</p>
                 )}
               </div>
 
