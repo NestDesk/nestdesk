@@ -1,0 +1,797 @@
+﻿"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Building2,
+  ChevronRight,
+  Loader2,
+  Minus,
+  Plus,
+  Check,
+  Lock,
+  ArrowLeftRight,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BuildingBlueprint } from "./setup/BuildingBlueprint";
+import { FloorRoomGenerator } from "./setup/FloorRoomGenerator";
+import { autoFloorName, autoPrefix } from "./setup/helpers";
+import type { Floor, Room } from "./setup/types";
+
+type Props = {
+  hostelId: string;
+  initialFloors: Floor[];
+  initialRooms: Room[];
+};
+
+type Step = "building-shell" | "add-rooms" | "blueprint";
+
+export function PropertySetupManager({
+  hostelId,
+  initialFloors,
+  initialRooms,
+}: Props) {
+  const [floors, setFloors] = useState<Floor[]>(initialFloors);
+  const [rooms, setRooms] = useState<Room[]>(initialRooms);
+  const [syncing, setSyncing] = useState(false);
+
+  const [step, setStep] = useState<Step>(() => {
+    if (initialFloors.length > 0 && initialRooms.length > 0) return "blueprint";
+    if (initialFloors.length > 0) return "add-rooms";
+    return "building-shell";
+  });
+
+  const [shellFloorCount, setShellFloorCount] = useState(() =>
+    Math.max(initialFloors.length, 1),
+  );
+  const [shellNames, setShellNames] = useState<string[]>(() => {
+    const count = Math.max(initialFloors.length, 1);
+    return Array.from(
+      { length: count },
+      (_, i) => initialFloors[i]?.name ?? autoFloorName(i),
+    );
+  });
+  const [hasBasement, setHasBasement] = useState(false);
+  const [basementName, setBasementName] = useState("Basement");
+  const [creatingShell, setCreatingShell] = useState(false);
+
+  const [activeFloorId, setActiveFloorId] = useState<string | null>(
+    () => initialFloors[0]?.id ?? null,
+  );
+
+  const [addingFloor, setAddingFloor] = useState(false);
+  const [newFloorName, setNewFloorName] = useState("");
+  const [savingFloor, setSavingFloor] = useState(false);
+
+  async function addSingleFloor() {
+    const name = newFloorName.trim();
+    if (!name) return;
+    if (floors.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+      toast.error(`Floor "${name}" already exists.`);
+      return;
+    }
+    setSavingFloor(true);
+    try {
+      const res = await fetch(`/api/hostels/${hostelId}/floors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        toast.error(payload.error ?? "Failed to add floor.");
+        return;
+      }
+      toast.success(`Floor "${name}" added.`);
+      setNewFloorName("");
+      setAddingFloor(false);
+      await syncFromDatabase(true);
+      // Select the new floor
+      const allRes = await fetch(`/api/hostels/${hostelId}/floors`, {
+        cache: "no-store",
+      });
+      const allPay = await allRes.json();
+      const updated: Floor[] = allPay.floors ?? [];
+      const created = updated.find(
+        (f) => f.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (created) setActiveFloorId(created.id);
+    } catch {
+      toast.error("Network error adding floor.");
+    } finally {
+      setSavingFloor(false);
+    }
+  }
+
+  function updateShellCount(newCount: number) {
+    const clamped = Math.max(1, Math.min(20, newCount));
+    setShellFloorCount(clamped);
+    setShellNames((prev) => {
+      const next = [...prev];
+      while (next.length < clamped) next.push(autoFloorName(next.length));
+      return next.slice(0, clamped);
+    });
+  }
+
+  function removeShellFloor(idx: number) {
+    setShellNames((prev) => prev.filter((_, i) => i !== idx));
+    setShellFloorCount((c) => Math.max(1, c - 1));
+  }
+
+  const syncFromDatabase = useCallback(
+    async (silent = false) => {
+      if (!silent) setSyncing(true);
+      try {
+        const [fr, rr] = await Promise.all([
+          fetch(`/api/hostels/${hostelId}/floors`, { cache: "no-store" }),
+          fetch(`/api/hostels/${hostelId}/rooms`, { cache: "no-store" }),
+        ]);
+        const fp = await fr.json();
+        const rp = await rr.json();
+        if (!fr.ok) {
+          toast.error(fp.error ?? "Failed to load floors.");
+          return;
+        }
+        if (!rr.ok) {
+          toast.error(rp.error ?? "Failed to load rooms.");
+          return;
+        }
+        setFloors((fp.floors ?? []) as Floor[]);
+        setRooms((rp.rooms ?? []) as Room[]);
+      } catch {
+        toast.error("Could not sync setup data.");
+      } finally {
+        if (!silent) setSyncing(false);
+      }
+    },
+    [hostelId],
+  );
+
+  useEffect(() => {
+    syncFromDatabase().catch(() => toast.error("Could not load setup data."));
+  }, [syncFromDatabase]);
+
+  useEffect(() => {
+    if (
+      floors.length > 0 &&
+      (!activeFloorId || !floors.find((f) => f.id === activeFloorId))
+    ) {
+      setActiveFloorId(floors[0].id);
+    }
+  }, [floors, activeFloorId]);
+
+  async function createBuildingShell() {
+    // Collect all floor names from the shell UI (basement first, then regular)
+    const allShellNames = [
+      ...(hasBasement ? [basementName.trim()] : []),
+      ...shellNames.map((n) => n.trim()),
+    ].filter(Boolean);
+
+    // Identify which are genuinely new (not already saved)
+    const savedNames = new Set(floors.map((f) => f.name.toLowerCase()));
+    const toCreate = allShellNames.filter((n) => !savedNames.has(n.toLowerCase()));
+
+    // Detect duplicates among the new names
+    const toLowerSet = new Set<string>();
+    const hasDuplicates = toCreate.some((n) => {
+      const key = n.toLowerCase();
+      if (toLowerSet.has(key)) return true;
+      toLowerSet.add(key);
+      return false;
+    });
+
+    if (hasDuplicates) {
+      toast.error("Please fix duplicate floor names before proceeding.");
+      return;
+    }
+
+    if (toCreate.length === 0) {
+      toast.info("All floors already exist — moving to next step.");
+      setStep("add-rooms");
+      return;
+    }
+
+    const names = allShellNames;
+    if (names.length === 0) {
+      toast.error("Add at least one floor.");
+      return;
+    }
+    setCreatingShell(true);
+    try {
+      for (const name of names) {
+        const res = await fetch(`/api/hostels/${hostelId}/floors`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        const payload = await res.json();
+        if (!res.ok && !payload.error?.toLowerCase().includes("already")) {
+          toast.error(payload.error ?? "Failed to create floor.");
+          return;
+        }
+      }
+      await syncFromDatabase(true);
+      const allRes = await fetch(`/api/hostels/${hostelId}/floors`, {
+        cache: "no-store",
+      });
+      const allPay = await allRes.json();
+      const newFloors: Floor[] = allPay.floors ?? [];
+      if (newFloors.length > 0) setActiveFloorId(newFloors[0].id);
+      toast.success(
+        `${toCreate.length} floor${toCreate.length !== 1 ? "s" : ""} created.`,
+      );
+      setStep("add-rooms");
+    } catch {
+      toast.error("Network error creating floors.");
+    } finally {
+      setCreatingShell(false);
+    }
+  }
+
+  const steps: { key: Step; label: string; num: number }[] = [
+    { key: "building-shell", label: "Building Shell", num: 1 },
+    { key: "add-rooms", label: "Add Rooms", num: 2 },
+    { key: "blueprint", label: "Blueprint", num: 3 },
+  ];
+
+  const stepIndex = steps.findIndex((s) => s.key === step);
+
+  // Detect duplicate shell names among genuinely new floors
+  const hasShellDuplicates = useMemo(() => {
+    const savedNames = new Set(floors.map((f) => f.name.toLowerCase()));
+    const newNames = [
+      ...(hasBasement ? [basementName.trim()] : []),
+      ...shellNames.map((n) => n.trim()),
+    ].filter((n) => n && !savedNames.has(n.toLowerCase()));
+    const seen = new Set<string>();
+    return newNames.some((n) => {
+      const key = n.toLowerCase();
+      if (seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+  }, [hasBasement, basementName, shellNames, floors]);
+
+  return (
+    <div id="floors-section" className="space-y-6">
+      {/* Step indicator */}
+      <div className="flex items-center gap-0">
+        {steps.map((s, i) => {
+          const done = i < stepIndex;
+          const active = s.key === step;
+          return (
+            <div key={s.key} className="flex items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (i < stepIndex) setStep(s.key);
+                  if (s.key === "add-rooms" && floors.length > 0) setStep(s.key);
+                  if (s.key === "blueprint" && floors.length > 0) setStep(s.key);
+                }}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : done
+                      ? "bg-primary/15 text-primary hover:bg-primary/20"
+                      : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                    active ? "bg-white/20" : done ? "bg-primary/20" : "bg-muted"
+                  }`}
+                >
+                  {done ? <Check className="h-3 w-3" /> : s.num}
+                </span>
+                {s.label}
+              </button>
+              {i < steps.length - 1 && (
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+              )}
+            </div>
+          );
+        })}
+        {syncing && (
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Syncing…
+          </div>
+        )}
+      </div>
+
+      {/* ─── STEP 1: Building Shell ────────────────────────────────────────── */}
+      {step === "building-shell" && (
+        <Card className="rounded-2xl border-border/70">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-5 w-5 text-primary" />
+              How many floors does your property have?
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Set the number of floors and confirm their names. We auto-suggest names
+              — edit any you like.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Floor count stepper */}
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl"
+                onClick={() => updateShellCount(shellFloorCount - 1)}
+                disabled={shellFloorCount <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[2ch] text-center text-2xl font-bold tabular-nums">
+                {shellFloorCount}
+              </span>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl"
+                onClick={() => updateShellCount(shellFloorCount + 1)}
+                disabled={shellFloorCount >= 20}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                floor{shellFloorCount !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {/* Basement toggle */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setHasBasement((v) => !v)}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                  hasBasement
+                    ? "border-zinc-400/60 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"
+                    : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                <ArrowLeftRight className="h-4 w-4 opacity-60" />
+                {hasBasement ? "Basement included" : "Include Basement"}
+              </button>
+              <span className="text-xs text-muted-foreground/60">
+                Adds a basement floor at the bottom of your building.
+              </span>
+            </div>
+
+            {/* Building visual — floors stacked, ground at bottom */}
+            <div className="flex flex-col-reverse gap-0 overflow-hidden rounded-2xl border border-border/60">
+              {/* Basement entry (always at visual bottom = first in col-reverse) */}
+              {hasBasement &&
+                (() => {
+                  const bSaved = floors.some(
+                    (f) =>
+                      f.name.toLowerCase() === basementName.trim().toLowerCase(),
+                  );
+                  return (
+                    <div
+                      className={`flex items-center gap-3 border-b border-border/40 px-4 py-2.5 ${
+                        bSaved ? "bg-muted/50 opacity-70" : "bg-zinc-500/5"
+                      }`}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-500/20 text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                        {bSaved ? <Check className="h-3.5 w-3.5" /> : "B"}
+                      </span>
+                      {bSaved ? (
+                        <span className="flex h-8 flex-1 items-center text-sm font-medium opacity-70">
+                          {basementName}
+                        </span>
+                      ) : (
+                        <Input
+                          value={basementName}
+                          onChange={(e) => setBasementName(e.target.value)}
+                          className="h-8 flex-1 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0"
+                          placeholder="Basement"
+                        />
+                      )}
+                      {bSaved ? (
+                        <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          ✓ saved
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded-lg bg-muted px-2 py-1 text-[10px] font-mono text-muted-foreground">
+                          B01…
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+
+              {shellNames.map((name, idx) => {
+                const savedFloor = floors.find(
+                  (f) => f.name.toLowerCase() === name.trim().toLowerCase(),
+                );
+                const alreadySaved = !!savedFloor;
+
+                // Duplicate among new entries (not saved ones)
+                const savedNames = new Set(floors.map((f) => f.name.toLowerCase()));
+                const isDuplicate =
+                  !alreadySaved &&
+                  [
+                    ...(hasBasement ? [basementName.trim()] : []),
+                    ...shellNames.map((n) => n.trim()),
+                  ]
+                    .filter((n) => n && !savedNames.has(n.toLowerCase()))
+                    .filter((n) => n.toLowerCase() === name.trim().toLowerCase())
+                    .length > 1;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0 transition-colors ${
+                      alreadySaved
+                        ? "bg-muted/50 opacity-70"
+                        : isDuplicate
+                          ? "bg-destructive/5"
+                          : idx === 0
+                            ? "bg-primary/5"
+                            : "bg-muted/20"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                        alreadySaved
+                          ? "bg-muted text-muted-foreground"
+                          : idx === 0
+                            ? "bg-primary/20 text-primary"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {alreadySaved ? (
+                        <Lock className="h-3 w-3" />
+                      ) : idx === 0 ? (
+                        "G"
+                      ) : (
+                        idx
+                      )}
+                    </span>
+
+                    {alreadySaved ? (
+                      <span className="flex h-8 flex-1 items-center text-sm font-medium opacity-70">
+                        {name}
+                      </span>
+                    ) : (
+                      <Input
+                        value={name}
+                        onChange={(e) => {
+                          const next = [...shellNames];
+                          next[idx] = e.target.value;
+                          setShellNames(next);
+                        }}
+                        className={`h-8 flex-1 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 ${
+                          isDuplicate ? "text-destructive" : ""
+                        }`}
+                        placeholder={autoFloorName(idx)}
+                      />
+                    )}
+
+                    {alreadySaved && (
+                      <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        ✓ saved
+                      </span>
+                    )}
+                    {isDuplicate && (
+                      <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                        duplicate
+                      </span>
+                    )}
+                    {!alreadySaved && !isDuplicate && (
+                      <span className="shrink-0 rounded-lg bg-muted px-2 py-1 text-[10px] font-mono text-muted-foreground">
+                        {autoPrefix(name, idx)}01…
+                      </span>
+                    )}
+                    {!alreadySaved && shellNames.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeShellFloor(idx)}
+                        className="ml-1 shrink-0 rounded-lg p-1 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Remove floor"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {floors.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ⚠ You already have {floors.length} saved floor
+                {floors.length !== 1 ? "s" : ""} (shown locked above). New names will
+                be added.
+              </p>
+            )}
+
+            {/* Re-add a missing / accidentally deleted floor */}
+            {floors.length > 0 && (
+              <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-3">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Accidentally deleted a floor? Add it back below.
+                </p>
+                {addingFloor ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={newFloorName}
+                      onChange={(e) => setNewFloorName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addSingleFloor();
+                        if (e.key === "Escape") {
+                          setAddingFloor(false);
+                          setNewFloorName("");
+                        }
+                      }}
+                      placeholder="e.g. Ground Floor"
+                      className="h-9 w-44 rounded-xl border border-border/60 bg-background px-3 text-sm outline-none focus:border-primary"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="rounded-xl h-9"
+                      onClick={addSingleFloor}
+                      disabled={savingFloor || !newFloorName.trim()}
+                    >
+                      {savingFloor ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Add Floor"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl h-9"
+                      onClick={() => {
+                        setAddingFloor(false);
+                        setNewFloorName("");
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingFloor(true)}
+                    className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Re-add a floor
+                  </button>
+                )}
+              </div>
+            )}
+
+            {hasShellDuplicates && (
+              <p className="text-xs text-destructive">
+                ✕ Please fix duplicate floor names before proceeding.
+              </p>
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button
+                className="rounded-xl gap-2"
+                onClick={createBuildingShell}
+                disabled={creatingShell || hasShellDuplicates}
+              >
+                {creatingShell ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Building2 className="h-4 w-4" />
+                )}
+                {creatingShell ? "Creating floors…" : "Confirm Building Shell →"}
+              </Button>
+              {floors.length > 0 && (
+                <Button
+                  variant="ghost"
+                  className="rounded-xl"
+                  onClick={() => setStep("add-rooms")}
+                >
+                  Skip — use existing floors
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─── STEP 2: Add Rooms ────────────────────────────────────────────── */}
+      {step === "add-rooms" && (
+        <div className="space-y-4" id="rooms-section">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Add Rooms to Each Floor</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Select a floor tab, bulk-generate rooms, adjust occupancy types, then
+                save.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-xl gap-1.5"
+              onClick={() => setStep("blueprint")}
+            >
+              View Blueprint
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {floors.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/60 py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                No floors yet. Go back to Step 1.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-3 rounded-xl"
+                onClick={() => setStep("building-shell")}
+              >
+                ← Back to Building Shell
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                {floors.map((floor) => {
+                  const floorRooms = rooms.filter((r) => r.floor_id === floor.id);
+                  const totalBeds = floorRooms.reduce(
+                    (sum, r) => sum + r.capacity,
+                    0,
+                  );
+                  const active = activeFloorId === floor.id;
+                  return (
+                    <button
+                      key={floor.id}
+                      type="button"
+                      onClick={() => setActiveFloorId(floor.id)}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {floor.name}
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                          floorRooms.length > 0
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {floorRooms.length} room{floorRooms.length !== 1 ? "s" : ""}
+                        {totalBeds > 0 &&
+                          ` · ${totalBeds} bed${totalBeds !== 1 ? "s" : ""}`}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Inline add-floor */}
+                {addingFloor ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      autoFocus
+                      value={newFloorName}
+                      onChange={(e) => setNewFloorName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") addSingleFloor();
+                        if (e.key === "Escape") {
+                          setAddingFloor(false);
+                          setNewFloorName("");
+                        }
+                      }}
+                      placeholder="Floor name"
+                      className="h-9 w-32 rounded-xl border border-border/60 bg-background px-3 text-sm outline-none focus:border-primary"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="rounded-xl h-9"
+                      onClick={addSingleFloor}
+                      disabled={savingFloor || !newFloorName.trim()}
+                    >
+                      {savingFloor ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Add"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl h-9"
+                      onClick={() => {
+                        setAddingFloor(false);
+                        setNewFloorName("");
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingFloor(true)}
+                    className="flex items-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Floor
+                  </button>
+                )}
+              </div>
+
+              {activeFloorId && floors.find((f) => f.id === activeFloorId) ? (
+                <FloorRoomGenerator
+                  key={activeFloorId}
+                  hostelId={hostelId}
+                  floor={floors.find((f) => f.id === activeFloorId)!}
+                  onSaved={() => syncFromDatabase(true)}
+                  floorRooms={rooms.filter((r) => r.floor_id === activeFloorId)}
+                  existingRoomNumbers={rooms
+                    .filter((r) => r.floor_id !== activeFloorId)
+                    .map((r) => r.room_number)}
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ─── STEP 3: Blueprint ───────────────────────────────────────────── */}
+      {step === "blueprint" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Property Blueprint</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Full floor + room map. Hover any room to edit or delete. Hover a
+                floor label to rename or remove it.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl gap-1.5"
+                onClick={() => {
+                  setStep("add-rooms");
+                  setAddingFloor(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Add Floor
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl gap-1.5"
+                onClick={() => setStep("add-rooms")}
+              >
+                <Plus className="h-4 w-4" />
+                Add Rooms
+              </Button>
+            </div>
+          </div>
+          <BuildingBlueprint
+            hostelId={hostelId}
+            floors={floors}
+            rooms={rooms}
+            onSync={() => syncFromDatabase(true)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

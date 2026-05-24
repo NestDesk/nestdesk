@@ -1,0 +1,105 @@
+NestDesk roadmap and status snapshot
+
+Status legend
+[DONE] Implemented and wired into the app
+[PARTIAL] Exists in schema or code but not fully integrated
+[TODO] Planned but not implemented yet
+
+Current product flow
+[DONE] Register owner account with email/password
+[DONE] Verify email in production via Supabase callback
+[DONE] Sign in with rate limiting and httpOnly cookie session
+[DONE] Complete owner onboarding
+[DONE] Reach dashboard after onboarding
+[DONE] Add property from /hostels/new
+[DONE] Configure floors and rooms from /hostels/[id]/setup
+[DONE] Activate property after minimum setup rules are satisfied
+
+Phase 1 - Foundation and auth
+[DONE] Next.js 14 App Router project structure
+[DONE] Tailwind + Radix/shadcn style component base
+[DONE] Supabase SSR client setup for server and browser
+[DONE] Service-role admin client for protected server mutations
+[DONE] Environment validation helpers for Supabase keys
+[DONE] Auth middleware with public-route bypass for static and auth API traffic
+[DONE] Login rate limiting backed by login_activity table
+[DONE] Login activity persistence with IP and user-agent metadata
+[DONE] Idle logout after 30 minutes of inactivity
+[DONE] Password strength feedback on registration UI
+[PARTIAL] Helmet dependency is installed but not actively applied in Next middleware/runtime
+[TODO] Automated auth regression tests
+
+Phase 2 - Owner onboarding
+[DONE] Single-step owner onboarding form
+[DONE] Prefill API for resumed onboarding sessions
+[DONE] Browser draft persistence for onboarding form
+[DONE] Idempotent owner upsert using owners.user_id
+[DONE] Dashboard gate based on owners.onboarding_completed
+[DONE] Audit log entry for onboarding write
+[PARTIAL] Owner phone OTP request and verification endpoints exist
+[PARTIAL] OTP provider integration exists under lib/otp/providers/msg91.ts
+[TODO] Reconnect OTP verification to the active onboarding/registration flow when required
+
+Phase 3 - Property setup
+[DONE] Property list page with setup readiness and activation state
+[DONE] Add property form and POST /api/hostels
+[DONE] Properties are created inactive by the application flow
+[DONE] Property activation endpoint with owner and readiness checks
+[DONE] Setup hub for building shell, room generation, and blueprint editing
+[DONE] Floor CRUD endpoints
+[DONE] Room CRUD endpoints
+[DONE] Bulk room creation endpoint with duplicate skipping
+[DONE] Soft delete for floors and rooms via deleted_at
+[DONE] Live DB re-sync after setup mutations
+[PARTIAL] Dashboard property overview still uses placeholder summary cards
+[PARTIAL] Audit logging does not yet cover floor/room CRUD
+[TODO] Add real occupancy, rent, and setup aggregates to dashboard cards
+
+Phase 4 - Data model and security
+[DONE] Two-file development DB workflow
+[DONE] Full schema bootstrap in supabase/migrations/001_init_simple.sql
+[DONE] RLS enabled on all core tables
+[DONE] current_owner_id() helper function for owner-scoped policies
+[DONE] updated_at triggers for mutable tables
+[DONE] Unique room number constraint per property for non-deleted rooms
+[DONE] Soft-delete columns on floors, rooms, tenants, notices, and maintenance_requests
+[PARTIAL] Hostels are treated as soft-deletable in some TS/query code, but the hostels table currently has no deleted_at column
+[TODO] Align hostels schema, types, and query assumptions
+
+Phase 5 - Planned product modules not yet wired
+[TODO] Tenant management pages and APIs
+[TODO] Payment collection and receipts
+[TODO] Notices module
+[TODO] Maintenance request module
+[TODO] Settings module
+[TODO] Subscription management and plan enforcement
+[TODO] Consent capture UX on signup or tenant onboarding
+[TODO] Data deletion request flow
+[TODO] Private document storage flow
+
+Current code-backed tables
+[DONE] owners
+[DONE] hostels
+[DONE] floors
+[DONE] rooms
+[DONE] login_activity
+[DONE] audit_logs
+[DONE] phone_otp_challenges
+
+Schema present but not actively used by UI flows
+[PARTIAL] tenants
+[PARTIAL] payments
+[PARTIAL] notices
+[PARTIAL] maintenance_requests
+[PARTIAL] subscriptions
+[PARTIAL] invite_codes
+[PARTIAL] consent_records
+[PARTIAL] data_deletion_requests
+
+Recommended next execution order
+1. Replace dashboard placeholder stats with live property/room/tenant aggregates.
+2. Add tenant management end to end using existing schema.
+3. Extend audit logging to floor and room mutations.
+4. Resolve hostel deleted_at mismatch across schema and app code.
+5. Add payment module basics on top of the existing tables.
+6. Add route-level and API-level regression tests.

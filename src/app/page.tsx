@@ -4,8 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import HeroSvg from "@/components/layout/HeroSvg";
 import { LandingMobileNav } from "@/components/layout/LandingMobileNav";
+import {
+  LandingAccountMenu,
+  type LandingAccountUser,
+} from "@/components/layout/LandingAccountMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/server";
 import {
   Building2,
   Zap,
@@ -21,7 +26,6 @@ import {
   TrendingUp,
   ClipboardList,
   MessageSquare,
-  ChevronRight,
   BadgeCheck,
 } from "lucide-react";
 
@@ -139,7 +143,7 @@ const pricing = [
     description: "For owners just getting started",
     features: ["Up to 10 tenants", "1 property", "Basic payments", "Email support"],
     cta: "Start Free",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: false,
   },
   {
@@ -156,7 +160,7 @@ const pricing = [
       "Activity timeline",
     ],
     cta: "Start Free Trial",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: false,
   },
   {
@@ -174,7 +178,7 @@ const pricing = [
       "Data export (CSV/PDF)",
     ],
     cta: "Start Free Trial",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: true,
   },
   {
@@ -192,7 +196,7 @@ const pricing = [
       "SLA guarantee",
     ],
     cta: "Start Free Trial",
-    ctaHref: "/login",
+    ctaHref: "/register",
     highlighted: false,
   },
   {
@@ -222,18 +226,28 @@ const trustBadges = [
   { icon: TrendingUp, label: "Useful reports" },
 ];
 
-const stats = [
-  { value: "50+", label: "Property Owners" },
-  { value: "1,200+", label: "Tenants Managed" },
-  { value: "₹ 8L+", label: "Rent Collected" },
-  { value: "99.9%", label: "Uptime SLA" },
-];
-
 /* ─────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────── */
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const landingUser: LandingAccountUser | null = user
+    ? {
+        fullName:
+          (user.user_metadata?.full_name as string | undefined)?.trim() ||
+          user.email?.split("@")[0] ||
+          "Owner",
+        email: user.email ?? "",
+        avatarUrl:
+          (user.user_metadata?.avatar_url as string | undefined)?.trim() || null,
+      }
+    : null;
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-background bg-mesh-light dark:bg-mesh-dark">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-background to-background dark:from-primary/[0.1] dark:via-background dark:to-background" />
@@ -298,7 +312,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <LandingMobileNav />
+            <LandingMobileNav user={landingUser} />
             <Link href="/" className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
                 <Building2 className="h-4 w-4 text-white" />
@@ -330,11 +344,17 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
-            <Link href="/login" className="hidden sm:block">
-              <Button variant="ghost" size="sm" className="rounded-xl">
-                Sign in
-              </Button>
-            </Link>
+            {landingUser ? (
+              <div className="hidden sm:block">
+                <LandingAccountMenu user={landingUser} />
+              </div>
+            ) : (
+              <Link href="/login" className="hidden sm:block">
+                <Button variant="ghost" size="sm" className="rounded-xl">
+                  Sign in
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -376,7 +396,7 @@ export default function LandingPage() {
               </p>
 
               <div className="mt-8 flex flex-row flex-wrap gap-4">
-                <Link href="/login">
+                <Link href="/register">
                   <Button
                     size="default"
                     className="h-10 rounded-xl bg-gradient-to-r from-primary to-blue-500 px-6 text-sm font-semibold shadow-lg shadow-primary/30 hover:brightness-110 hover:shadow-primary/50"
@@ -385,14 +405,14 @@ export default function LandingPage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-                <Link href="/dashboard">
+                <Link href="/join">
                   <Button
                     size="default"
                     variant="outline"
                     className="h-10 rounded-xl px-6 text-sm hover:border-primary/40 hover:bg-primary/5"
                   >
-                    View Live Demo
-                    <ChevronRight className="ml-1 h-4 w-4" />
+                    <Users className="mr-2 h-4 w-4" />
+                    Join as Tenant
                   </Button>
                 </Link>
               </div>
@@ -425,7 +445,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats ──────────────────────────────── */}
-      <section className="border-y border-border bg-muted/40">
+      {/* <section className="border-y border-border bg-muted/40">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {stats.map(({ value, label }) => (
@@ -441,7 +461,12 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
+
+      {/* ── Divider ────────────────────────────── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <Separator />
+      </div>
 
       {/* ── Features ───────────────────────────── */}
       <section id="features" className="mx-auto max-w-7xl px-4 py-14 sm:px-6">

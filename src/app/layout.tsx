@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: { default: "NestDesk", template: "%s - NestDesk" },
   description:
     "Modern property management platform for PGs, colives, hostels, and rentals",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

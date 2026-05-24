@@ -1,0 +1,293 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+const onboardingSchema = z.object({
+  // Owner details
+  phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number."),
+  addressLine1: z.string().min(5).max(200),
+  addressLine2: z.string().max(150).optional(),
+  landmark: z.string().max(100).optional(),
+  city: z.string().min(2).max(100),
+  state: z.string().min(2).max(100),
+  ownerPincode: z.string().regex(/^\d{6}$/, "Enter a valid 6-digit pincode."),
+});
+
+type OnboardingOwnerData = {
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  landmark: string;
+  city: string;
+  state: string;
+  ownerPincode: string;
+};
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-real-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown"
+  );
+}
+
+function getUserPhone(user: {
+  phone?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): string | null {
+  const directPhone = user.phone;
+  if (typeof directPhone === "string" && directPhone.trim().length > 0) {
+    return directPhone.trim();
+  }
+
+  const metaPhone = user.user_metadata?.phone;
+  if (typeof metaPhone === "string" && metaPhone.trim().length > 0) {
+    return metaPhone.trim();
+  }
+
+  return null;
+}
+
+function getUserFullName(user: {
+  user_metadata?: Record<string, unknown>;
+}): string | null {
+  const metaFullName = user.user_metadata?.full_name;
+  if (typeof metaFullName === "string" && metaFullName.trim().length >= 2) {
+    return metaFullName.trim();
+  }
+  return null;
+}
+
+function toTenDigitPhone(raw: string | null | undefined): string {
+  return String(raw ?? "")
+    .replace(/\D/g, "")
+    .slice(-10);
+}
+
+function normalizeText(value: string): string {
+  return value.trim();
+}
+
+function normalizeOptionalText(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  const ownerResult = await admin
+    .from("owners")
+    .select(
+      "id, full_name, phone, address_line1, address_line2, landmark, city, state, pincode, onboarding_completed",
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (ownerResult.error) {
+    return NextResponse.json({ error: ownerResult.error.message }, { status: 500 });
+  }
+
+  const owner = ownerResult.data;
+  if (!owner) {
+    return NextResponse.json({
+      success: true,
+      ownerName:
+        getUserFullName({ user_metadata: user.user_metadata }) ||
+        user.email?.split("@")[0] ||
+        "Owner",
+      onboardingCompleted: false,
+      ownerData: null,
+      hostelData: null,
+    });
+  }
+
+  const hostelResult = await admin
+    .from("hostels")
+    .select("name, property_type, address, city, state, pincode, total_rooms")
+    .eq("owner_id", owner.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (hostelResult.error) {
+    return NextResponse.json({ error: hostelResult.error.message }, { status: 500 });
+  }
+
+  const ownerData: OnboardingOwnerData | null = {
+    phone: toTenDigitPhone(owner.phone),
+    addressLine1: owner.address_line1 ?? "",
+    addressLine2: owner.address_line2 ?? "",
+    landmark: owner.landmark ?? "",
+    city: owner.city ?? "",
+    state: owner.state ?? "",
+    ownerPincode: owner.pincode ?? "",
+  };
+
+  const hostel = hostelResult.data;
+  const hostelData = hostel
+    ? {
+        hostelName: hostel.name,
+        propertyType: hostel.property_type,
+        address: hostel.address,
+        hostelCity: hostel.city,
+        hostelState: hostel.state,
+        pincode: hostel.pincode,
+        totalRooms: hostel.total_rooms,
+      }
+    : null;
+
+  return NextResponse.json({
+    success: true,
+    ownerName: owner.full_name,
+    onboardingCompleted: owner.onboarding_completed,
+    ownerData,
+    hostelData,
+  });
+}
+
+export async function POST(request: NextRequest) {
+  // ── 1. Verify authenticated session ────────────────────────────────────
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  // ── 2. Parse + validate body ────────────────────────────────────────────
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const parsed = onboardingSchema.safeParse(body);
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message ?? "Validation failed.";
+    return NextResponse.json({ error: firstError }, { status: 400 });
+  }
+
+  const data = parsed.data;
+  const ip = getClientIp(request);
+  const admin = createAdminClient();
+  const phoneFromAuth = getUserPhone({
+    phone: user.phone,
+    user_metadata: user.user_metadata,
+  });
+
+  const inputDigits = String(data.phone ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
+  const authDigits = String(phoneFromAuth ?? "")
+    .replace(/\D/g, "")
+    .slice(-10);
+  const normalizedPhone = `+91${inputDigits || authDigits}`;
+
+  // ── 3. Check if owner already onboarded (idempotency guard) ────────────
+  const existingByUserId = await admin
+    .from("owners")
+    .select("id, onboarding_completed")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingByUserId.error) {
+    return NextResponse.json(
+      { error: existingByUserId.error.message },
+      { status: 500 },
+    );
+  }
+
+  const existing = existingByUserId.data;
+
+  if (existing?.onboarding_completed) {
+    return NextResponse.json(
+      { success: true, redirectTo: "/dashboard" },
+      { status: 200 },
+    );
+  }
+
+  // ── 4. Save owner profile ───────────────────────────────────────────────
+  const ownerPayload = {
+    user_id: user.id,
+    full_name: getUserFullName(user) || "Owner",
+    email: user.email?.trim().toLowerCase() ?? null,
+    phone: normalizedPhone,
+    address_line1: normalizeText(data.addressLine1),
+    address_line2: normalizeOptionalText(data.addressLine2),
+    landmark: normalizeOptionalText(data.landmark),
+    city: normalizeText(data.city),
+    state: normalizeText(data.state),
+    pincode: data.ownerPincode,
+    kyc_address_verified: false,
+    phone_verified: false,
+    phone_verified_at: null,
+    onboarding_completed: existing?.onboarding_completed ?? false,
+  };
+
+  const ownerResult = await admin
+    .from("owners")
+    .upsert(ownerPayload, { onConflict: "user_id" })
+    .select("id")
+    .single();
+
+  if (ownerResult.error || !ownerResult.data) {
+    return NextResponse.json(
+      {
+        error: ownerResult.error?.message ?? "Failed to save owner profile.",
+      },
+      { status: 500 },
+    );
+  }
+
+  const owner = ownerResult.data;
+
+  // ── 5. Mark onboarding complete ─────────────────────────────────────────
+  const { error: completionError } = await admin
+    .from("owners")
+    .update({ onboarding_completed: true })
+    .eq("id", owner.id);
+
+  if (completionError) {
+    return NextResponse.json(
+      { error: "Failed to finalize onboarding." },
+      { status: 500 },
+    );
+  }
+
+  // ── 6. Write audit log ──────────────────────────────────────────────────
+  await admin.from("audit_logs").insert({
+    owner_id: owner.id,
+    user_id: user.id,
+    action: existing ? "UPDATE" : "CREATE",
+    table_name: "owners",
+    record_id: owner.id,
+    new_value: {
+      full_name: getUserFullName(user) || "Owner",
+      phone: normalizedPhone,
+      address_line1: normalizeText(data.addressLine1),
+      address_line2: normalizeOptionalText(data.addressLine2),
+      landmark: normalizeOptionalText(data.landmark),
+      city: normalizeText(data.city),
+      state: normalizeText(data.state),
+      pincode: data.ownerPincode,
+    },
+    ip_address: ip,
+  });
+
+  return NextResponse.json({ success: true, redirectTo: "/dashboard" });
+}
