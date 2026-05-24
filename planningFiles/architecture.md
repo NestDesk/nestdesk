@@ -46,20 +46,30 @@ The app is split into five main layers:
 5. src/app/(auth)/verify-email/page.tsx
    - Post-registration verification instruction screen
 
-6. src/app/auth/callback/route.ts
-   - Exchanges Supabase email verification code for a session
-   - Redirects to onboarding or dashboard
+6. src/app/(auth)/forgot-password/page.tsx
+   - Public password recovery request screen
+   - Uses the auth API to send reset links without exposing account existence
 
-7. src/app/privacy/page.tsx
+7. src/app/(auth)/reset-password/page.tsx
+   - Secure password reset screen reached from email recovery links
+   - Requires a recovery session established by the auth callback
+
+8. src/app/auth/callback/route.ts
+   - Exchanges Supabase email verification code for a session
+   - Also verifies recovery tokens and redirects to the reset-password screen
+
+9. src/app/privacy/page.tsx
    - Public Privacy Policy page
 
-8. src/app/terms/page.tsx
-   - Public Terms of Service page
+10. src/app/terms/page.tsx
 
-9. src/app/cookies/page.tsx
-   - Public Cookie Policy page
+- Public Terms of Service page
 
-10. src/app/refund/page.tsx
+11. src/app/cookies/page.tsx
+
+- Public Cookie Policy page
+
+12. src/app/refund/page.tsx
 
 - Public Refund Policy page
 

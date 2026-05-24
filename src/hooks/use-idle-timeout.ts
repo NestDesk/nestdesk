@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1_000; // 30 minutes
 const WATCHED_EVENTS = [
@@ -13,7 +12,6 @@ const WATCHED_EVENTS = [
 ] as const;
 
 export function useIdleTimeout() {
-  const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const signOut = useCallback(async () => {
@@ -23,7 +21,7 @@ export function useIdleTimeout() {
       // Best-effort — proceed to redirect regardless
     }
     window.location.replace("/");
-  }, [router]);
+  }, []);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
