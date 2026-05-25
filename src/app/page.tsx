@@ -23,7 +23,6 @@ import {
   CheckCircle2,
   Star,
   Globe,
-  TrendingUp,
   ClipboardList,
   MessageSquare,
   BadgeCheck,
@@ -37,78 +36,78 @@ import {
 const features = [
   {
     icon: Users,
-    title: "Tenant Management",
+    title: "Tenant Lifecycle Management",
     description:
-      "Onboard tenants digitally with complete profiles, contact details, and stay history in one place.",
+      "Manage onboarding, profile completion, approvals, move-outs, and room assignment from one owner workspace.",
   },
   {
     icon: Building2,
-    title: "Room & Floor Control",
+    title: "Property Setup & Occupancy",
     description:
-      "Visual occupancy grid across all floors. Track vacancies, assign rooms, and manage capacity in real time.",
+      "Create floors and rooms, set capacity, and monitor live occupancy with property and floor-level visibility.",
   },
   {
     icon: CreditCard,
-    title: "Payments & Receipts",
+    title: "Rent Payments & Billing Periods",
     description:
-      "AccSend payment confirmations and receipts automatically.",
+      "Record and update rent payments, track billing periods, set statuses, and manage receipt records in one flow.",
   },
   {
     icon: Bell,
-    title: "Smart Notifications",
+    title: "Notices for Tenants",
     description:
-      "Automated rent reminders via WhatsApp and email so you spend less time chasing payments.",
+      "Create, publish, unpublish, and manage property notices with separate owner and tenant views.",
   },
   {
     icon: ClipboardList,
-    title: "Activity Timeline",
+    title: "Owner Operations Console",
     description:
-      "Track key actions like bookings, room changes, and payments with a clear activity history.",
+      "Run daily operations across tenants, rooms, payments, maintenance, notices, and owner profile from a single dashboard.",
   },
   {
     icon: BarChart3,
-    title: "Financial Dashboard",
+    title: "Expense Tracking",
     description:
-      "Monthly P&L, collection efficiency, and exportable reports. Your CA will love the clean CSV export.",
+      "Track property expenses with category and status controls, then monitor spend using built-in owner analytics cards.",
   },
   {
     icon: FileText,
-    title: "Document Storage",
+    title: "Tenant KYC Documents",
     description:
-      "Store tenant documents securely and find them quickly whenever you need them.",
+      "Review tenant-uploaded profile photos and ID proofs with secure signed URLs in the owner review flow.",
   },
   {
     icon: MessageSquare,
     title: "Maintenance Requests",
     description:
-      "Tenants raise issues from their portal. You track, assign, and resolve — all with full timestamp history.",
+      "Tenants raise issues from their portal while owners update status and add comments with full request history.",
   },
   {
-    icon: TrendingUp,
-    title: "Subscription Tiers",
+    icon: User,
+    title: "Owner Profile & Account",
     description:
-      "Start free, scale as you grow. Upgrade or downgrade any time. Data always retained, never lost on plan change.",
+      "Keep owner contact details updated from the profile page with inline editing and validated save flows.",
   },
 ];
 
 const steps = [
   {
     step: "01",
-    title: "Set up your property",
+    title: "Create your owner workspace",
     description:
-      "Add your property, configure floors and rooms, and invite your first tenant in under 10 minutes.",
+      "Register, complete onboarding, and set up your owner profile to unlock the full dashboard.",
   },
   {
     step: "02",
-    title: "Tenants onboard themselves",
+    title: "Set up properties, floors, and rooms",
     description:
-      "Share a unique invite link. Tenants fill their profile, upload documents, and give consent — digitally.",
+      "Add your hostels, configure room capacity, and prepare occupancy before moving tenants in.",
   },
   {
     step: "03",
-    title: "Manage everything from one dashboard",
+    title: "Run daily operations from one place",
     description:
-      "Collect rent, send reminders, track maintenance, and generate receipts from one simple dashboard.",
+      "Manage tenants, payments, notices, maintenance, and expenses from a single operational command center.",
   },
 ];
 
@@ -132,7 +131,7 @@ const testimonials = [
     role: "Owner, City Stay PG, Ahmedabad",
     initials: "AP",
     quote:
-      "My CA asked for 6 months of payment records. I exported a CSV in 30 seconds. That never happened with my old system.",
+      "The tenant review flow and payment tracking are much clearer now. I can check room occupancy and tenant status in minutes.",
   },
 ];
 
@@ -141,44 +140,48 @@ const pricing = [
     name: "Free",
     price: "0",
     period: "forever",
-    description: "For owners just getting started",
-    features: ["Up to 10 tenants", "1 property", "Basic payments", "Email support"],
+    description: "Best for a single small property",
+    features: [
+      "1 property",
+      "Up to 10 tenants",
+      "Tenants, Payments, Notices, Maintenance",
+      "Basic owner support",
+    ],
     cta: "Start Free",
     ctaHref: "/register",
     highlighted: false,
   },
   {
     name: "Starter",
-    price: "599",
+    price: "699",
     period: "month",
-    description: "For growing PGs and properties",
+    description: "For growing hostels and PGs",
     features: [
-      "Up to 75 tenants",
       "1 property",
-      "Razorpay payments",
-      "WhatsApp reminders",
-      "Document storage",
-      "Activity timeline",
+      "Up to 120 tenants",
+      "Everything in Free",
+      "Occupancy and Expense modules",
+      "Tenant profile and KYC review",
     ],
-    cta: "Start Free Trial",
+    cta: "Choose Starter",
     ctaHref: "/register",
     highlighted: false,
   },
   {
     name: "Pro",
-    price: "1,199",
+    price: "1,399",
     period: "month",
-    description: "Most popular for established operators",
+    description: "Most popular for multi-property operators",
     features: [
-      "Up to 100 tenants each",
-      "2 properties",
-      "Everything in Starter",
-      "Professional receipts",
-      "Financial reports",
-      "Priority support",
-      "Data export (CSV/PDF)",
+      "Up to 2 properties",
+      "Up to 150 tenants in each",
+      "Occupancy and Expense modules",
+      "Tenant profile and KYC review",
+      "Dedicated onboarding",
+      "Tenants, Payments, Notices, Maintenance",
+      "Operational review support",
     ],
-    cta: "Start Free Trial",
+    cta: "Choose Pro",
     ctaHref: "/register",
     highlighted: true,
   },
@@ -186,17 +189,17 @@ const pricing = [
     name: "Business",
     price: "2,499",
     period: "month",
-    description: "For chains and large operators",
+    description: "For larger chains and operations teams",
     features: [
-      "100 tenants in each",
-      "5 properties",
-      "Everything in Pro",
-      "Custom branding",
+      "Up to 4 properties",
+      "Up to 180 tenants in each",
+      "Occupancy and Expense modules",
+      "Tenant profile and KYC review",
       "Dedicated onboarding",
-      "Phone support",
-      "SLA guarantee",
+      "Tenants, Payments, Notices, Maintenance",
+      "Operational review support",
     ],
-    cta: "Start Free Trial",
+    cta: "Choose Business",
     ctaHref: "/register",
     highlighted: false,
   },
@@ -207,11 +210,13 @@ const pricing = [
     description: "For very large chains and custom operations",
     features: [
       "Unlimited properties",
-      "Multi-location setup",
-      "Custom integrations",
-      "Dedicated account manager",
-      "Priority onboarding and migration",
-      "Custom SLA",
+      "High-volume tenant operations",
+      "Occupancy and Expense modules",
+      "Tenant profile and KYC review",
+      "Tenants, Payments, Notices, Maintenance",
+      "Custom onboarding and migration",
+      "Dedicated success coordination",
+      "Custom rollout planning",
     ],
     cta: "Contact Sales",
     ctaHref: "mailto:support@nestdesk.in",
@@ -222,9 +227,9 @@ const pricing = [
 const trustBadges = [
   { icon: BadgeCheck, label: "Setup in under 10 minutes" },
   { icon: Zap, label: "Fast rent tracking" },
-  { icon: MessageSquare, label: "WhatsApp reminders" },
-  { icon: ClipboardList, label: "Clear tenant records" },
-  { icon: TrendingUp, label: "Useful reports" },
+  { icon: Users, label: "Owner + tenant portals" },
+  { icon: Building2, label: "Live occupancy visibility" },
+  { icon: MessageSquare, label: "Maintenance workflow" },
 ];
 
 /* ─────────────────────────────────────────────
@@ -582,11 +587,11 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex flex-col items-center text-center">
             <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Plans that grow with you
+              Clear plans based on your current scale
             </h2>
             <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              Start free. Upgrade when you need more. Your data is always yours — we
-              never delete it on plan changes.
+              Every plan includes the core NestDesk workflows. Higher plans add
+              capacity and hands-on support for larger operations.
             </p>
           </div>
 
@@ -677,8 +682,8 @@ export default async function LandingPage() {
           </div>
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
-            Paid plans include a 14-day free trial &bull; No credit card required
-            &bull; Cancel any time
+            Need a custom rollout for large operations? Contact support for an
+            enterprise plan tailored to your property network.
           </p>
         </div>
       </section>

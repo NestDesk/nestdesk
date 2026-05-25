@@ -294,7 +294,7 @@ export async function PATCH(
   if (nextRoomId) {
     const { data: room, error: roomError } = await admin
       .from("rooms")
-      .select("id, status")
+      .select("id, status, capacity")
       .eq("id", nextRoomId)
       .eq("hostel_id", tenant.hostel_id)
       .is("deleted_at", null)
@@ -318,22 +318,23 @@ export async function PATCH(
       );
     }
 
-    const { data: activeOccupant, error: occupantError } = await admin
+    // Count active tenants in this room (excluding current tenant)
+    const { count: activeOccupantCount, error: occupantError } = await admin
       .from("tenants")
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("room_id", nextRoomId)
       .eq("status", "active")
       .is("deleted_at", null)
-      .neq("id", tenant.id)
-      .maybeSingle();
+      .neq("id", tenant.id);
 
     if (occupantError) {
       return NextResponse.json({ error: occupantError.message }, { status: 500 });
     }
 
-    if (activeOccupant) {
+    // Check if room has available capacity
+    if (activeOccupantCount && activeOccupantCount >= room.capacity) {
       return NextResponse.json(
-        { error: "This room is already assigned to another active tenant." },
+        { error: "This room is at full capacity. No beds available." },
         { status: 409 },
       );
     }

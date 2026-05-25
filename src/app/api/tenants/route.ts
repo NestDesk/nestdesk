@@ -95,7 +95,7 @@ export async function GET() {
 
   const { data: rooms, error: roomsError } = await admin
     .from("rooms")
-    .select("id, hostel_id, room_number, status")
+    .select("id, hostel_id, room_number, status, capacity")
     .in("hostel_id", hostelIds)
     .is("deleted_at", null)
     .order("room_number", { ascending: true });
@@ -129,9 +129,26 @@ export async function GET() {
 
   const roomMap = new Map((rooms ?? []).map((room) => [room.id, room]));
 
+  // Count active tenants per room (only active tenants occupy beds)
+  const occupancyPerRoom = new Map<string, number>();
+  for (const tenant of tenants ?? []) {
+    if (tenant.room_id && tenant.status === "active") {
+      occupancyPerRoom.set(
+        tenant.room_id,
+        (occupancyPerRoom.get(tenant.room_id) ?? 0) + 1,
+      );
+    }
+  }
+
   const roomsByHostel: Record<
     string,
-    Array<{ id: string; room_number: string; status: string }>
+    Array<{
+      id: string;
+      room_number: string;
+      status: string;
+      capacity: number;
+      occupancy: number;
+    }>
   > = {};
 
   for (const room of rooms ?? []) {
@@ -142,6 +159,8 @@ export async function GET() {
       id: room.id,
       room_number: room.room_number,
       status: room.status,
+      capacity: room.capacity,
+      occupancy: occupancyPerRoom.get(room.id) ?? 0,
     });
   }
 
