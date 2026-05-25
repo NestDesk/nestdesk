@@ -151,6 +151,17 @@ export default function TenantProfilePage() {
       return;
     }
 
+    const normalizedPhone = phone.trim();
+    if (!normalizedPhone) {
+      toast.error("Phone number is required.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
     const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
     if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
       toast.error("Enter a valid Aadhaar number.");
@@ -264,7 +275,8 @@ export default function TenantProfilePage() {
     !saving &&
     Boolean(normalizedFullName) &&
     Boolean(normalizedInstitutionName) &&
-    (!normalizedPhone || /^\d{10}$/.test(normalizedPhone)) &&
+    Boolean(normalizedPhone) &&
+    /^\d{10}$/.test(normalizedPhone) &&
     isAadhaarValid &&
     hasChanges;
 
@@ -473,8 +485,7 @@ export default function TenantProfilePage() {
             {/* Phone */}
             <div className="space-y-1.5">
               <Label htmlFor="profile-phone">
-                Phone number{" "}
-                <span className="text-muted-foreground font-normal">(optional)</span>
+                Phone number <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="profile-phone"
@@ -485,6 +496,9 @@ export default function TenantProfilePage() {
                 placeholder="10-digit mobile number"
                 className="rounded-xl max-w-sm"
               />
+              {!phone && (
+                <p className="text-xs text-destructive">Phone number is required.</p>
+              )}
               {phone && !/^\d{10}$/.test(phone) && (
                 <p className="text-xs text-destructive">
                   Enter a valid 10-digit phone number.

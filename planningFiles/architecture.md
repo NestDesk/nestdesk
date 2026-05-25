@@ -30,6 +30,8 @@ The app is split into five main layers:
 1. src/app/page.tsx
    - Marketing landing page
    - Detects logged-in user server-side and adjusts account actions
+   - Highlights only currently implemented modules and workflows in the features section
+   - Pricing section is structured by operational scale with clearer paid plan limits
    - Footer legal links open a detailed policy modal for Privacy, Terms, Cookie, and Refund policies
 
 2. src/app/(auth)/layout.tsx
@@ -125,6 +127,12 @@ The app is split into five main layers:
 - Renders property -> floor -> room hierarchy with live tenant allocation details
 - Shows room type, capacity, room status, bed occupancy, rent, and unassigned tenants
 
+13. src/app/(dashboard)/profile/page.tsx
+
+- Owner account profile workspace
+- Displays owner details, contact information, onboarding status, and property snapshot counts
+- Includes inline edit action for owner full name, phone, and address details
+
 ## Layout and UI Shell Components
 
 ### Global Shell
@@ -144,15 +152,19 @@ The app is split into five main layers:
 
 2. src/components/layout/Sidebar.tsx
    - Desktop and mobile navigation source for dashboard areas
-   - Includes owner modules for properties, tenants, occupancy, maintenance, payments, expenses, notices, and settings
+   - Includes owner modules for properties, tenants, occupancy, maintenance, payments, expenses, notices, profile, and settings
 
-3. src/components/layout/TopBar.tsx
+3. src/components/profile/OwnerProfileEditor.tsx
+   - Client-side owner profile edit form with validation and save/cancel actions
+   - Calls owner profile API and refreshes server-rendered profile data after successful save
+
+4. src/components/layout/TopBar.tsx
    - Theme toggle, profile menu, logout action, and mobile nav trigger
 
-4. src/components/auth/IdleTimeoutEnforcer.tsx
+5. src/components/auth/IdleTimeoutEnforcer.tsx
    - Invisible component that activates logout-on-idle
 
-5. src/hooks/use-idle-timeout.ts
+6. src/hooks/use-idle-timeout.ts
    - Watches browser events and triggers logout after 30 minutes
 
 ### Tenant Shell

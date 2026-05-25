@@ -10,6 +10,7 @@ import {
   FileImage,
   IndianRupee,
   Loader2,
+  Plus,
   Search,
   ShieldCheck,
   User,
@@ -65,6 +66,8 @@ type RoomSummary = {
   id: string;
   room_number: string;
   status: string;
+  capacity: number;
+  occupancy: number;
 };
 
 type TenantsResponse = {
@@ -226,6 +229,27 @@ export default function OwnerTenantsPage() {
     joinDate: "",
   });
 
+  const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
+  const [recordPaymentTenantId, setRecordPaymentTenantId] = useState<string | null>(
+    null,
+  );
+  const [paymentRecordingSaving, setPaymentRecordingSaving] = useState(false);
+  const [paymentRecordingDraft, setPaymentRecordingDraft] = useState<{
+    amount: string;
+    startDate: string;
+    endDate: string;
+    method: string;
+    notes: string;
+    status: "pending" | "paid" | "overdue" | "disputed";
+  }>({
+    amount: "",
+    startDate: "",
+    endDate: "",
+    method: "cash",
+    notes: "",
+    status: "paid",
+  });
+
   async function loadTenants() {
     setLoading(true);
     try {
@@ -316,19 +340,15 @@ export default function OwnerTenantsPage() {
     });
   }
 
-  function availableRooms(tenant: TenantRow) {
-    const allRooms = roomsByHostel[tenant.hostel_id] ?? [];
-    return allRooms.filter((room) => {
-      if (room.id === tenant.room_id) return true;
-      return room.status === "vacant";
-    });
-  }
-
-  function availableRoomsForHostel(hostelId: string, roomId: string | null) {
+  function allRoomsForHostel(hostelId: string, currentRoomId: string | null = null) {
     const allRooms = roomsByHostel[hostelId] ?? [];
-    return allRooms.filter((room) => {
-      if (room.id === roomId) return true;
-      return room.status === "vacant";
+    return allRooms.sort((a, b) => {
+      const aAvailable = a.capacity - a.occupancy;
+      const bAvailable = b.capacity - b.occupancy;
+      // Current room first, then sort by available beds descending
+      if (a.id === currentRoomId) return -1;
+      if (b.id === currentRoomId) return 1;
+      return bAvailable - aAvailable;
     });
   }
 
@@ -339,13 +359,28 @@ export default function OwnerTenantsPage() {
       return;
     }
 
-    if (draft.status === "active" && !draft.roomId) {
-      toast.error("Assign a room before marking tenant as active.");
+    if (!draft.fullName || !draft.fullName.trim()) {
+      toast.error("Full name is required.");
       return;
     }
 
-    if (draft.status === "active" && !draft.agreedRentAmount) {
-      toast.error("Add agreed rent before marking tenant as active.");
+    if (!draft.phone || !/^\d{10}$/.test(draft.phone.replace(/\D/g, ""))) {
+      toast.error("Valid 10-digit phone number is required.");
+      return;
+    }
+
+    if (!draft.roomId) {
+      toast.error("Room assignment is required.");
+      return;
+    }
+
+    if (!draft.agreedRentAmount) {
+      toast.error("Agreed rent amount is required.");
+      return;
+    }
+
+    if (!draft.joinDate) {
+      toast.error("Join date is required.");
       return;
     }
 
@@ -586,6 +621,93 @@ export default function OwnerTenantsPage() {
     }
   }
 
+  function openRecordPayment(tenant: TenantRow) {
+    setRecordPaymentOpen(true);
+    setRecordPaymentTenantId(tenant.id);
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const startDateStr = firstDay.toISOString().split("T")[0];
+    const endDateStr = lastDay.toISOString().split("T")[0];
+    setPaymentRecordingDraft({
+      amount: tenant.agreed_rent_amount ? String(tenant.agreed_rent_amount) : "",
+      startDate: startDateStr,
+      endDate: endDateStr,
+      method: "cash",
+      notes: "",
+      status: "paid",
+    });
+  }
+
+  function closeRecordPayment() {
+    setRecordPaymentOpen(false);
+    setRecordPaymentTenantId(null);
+    setPaymentRecordingDraft({
+      amount: "",
+      startDate: "",
+      endDate: "",
+      method: "cash",
+      notes: "",
+      status: "paid",
+    });
+  }
+
+  async function savePaymentRecord() {
+    if (!recordPaymentTenantId) {
+      toast.error("Tenant not selected.");
+      return;
+    }
+
+    const amount = parseFloat(paymentRecordingDraft.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Enter a valid payment amount.");
+      return;
+    }
+
+    if (!paymentRecordingDraft.startDate || !paymentRecordingDraft.endDate) {
+      toast.error("Select a billing period.");
+      return;
+    }
+
+    setPaymentRecordingSaving(true);
+    try {
+      const tenant = tenants.find((t) => t.id === recordPaymentTenantId);
+      const startDate = new Date(paymentRecordingDraft.startDate);
+      const month = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+      const payload = {
+        tenant_id: recordPaymentTenantId,
+        hostel_id: tenant?.hostel_id,
+        amount,
+        month,
+        method: paymentRecordingDraft.method || null,
+        notes: paymentRecordingDraft.notes.trim() || null,
+        status: paymentRecordingDraft.status,
+      };
+
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not record payment.");
+        return;
+      }
+
+      toast.success("Payment recorded successfully.");
+      closeRecordPayment();
+      loadTenants().catch(() => {
+        // fallback
+      });
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setPaymentRecordingSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -784,7 +906,7 @@ export default function OwnerTenantsPage() {
                     </div>
 
                     {/* Right: property / dates / actions */}
-                    <div className="flex flex-1 flex-col justify-between gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
+                    <div className="flex flex-1 flex-col justify-start gap-3 px-4 py-3.5">
                       {/* Meta */}
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -811,58 +933,82 @@ export default function OwnerTenantsPage() {
                         ) : null}
                       </div>
 
-                      {/* Right side: badge + manage */}
-                      <div className="flex shrink-0 items-center gap-2.5">
-                        <span
-                          className={cn(
-                            "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                            tenant.profile_completion_percentage >= 100
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
-                              : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
-                          )}
-                        >
-                          Profile {tenant.profile_completion_percentage}%
-                        </span>
-                        <Badge
-                          className={cn(
-                            "text-[11px]",
-                            STATUS_CHIP_CLASS[tenant.status],
-                          )}
-                        >
-                          {statusLabel(tenant.status)}
-                        </Badge>
+                      {/* Right side: badges on top, buttons below */}
+                      <div className="flex flex-col gap-2.5">
+                        {/* Row 1: Profile % and Status chips */}
+                        <div className="flex shrink-0 items-center gap-2.5">
+                          <span
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                              tenant.profile_completion_percentage >= 100
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
+                            )}
+                          >
+                            Profile {tenant.profile_completion_percentage}%
+                          </span>
+                          <Badge
+                            className={cn(
+                              "text-[11px]",
+                              STATUS_CHIP_CLASS[tenant.status],
+                            )}
+                          >
+                            {statusLabel(tenant.status)}
+                          </Badge>
+                        </div>
 
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 rounded-lg border-border px-3 text-xs font-medium"
-                          onClick={() => openReview(tenant)}
-                        >
-                          Review Profile
-                        </Button>
-
-                        {!isEditing ? (
+                        {/* Row 2: Action buttons */}
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-8 rounded-lg border-border px-3 text-xs font-medium hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-                            onClick={() => startEdit(tenant)}
+                            className="h-8 rounded-lg border-border px-3 text-xs font-medium"
+                            onClick={() => openReview(tenant)}
                           >
-                            Manage
+                            Review Profile
                           </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 rounded-lg p-0 text-muted-foreground hover:text-foreground"
-                            onClick={cancelEdit}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
+
+                          {!isEditing ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-lg border-border px-3 text-xs font-medium hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                                onClick={() => startEdit(tenant)}
+                              >
+                                Manage
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-lg border-border px-3 text-xs font-medium gap-1.5 hover:border-emerald-400/40 hover:bg-emerald-500/5 hover:text-emerald-600 dark:hover:text-emerald-400"
+                                onClick={() => openRecordPayment(tenant)}
+                                disabled={tenant.status !== "active"}
+                                title={
+                                  tenant.status !== "active"
+                                    ? "Tenant must be active to record payments"
+                                    : ""
+                                }
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add Payment
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-lg p-0 text-muted-foreground hover:text-foreground"
+                              onClick={cancelEdit}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -882,6 +1028,7 @@ export default function OwnerTenantsPage() {
                               className="text-xs font-medium"
                             >
                               Full Name
+                              <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <Input
                               id={`name-${tenant.id}`}
@@ -898,6 +1045,7 @@ export default function OwnerTenantsPage() {
                               className="text-xs font-medium"
                             >
                               Phone Number
+                              <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <Input
                               id={`phone-${tenant.id}`}
@@ -961,14 +1109,13 @@ export default function OwnerTenantsPage() {
                               className="text-xs font-medium"
                             >
                               Room Assignment
+                              <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <select
                               id={`room-${tenant.id}`}
                               className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                               value={draft.roomId ?? ""}
-                              disabled={
-                                savingId === tenant.id || draft.status !== "active"
-                              }
+                              disabled={savingId === tenant.id}
                               onChange={(e) =>
                                 updateDraft(
                                   tenant.id,
@@ -977,16 +1124,27 @@ export default function OwnerTenantsPage() {
                                 )
                               }
                             >
-                              <option value="">
-                                {draft.status === "active"
-                                  ? "Select a room"
-                                  : "N/A for this status"}
-                              </option>
-                              {availableRooms(tenant).map((room) => (
-                                <option key={room.id} value={room.id}>
-                                  Room {room.room_number}
-                                </option>
-                              ))}
+                              <option value="">Select a room</option>
+                              {(roomsByHostel[tenant.hostel_id] ?? [])
+                                .sort((a, b) => {
+                                  const aNum = parseInt(a.room_number) || 0;
+                                  const bNum = parseInt(b.room_number) || 0;
+                                  return aNum - bNum;
+                                })
+                                .map((room) => {
+                                  const available = room.capacity - room.occupancy;
+                                  const isFull = available === 0;
+                                  return (
+                                    <option
+                                      key={room.id}
+                                      value={room.id}
+                                      disabled={isFull}
+                                    >
+                                      Room {room.room_number} ({room.occupancy}/
+                                      {room.capacity}){isFull ? " - FULL" : ""}
+                                    </option>
+                                  );
+                                })}
                             </select>
                           </div>
 
@@ -996,10 +1154,8 @@ export default function OwnerTenantsPage() {
                               htmlFor={`rent-${tenant.id}`}
                               className="text-xs font-medium"
                             >
-                              Agreed Rent
-                              {draft.status === "active" && (
-                                <span className="ml-1 text-rose-500">*</span>
-                              )}
+                              Agreed Rent per month
+                              <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <div className="relative">
                               <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -1015,13 +1171,7 @@ export default function OwnerTenantsPage() {
                                 }
                                 placeholder="Monthly rent"
                                 disabled={savingId === tenant.id}
-                                className={cn(
-                                  "h-9 pl-8 text-sm",
-                                  draft.status === "active" &&
-                                    !draft.agreedRentAmount
-                                    ? "border-amber-400 focus-visible:ring-amber-400"
-                                    : "",
-                                )}
+                                className="h-9 pl-8 text-sm"
                               />
                             </div>
                           </div>
@@ -1033,40 +1183,20 @@ export default function OwnerTenantsPage() {
                               className="text-xs font-medium"
                             >
                               Join Date
+                              <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <Input
                               id={`join-${tenant.id}`}
                               type="date"
                               value={draft.joinDate}
-                              disabled={
-                                savingId === tenant.id || draft.status !== "active"
-                              }
+                              disabled={savingId === tenant.id}
                               onChange={(e) =>
                                 updateDraft(tenant.id, "joinDate", e.target.value)
                               }
-                              className="h-9 text-sm disabled:opacity-50"
+                              className="h-9 text-sm"
                             />
                           </div>
                         </div>
-
-                        {/* Activation hints */}
-                        {draft.status === "active" &&
-                        (!draft.roomId || !draft.agreedRentAmount) ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {!draft.roomId && (
-                              <p className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
-                                <Clock className="h-3 w-3" />
-                                Room assignment is required to activate.
-                              </p>
-                            )}
-                            {!draft.agreedRentAmount && (
-                              <p className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
-                                <IndianRupee className="h-3 w-3" />
-                                Agreed rent amount is required to activate.
-                              </p>
-                            )}
-                          </div>
-                        ) : null}
                       </div>
 
                       {/* Section: Move-out Date (conditional) */}
@@ -1325,14 +1455,24 @@ export default function OwnerTenantsPage() {
                       disabled={approveSaving || reviewTenant.status === "active"}
                     >
                       <option value="">Select room</option>
-                      {availableRoomsForHostel(
+                      {allRoomsForHostel(
                         reviewTenant.hostel_id,
                         reviewTenant.room_id,
-                      ).map((room) => (
-                        <option key={room.id} value={room.id}>
-                          Room {room.room_number}
-                        </option>
-                      ))}
+                      ).map((room) => {
+                        const available = room.capacity - room.occupancy;
+                        const isFull = available === 0;
+                        return (
+                          <option key={room.id} value={room.id}>
+                            Room {room.room_number} ({room.occupancy}/{room.capacity}
+                            )
+                            {isFull
+                              ? " - FULL"
+                              : available > 0
+                                ? ` - ${available} bed${available > 1 ? "s" : ""} available`
+                                : ""}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -1392,6 +1532,199 @@ export default function OwnerTenantsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={recordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+            <DialogDescription>
+              Record a payment for{" "}
+              {recordPaymentTenantId
+                ? tenants.find((t) => t.id === recordPaymentTenantId)?.full_name
+                : "tenant"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {recordPaymentTenantId &&
+            tenants.find((t) => t.id === recordPaymentTenantId) && (
+              <div className="space-y-4">
+                {/* Amount */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="payment-amount" className="text-xs font-medium">
+                    Amount (₹) <span className="text-rose-500">*</span>
+                  </Label>
+                  <Input
+                    id="payment-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    value={paymentRecordingDraft.amount}
+                    onChange={(e) =>
+                      setPaymentRecordingDraft((prev) => ({
+                        ...prev,
+                        amount: e.target.value,
+                      }))
+                    }
+                    disabled={paymentRecordingSaving}
+                  />
+                </div>
+
+                {/* Billing Period */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Billing Period</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="payment-start-date"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Start Date <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        id="payment-start-date"
+                        type="date"
+                        value={paymentRecordingDraft.startDate}
+                        onChange={(e) =>
+                          setPaymentRecordingDraft((prev) => ({
+                            ...prev,
+                            startDate: e.target.value,
+                          }))
+                        }
+                        disabled={paymentRecordingSaving}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="payment-end-date"
+                        className="text-xs text-muted-foreground"
+                      >
+                        End Date <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        id="payment-end-date"
+                        type="date"
+                        value={paymentRecordingDraft.endDate}
+                        onChange={(e) =>
+                          setPaymentRecordingDraft((prev) => ({
+                            ...prev,
+                            endDate: e.target.value,
+                          }))
+                        }
+                        disabled={paymentRecordingSaving}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Method + Status */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="payment-method" className="text-xs font-medium">
+                      Payment Method
+                    </Label>
+                    <select
+                      id="payment-method"
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={paymentRecordingDraft.method}
+                      onChange={(e) =>
+                        setPaymentRecordingDraft((prev) => ({
+                          ...prev,
+                          method: e.target.value,
+                        }))
+                      }
+                      disabled={paymentRecordingSaving}
+                    >
+                      <option value="">Not specified</option>
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="payment-status" className="text-xs font-medium">
+                      Status
+                    </Label>
+                    <select
+                      id="payment-status"
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={paymentRecordingDraft.status}
+                      onChange={(e) =>
+                        setPaymentRecordingDraft((prev) => ({
+                          ...prev,
+                          status: e.target.value as
+                            | "pending"
+                            | "paid"
+                            | "overdue"
+                            | "disputed",
+                        }))
+                      }
+                      disabled={paymentRecordingSaving}
+                    >
+                      <option value="paid">Paid</option>
+                      <option value="pending">Pending</option>
+                      <option value="overdue">Overdue</option>
+                      <option value="disputed">Disputed</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="payment-notes" className="text-xs font-medium">
+                    Notes (optional)
+                  </Label>
+                  <Input
+                    id="payment-notes"
+                    placeholder="e.g. Partial payment, paid via UPI ref #123…"
+                    value={paymentRecordingDraft.notes}
+                    onChange={(e) =>
+                      setPaymentRecordingDraft((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
+                    maxLength={1000}
+                    disabled={paymentRecordingSaving}
+                  />
+                </div>
+
+                {paymentRecordingDraft.status === "paid" && (
+                  <p className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                    A receipt number will be auto-generated and assigned.
+                  </p>
+                )}
+              </div>
+            )}
+
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={closeRecordPayment}
+              disabled={paymentRecordingSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={savePaymentRecord}
+              disabled={paymentRecordingSaving || !recordPaymentTenantId}
+              className="gap-1.5"
+            >
+              {paymentRecordingSaving && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+              Record Payment
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

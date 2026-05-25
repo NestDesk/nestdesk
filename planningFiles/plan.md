@@ -78,6 +78,18 @@ The active product flow is:
 
 - App favicon file content at src/app/favicon.ico was replaced with the NestDesk icon logo SVG.
 
+15. Owner profile section was added to owner portal navigation:
+
+- Sidebar now includes a My Profile menu item directly above Settings.
+- New owner profile screen is available at /profile under the dashboard route group.
+- Owner profile page shows core account details, onboarding status, address, and property snapshot metrics.
+
+16. Owner profile is now editable from the profile screen:
+
+- Added inline Edit Profile action on /profile to update full name, phone, and address details.
+- Added secure PATCH API at /api/owner/profile for owner-scoped profile updates.
+- Profile updates are audit logged in audit_logs and reflected immediately after save.
+
 15. Owner expense management module is now implemented end-to-end:
 
 - New expenses schema migration adds owner-scoped operating expense tracking with category, status, payment mode, recurring schedule fields, and soft delete support.
@@ -106,6 +118,12 @@ The active product flow is:
 - Public forgot-password screen now lets both owners and tenants request a password reset link.
 - Supabase auth callback now supports password recovery tokens in addition to signup verification links.
 - Recovery links establish a secure reset session and redirect to a dedicated reset-password screen.
+
+19. Public landing page messaging and pricing clarity were refreshed:
+
+- Landing features now reflect only live modules (tenants, occupancy, payments, notices, maintenance, expenses, profile, and KYC review).
+- Removed unsupported marketing claims such as WhatsApp reminders, Razorpay-specific plan promises, and export/reporting promises not currently shipped.
+- Paid plan cards now use clearer property/tenant scale limits and support tiers aligned to the current product surface.
 - Reset-password submission validates strong passwords server-side and clears the recovery session after a successful change.
 
 ## Implemented Modules

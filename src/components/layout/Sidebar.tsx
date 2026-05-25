@@ -12,6 +12,7 @@ import {
   WalletCards,
   Bell,
   Wrench,
+  UserCircle2,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const navItems = [
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Expenses", href: "/expenses", icon: WalletCards },
   { label: "Notices", href: "/notices", icon: Bell },
+  { label: "My Profile", href: "/profile", icon: UserCircle2 },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

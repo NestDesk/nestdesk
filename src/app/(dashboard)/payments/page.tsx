@@ -63,19 +63,12 @@ type HostelOption = {
   location: string | null;
 };
 
-type PaymentSummary = {
-  total: number;
-  paid: number;
-  pending: number;
-  overdue: number;
-  disputed: number;
-};
-
 type RecordDraft = {
   tenant_id: string;
   hostel_id: string;
   amount: string;
-  month: string;
+  startDate: string;
+  endDate: string;
   method: PaymentMethod | "";
   notes: string;
   status: PaymentStatus;
@@ -92,7 +85,8 @@ const EMPTY_DRAFT: RecordDraft = {
   tenant_id: "",
   hostel_id: "",
   amount: "",
-  month: "",
+  startDate: "",
+  endDate: "",
   method: "cash",
   notes: "",
   status: "paid",
@@ -124,42 +118,29 @@ function formatAmount(n: number) {
   }).format(n);
 }
 
-function formatMonth(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    month: "long",
-    year: "numeric",
-  });
+function formatBillingPeriod(dateStr: string) {
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstDay = 1;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+
+  const monthName = date.toLocaleDateString("en-IN", { month: "short" });
+  return `${firstDay} - ${lastDay} ${monthName}, ${year}`;
 }
 
-function currentMonthValue() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-// Build month options: current month + 11 prior months
-function buildMonthOptions() {
-  const opts: Array<{ value: string; label: string }> = [];
+function getCurrentMonthDateRange() {
   const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    opts.push({ value, label });
-  }
-  return opts;
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return {
+    startDate: firstDay.toISOString().split("T")[0],
+    endDate: lastDay.toISOString().split("T")[0],
+  };
 }
-
-const MONTH_OPTIONS = buildMonthOptions();
 
 export default function OwnerPaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [summary, setSummary] = useState<PaymentSummary>({
-    total: 0,
-    paid: 0,
-    pending: 0,
-    overdue: 0,
-    disputed: 0,
-  });
   const [hostels, setHostels] = useState<HostelOption[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,7 +156,7 @@ export default function OwnerPaymentsPage() {
   const [recordOpen, setRecordOpen] = useState(false);
   const [draft, setDraft] = useState<RecordDraft>({
     ...EMPTY_DRAFT,
-    month: currentMonthValue(),
+    ...getCurrentMonthDateRange(),
   });
   const [saving, setSaving] = useState(false);
 
@@ -205,9 +186,6 @@ export default function OwnerPaymentsPage() {
       }
       const rows = (json.payments ?? []) as PaymentRow[];
       setPayments(rows);
-      setSummary(
-        json.summary ?? { total: 0, paid: 0, pending: 0, overdue: 0, disputed: 0 },
-      );
 
       const seen = new Set<string>();
       const opts: HostelOption[] = [];
@@ -336,7 +314,7 @@ export default function OwnerPaymentsPage() {
 
   function openRecordModal() {
     loadTenants().catch(() => {});
-    setDraft({ ...EMPTY_DRAFT, month: currentMonthValue() });
+    setDraft({ ...EMPTY_DRAFT, ...getCurrentMonthDateRange() });
     setRecordOpen(true);
   }
 
@@ -367,13 +345,15 @@ export default function OwnerPaymentsPage() {
       toast.error("Enter a valid amount.");
       return;
     }
-    if (!draft.month) {
-      toast.error("Please select a month.");
+    if (!draft.startDate || !draft.endDate) {
+      toast.error("Please select a billing period.");
       return;
     }
 
     setSaving(true);
     try {
+      const startDate = new Date(draft.startDate);
+      const month = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
       const res = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -381,7 +361,7 @@ export default function OwnerPaymentsPage() {
           tenant_id: draft.tenant_id,
           hostel_id: draft.hostel_id,
           amount,
-          month: draft.month,
+          month,
           method: draft.method || null,
           notes: draft.notes.trim() || null,
           status: draft.status,
@@ -394,12 +374,6 @@ export default function OwnerPaymentsPage() {
       }
       const newPayment = json.payment as PaymentRow;
       setPayments((prev) => [newPayment, ...prev]);
-      setSummary((prev) => ({
-        ...prev,
-        total: prev.total + Number(newPayment.amount),
-        [newPayment.status]:
-          (prev[newPayment.status] ?? 0) + Number(newPayment.amount),
-      }));
       toast.success("Payment recorded.");
       closeRecordModal();
     } catch {
@@ -524,36 +498,6 @@ export default function OwnerPaymentsPage() {
         </Button>
       </div>
 
-      {/* Summary cards */}
-      {!loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-border/70 bg-card/70 p-3">
-            <p className="text-xs text-muted-foreground">Total Collected</p>
-            <p className="mt-1 text-lg font-bold text-foreground">
-              {formatAmount(summary.paid)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <p className="text-xs text-amber-700 dark:text-amber-400">Pending</p>
-            <p className="mt-1 text-lg font-bold text-amber-700 dark:text-amber-300">
-              {formatAmount(summary.pending)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3 dark:border-rose-500/30 dark:bg-rose-500/10">
-            <p className="text-xs text-rose-700 dark:text-rose-400">Overdue</p>
-            <p className="mt-1 text-lg font-bold text-rose-700 dark:text-rose-300">
-              {formatAmount(summary.overdue)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-500/30 dark:bg-violet-500/10">
-            <p className="text-xs text-violet-700 dark:text-violet-400">Disputed</p>
-            <p className="mt-1 text-lg font-bold text-violet-700 dark:text-violet-300">
-              {formatAmount(summary.disputed)}
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Filters */}
       {!loading && payments.length > 0 && (
         <div className="flex flex-wrap gap-3">
@@ -607,23 +551,21 @@ export default function OwnerPaymentsPage() {
           )}
 
           <div className="flex gap-1">
-            {(["all", "paid", "pending", "overdue", "disputed"] as const).map(
-              (s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setFilterStatus(s)}
-                  className={cn(
-                    "h-9 rounded-md px-3 text-xs font-medium capitalize transition-colors",
-                    filterStatus === s
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                </button>
-              ),
-            )}
+            {(["all", "paid", "disputed"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setFilterStatus(s)}
+                className={cn(
+                  "h-9 rounded-md px-3 text-xs font-medium capitalize transition-colors",
+                  filterStatus === s
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -718,7 +660,7 @@ export default function OwnerPaymentsPage() {
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <CalendarDays className="h-3 w-3" />
-                          {formatMonth(payment.month)}
+                          Billing: {formatBillingPeriod(payment.month)}
                         </span>
                         <span className="flex items-center gap-1">
                           <BadgeIndianRupee className="h-3 w-3" />
@@ -854,37 +796,60 @@ export default function OwnerPaymentsPage() {
                 )}
               </div>
 
-              {/* Month + Amount */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Month</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={draft.month}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, month: e.target.value }))
-                    }
-                  >
-                    {MONTH_OPTIONS.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Amount */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">
+                  Amount (₹) <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                  value={draft.amount}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, amount: e.target.value }))
+                  }
+                />
+              </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Amount (₹)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0"
-                    value={draft.amount}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, amount: e.target.value }))
-                    }
-                  />
+              {/* Billing Period */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Billing Period</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="start-date"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Start Date <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      id="start-date"
+                      type="date"
+                      value={draft.startDate}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, startDate: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="end-date"
+                      className="text-xs text-muted-foreground"
+                    >
+                      End Date <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      id="end-date"
+                      type="date"
+                      value={draft.endDate}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, endDate: e.target.value }))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -906,7 +871,6 @@ export default function OwnerPaymentsPage() {
                     <option value="cash">Cash</option>
                     <option value="upi">UPI</option>
                     <option value="bank_transfer">Bank Transfer</option>
-                    <option value="razorpay">Razorpay</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -924,8 +888,6 @@ export default function OwnerPaymentsPage() {
                     }
                   >
                     <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                    <option value="overdue">Overdue</option>
                     <option value="disputed">Disputed</option>
                   </select>
                 </div>
@@ -1024,8 +986,6 @@ export default function OwnerPaymentsPage() {
                     }
                   >
                     <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                    <option value="overdue">Overdue</option>
                     <option value="disputed">Disputed</option>
                   </select>
                 </div>
