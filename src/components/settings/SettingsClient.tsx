@@ -35,6 +35,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 type Hostel = {
   id: string;
   name: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
   property_type: string;
   is_active: boolean;
 };
@@ -45,6 +49,18 @@ type BillingData = {
   business_name?: string | null;
   billing_address?: string | null;
 };
+
+type PropertyBillingData = BillingData & {
+  name: string;
+  address: string;
+};
+
+function formatPropertyAddress(property: Hostel) {
+  return [property.address, property.city, property.state, property.pincode]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(", ");
+}
 
 type TermsEntry = { hostel_id: string; content: string; is_default: boolean };
 
@@ -121,29 +137,118 @@ By continuing to reside at this property, the tenant acknowledges having read an
 
 // ── Billing Section ────────────────────────────────────────────────────────────
 
-function BillingSection() {
-  const [billing, setBilling] = useState<BillingData>({});
+function buildPropertyBillingMap(
+  properties: Hostel[],
+): Record<string, PropertyBillingData> {
+  return properties.reduce<Record<string, PropertyBillingData>>((acc, property) => {
+    const fullAddress = formatPropertyAddress(property);
+    acc[property.id] = {
+      name: property.name,
+      address: fullAddress,
+      gst_number: null,
+      pan_number: null,
+      business_name: property.name,
+      billing_address: fullAddress,
+    };
+    return acc;
+  }, {});
+}
+
+function BillingSection({ properties }: { properties: Hostel[] }) {
+  const [billingMap, setBillingMap] = useState<Record<string, PropertyBillingData>>(
+    () => buildPropertyBillingMap(properties),
+  );
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(properties[0]?.id ?? "");
 
   useEffect(() => {
-    fetch("/api/settings/billing")
-      .then((r) => r.json())
-      .then((d) => {
-        setBilling(d);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+    setBillingMap((prev) => {
+      const next = buildPropertyBillingMap(properties);
+      for (const property of properties) {
+        if (prev[property.id]) {
+          const fullAddress = formatPropertyAddress(property);
+          next[property.id] = {
+            ...next[property.id],
+            ...prev[property.id],
+            name: property.name,
+            address: fullAddress,
+          };
+        }
+      }
+      return next;
+    });
 
-  async function save() {
-    setSaving(true);
-    const res = await fetch("/api/settings/billing", {
+    if (!properties.some((property) => property.id === activeTab)) {
+      setActiveTab(properties[0]?.id ?? "");
+    }
+  }, [properties, activeTab]);
+
+  useEffect(() => {
+    if (properties.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchBilling() {
+      try {
+        const res = await fetch("/api/settings/property-billing");
+        if (!res.ok) {
+          throw new Error(`Failed to fetch: ${res.status}`);
+        }
+        const d = await res.json();
+        setBillingMap((prev) => {
+          const next = { ...prev };
+          for (const property of properties) {
+            const fullAddress = formatPropertyAddress(property);
+            next[property.id] = {
+              ...prev[property.id],
+              name: property.name,
+              address: fullAddress,
+              business_name:
+                d[property.id]?.business_name ??
+                prev[property.id]?.business_name ??
+                property.name,
+              billing_address:
+                d[property.id]?.billing_address ??
+                prev[property.id]?.billing_address ??
+                fullAddress ??
+                "",
+              gst_number:
+                d[property.id]?.gst_number ?? prev[property.id]?.gst_number ?? null,
+              pan_number:
+                d[property.id]?.pan_number ?? prev[property.id]?.pan_number ?? null,
+            };
+          }
+          return next;
+        });
+      } catch (err) {
+        console.error("Failed to fetch billing:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBilling();
+  }, [properties]);
+
+  async function saveBilling() {
+    const current = billingMap[activeTab];
+    if (!current) return;
+
+    setSavingId(activeTab);
+    const res = await fetch("/api/settings/property-billing", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(billing),
+      body: JSON.stringify({
+        hostel_id: activeTab,
+        gst_number: current.gst_number,
+        pan_number: current.pan_number,
+        business_name: current.business_name,
+        billing_address: current.billing_address,
+      }),
     });
-    setSaving(false);
+    setSavingId(null);
     if (res.ok) {
       toast.success("Billing details saved.");
     } else {
@@ -162,74 +267,134 @@ function BillingSection() {
     );
   }
 
+  if (properties.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No properties found. Add a property to manage billing details.
+      </p>
+    );
+  }
+
+  const current = billingMap[activeTab];
+
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">
-            GST Number <span className="text-muted-foreground/50">(optional)</span>
-          </Label>
-          <Input
-            placeholder="e.g. 22AAAAA0000A1Z5"
-            maxLength={15}
-            value={billing.gst_number ?? ""}
-            onChange={(e) =>
-              setBilling((p) => ({ ...p, gst_number: e.target.value || null }))
-            }
-            className="h-9 text-sm"
-          />
+      {/* Property Tabs */}
+      <div className="flex gap-1 border-b border-border/50">
+        {properties.map((prop) => (
+          <button
+            key={prop.id}
+            onClick={() => setActiveTab(prop.id)}
+            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === prop.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {prop.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Billing Form */}
+      {current && (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                GST Number{" "}
+                <span className="text-muted-foreground/50">(optional)</span>
+              </Label>
+              <Input
+                placeholder="e.g. 22AAAAA0000A1Z5"
+                maxLength={15}
+                value={current.gst_number ?? ""}
+                onChange={(e) =>
+                  setBillingMap((p) => ({
+                    ...p,
+                    [activeTab]: {
+                      ...p[activeTab],
+                      gst_number: e.target.value || null,
+                    },
+                  }))
+                }
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                PAN Number{" "}
+                <span className="text-muted-foreground/50">(optional)</span>
+              </Label>
+              <Input
+                placeholder="e.g. AAAAA0000A"
+                maxLength={10}
+                value={current.pan_number ?? ""}
+                onChange={(e) =>
+                  setBillingMap((p) => ({
+                    ...p,
+                    [activeTab]: {
+                      ...p[activeTab],
+                      pan_number: e.target.value || null,
+                    },
+                  }))
+                }
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Business / Trade Name
+            </Label>
+            <Input
+              placeholder="Registered business name"
+              maxLength={120}
+              value={current.business_name ?? ""}
+              onChange={(e) =>
+                setBillingMap((p) => ({
+                  ...p,
+                  [activeTab]: {
+                    ...p[activeTab],
+                    business_name: e.target.value || null,
+                  },
+                }))
+              }
+              className="h-9 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Billing Address</Label>
+            <Textarea
+              placeholder="Street, City, State, PIN"
+              rows={2}
+              maxLength={300}
+              value={current.billing_address ?? ""}
+              onChange={(e) =>
+                setBillingMap((p) => ({
+                  ...p,
+                  [activeTab]: {
+                    ...p[activeTab],
+                    billing_address: e.target.value || null,
+                  },
+                }))
+              }
+              className="text-sm resize-none"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={saveBilling}
+              disabled={savingId === activeTab}
+              className="gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {savingId === activeTab ? "Saving…" : "Save Billing Details"}
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">
-            PAN Number <span className="text-muted-foreground/50">(optional)</span>
-          </Label>
-          <Input
-            placeholder="e.g. AAAAA0000A"
-            maxLength={10}
-            value={billing.pan_number ?? ""}
-            onChange={(e) =>
-              setBilling((p) => ({ ...p, pan_number: e.target.value || null }))
-            }
-            className="h-9 text-sm"
-          />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">
-          Business / Trade Name
-        </Label>
-        <Input
-          placeholder="Registered business name"
-          maxLength={120}
-          value={billing.business_name ?? ""}
-          onChange={(e) =>
-            setBilling((p) => ({ ...p, business_name: e.target.value || null }))
-          }
-          className="h-9 text-sm"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">Billing Address</Label>
-        <Textarea
-          placeholder="Street, City, State, PIN"
-          rows={2}
-          maxLength={300}
-          value={billing.billing_address ?? ""}
-          onChange={(e) =>
-            setBilling((p) => ({
-              ...p,
-              billing_address: e.target.value || null,
-            }))
-          }
-          className="text-sm resize-none"
-        />
-      </div>
-      <div className="flex justify-end">
-        <Button size="sm" onClick={save} disabled={saving} className="gap-1.5">
-          <Save className="h-3.5 w-3.5" />
-          {saving ? "Saving…" : "Save Billing Details"}
-        </Button>
-      </div>
+      )}
     </div>
   );
 }
@@ -661,7 +826,7 @@ export function SettingsClient({ properties }: SettingsClientProps) {
           </AccordionTrigger>
           <AccordionContent className="pb-5 pt-1">
             <Separator className="mb-4" />
-            <BillingSection />
+            <BillingSection properties={properties} />
           </AccordionContent>
         </AccordionItem>
 

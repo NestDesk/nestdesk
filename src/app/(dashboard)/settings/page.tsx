@@ -7,6 +7,10 @@ import { Settings } from "lucide-react";
 type HostelRow = {
   id: string;
   name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
   property_type: string;
   is_active: boolean;
 };
@@ -33,7 +37,9 @@ export default async function SettingsPage() {
     ? ((
         await admin
           .from("hostels")
-          .select("id, name, property_type, is_active")
+          .select(
+            "id, name, address, city, state, pincode, property_type, is_active",
+          )
           .eq("owner_id", ownerId)
           .order("created_at", { ascending: false })
       ).data ?? [])
