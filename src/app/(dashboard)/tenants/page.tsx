@@ -343,12 +343,12 @@ export default function OwnerTenantsPage() {
   function allRoomsForHostel(hostelId: string, currentRoomId: string | null = null) {
     const allRooms = roomsByHostel[hostelId] ?? [];
     return allRooms.sort((a, b) => {
-      const aAvailable = a.capacity - a.occupancy;
-      const bAvailable = b.capacity - b.occupancy;
-      // Current room first, then sort by available beds descending
+      // Current room first, then sort by room number in ascending order
       if (a.id === currentRoomId) return -1;
       if (b.id === currentRoomId) return 1;
-      return bAvailable - aAvailable;
+      const aNum = parseInt(a.room_number) || 0;
+      const bNum = parseInt(b.room_number) || 0;
+      return aNum - bNum;
     });
   }
 
@@ -1478,7 +1478,7 @@ export default function OwnerTenantsPage() {
 
                   <div>
                     <Label htmlFor="approval-rent" className="text-xs">
-                      Agreed Rent
+                      Agreed Rent Per Month
                     </Label>
                     <Input
                       id="approval-rent"
@@ -1657,18 +1657,12 @@ export default function OwnerTenantsPage() {
                       onChange={(e) =>
                         setPaymentRecordingDraft((prev) => ({
                           ...prev,
-                          status: e.target.value as
-                            | "pending"
-                            | "paid"
-                            | "overdue"
-                            | "disputed",
+                          status: e.target.value as "paid" | "disputed",
                         }))
                       }
                       disabled={paymentRecordingSaving}
                     >
                       <option value="paid">Paid</option>
-                      <option value="pending">Pending</option>
-                      <option value="overdue">Overdue</option>
                       <option value="disputed">Disputed</option>
                     </select>
                   </div>

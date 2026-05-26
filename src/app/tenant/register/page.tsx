@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
+import { TenantConsentLink } from "@/components/legal/TenantConsentLink";
 import { cn } from "@/lib/utils";
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -609,14 +610,9 @@ function TenantRegisterPageContent() {
                   className="text-xs text-white/60 leading-relaxed cursor-pointer"
                 >
                   I agree to NestDesk&apos;s{" "}
-                  <Link
-                    href="/privacy"
-                    className="underline underline-offset-2 hover:text-white"
-                  >
-                    Privacy Policy
-                  </Link>{" "}
-                  and consent to my personal data being used for rental management
-                  purposes by {hostel.name} and NestDesk.
+                  <TenantConsentLink className="text-white/80" /> and consent to my
+                  personal data being used for rental management purposes by{" "}
+                  {hostel.name} and NestDesk.
                 </Label>
               </div>
               {errors.consentGiven && (
