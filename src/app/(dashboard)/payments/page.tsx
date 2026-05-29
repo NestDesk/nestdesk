@@ -9,12 +9,15 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  Download,
+  MoreVertical,
   FileDown,
   IndianRupee,
   Loader2,
   Pencil,
   Plus,
   Receipt,
+  RotateCcw,
   Search,
   Trash2,
   User,
@@ -26,13 +29,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Input } from "@/components/ui/input";
-import { DateRangePicker, DateRange } from "@/components/ui/DateRangePicker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { calculateRent, type RentCalculation } from "@/lib/billing";
 
 type PaymentStatus = "paid" | "disputed";
-type PaymentMethod = "cash" | "upi" | "bank_transfer" | "razorpay" | "other";
+type PaymentMethod = "cash" | "upi" | "bank_transfer" | "other";
 
 type PaymentRow = {
   id: string;
@@ -97,6 +114,8 @@ type EditDraft = {
   notes: string;
   amount: string;
   paid_on: string;
+  startDate: string;
+  endDate: string;
 };
 
 const STATUS_CHIP: Record<PaymentStatus, string> = {
@@ -109,9 +128,10 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
   upi: "UPI",
   bank_transfer: "Bank Transfer",
-  razorpay: "Razorpay",
   other: "Other",
 };
+
+const columnHelper = createColumnHelper<PaymentRow>();
 
 function formatAmount(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -123,11 +143,17 @@ function formatAmount(n: number) {
 
 function formatBillingPeriod(dateStr: string) {
   const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const monthName = date.toLocaleDateString("en-IN", { month: "short" });
-  return `1–${lastDay} ${monthName} ${year}`;
+  const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+  const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const fmt = (d: Date) =>
+    d
+      .toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+      .replace(/ /g, "-");
+  return `${fmt(startDate)} - ${fmt(endDate)}`;
 }
 
 function formatDateShort(dateStr: string) {
@@ -136,6 +162,30 @@ function formatDateShort(dateStr: string) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatPropertyAddress(payment: PaymentRow) {
+  const parts = [
+    payment.hostel_address,
+    payment.hostel_city,
+    payment.hostel_state,
+    payment.hostel_pincode,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  const uniqueParts: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const normalized = part.replace(/\s+/g, " ").toLowerCase();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      uniqueParts.push(part);
+    }
+  }
+
+  return uniqueParts.join(", ");
 }
 
 function todayISO() {
@@ -191,7 +241,6 @@ function getNextBillingPeriod(
   if (!year || !month || !day) {
     return thisMonthRange();
   }
-
   const startDate = toLocalISO(new Date(year, month - 1, day));
   return {
     startDate,
@@ -204,8 +253,8 @@ function thisMonthRange() {
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return {
-    startDate: first.toISOString().split("T")[0],
-    endDate: last.toISOString().split("T")[0],
+    startDate: toLocalISO(first),
+    endDate: toLocalISO(last),
   };
 }
 
@@ -214,34 +263,42 @@ function printInvoice(payment: PaymentRow) {
   const methodLabel = payment.method ? METHOD_LABEL[payment.method] : "—";
   const statusLabel =
     payment.status.charAt(0).toUpperCase() + payment.status.slice(1);
-  const generatedOn = new Date().toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 
-  const propertyAddressParts = [
-    payment.hostel_address?.trim(),
-    payment.hostel_billing_address?.trim(),
-    [payment.hostel_city, payment.hostel_state, payment.hostel_pincode]
-      .filter(Boolean)
-      .join(", "),
-  ].filter(Boolean);
+  const addressText =
+    payment.hostel_billing_address?.trim() || payment.hostel_address?.trim() || "";
+  const propertyAddressParts: string[] = [];
+
+  if (addressText) {
+    const segments = addressText
+      .split(",")
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+    if (segments.length >= 2) {
+      propertyAddressParts.push(segments[0], segments.slice(1).join(", "));
+    } else {
+      const fallback = addressText;
+      const splitPosition = Math.max(
+        fallback.indexOf(" ", Math.floor(fallback.length / 2)),
+        fallback.indexOf(" ", Math.floor(fallback.length / 3)),
+      );
+      if (splitPosition > 0) {
+        propertyAddressParts.push(
+          fallback.slice(0, splitPosition).trim(),
+          fallback.slice(splitPosition + 1).trim(),
+        );
+      } else {
+        propertyAddressParts.push(fallback);
+      }
+    }
+  }
 
   const propertyAddressHtml = propertyAddressParts.length
     ? `<div class="property-address">${propertyAddressParts.join("<br />")}</div>`
     : "";
 
-  const gstPanHtml = [
-    payment.hostel_gst_number
-      ? `<div class="meta-row"><div class="meta-label">GST</div><div class="meta-value">${payment.hostel_gst_number}</div></div>`
-      : "",
-    payment.hostel_pan_number
-      ? `<div class="meta-row"><div class="meta-label">PAN</div><div class="meta-value">${payment.hostel_pan_number}</div></div>`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("");
+  const gstHtml = payment.hostel_gst_number
+    ? `<div class="gst-row"><div class="meta-label">GST</div><div class="meta-value">${payment.hostel_gst_number}</div></div>`
+    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -251,34 +308,28 @@ function printInvoice(payment: PaymentRow) {
   <title>Invoice ${payment.receipt_number ?? ""}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111; padding: 48px 56px; max-width: 680px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
-    .brand { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-    .brand span { color: #6366f1; }
-    .property { font-size: 13px; color: #555; margin-top: 4px; }
-    .property-address { font-size: 12px; color: #555; margin-top: 4px; line-height: 1.4; }
-    .property-loc { font-size: 11px; color: #888; margin-top: 2px; }
-    .meta-block { text-align: right; }
-    .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #999; }
-    .meta-value { font-size: 13px; font-weight: 600; margin-top: 2px; }
-    .meta-value.receipt { font-size: 12px; font-family: monospace; letter-spacing: 0.5px; }
-    .meta-row { margin-bottom: 10px; }
-    hr { border: none; border-top: 1px solid #e5e7eb; margin: 22px 0; }
-    .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 8px; }
-    .tenant-name { font-size: 20px; font-weight: 600; }
-    .tenant-sub { font-size: 13px; color: #555; margin-top: 4px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px; margin-top: 4px; }
-    .detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #999; }
-    .detail-value { font-size: 14px; font-weight: 500; margin-top: 3px; }
-    .amount-box { margin-top: 28px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; }
-    .amount-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; }
-    .amount-value { font-size: 30px; font-weight: 700; margin-top: 4px; }
-    .status-pill { padding: 5px 14px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; background: #dcfce7; color: #166534; }
+    body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; padding: 28px 28px; max-width: 640px; margin: 0 auto; background: #fff; }
+    .header { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; margin-bottom: 12px; }
+    .property { font-size: 18px; font-weight: 800; color: #111827; line-height: 1.2; }
+    .property-sub { font-size: 11px; color: #4b5563; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
+    .meta-block { text-align: right; min-width: 140px; }
+    .meta-row, .gst-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin-bottom: 4px; }
+    .meta-value { font-size: 13px; font-weight: 600; color: #111827; line-height: 1.3; }
+    .meta-value.receipt { font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; letter-spacing: 0.4px; }
+    .footer { margin-top: 16px; font-size: 10px; color: #9ca3af; text-align: center; line-height: 1.5; letter-spacing: 0.2px; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 18px 0; }
+    .section-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin-bottom: 6px; }
+    .tenant-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.3; }
+    .tenant-sub { font-size: 12px; color: #4b5563; margin-top: 3px; line-height: 1.4; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin-top: 4px; }
+    .detail-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; }
+    .detail-value { font-size: 13px; font-weight: 600; color: #111827; margin-top: 4px; line-height: 1.4; }
+    .status-pill { padding: 4px 12px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; background: #dcfce7; color: #166534; }
     .status-pill.disputed { background: #f3e8ff; color: #6b21a8; }
-    .notes { margin-top: 20px; font-size: 12px; color: #666; font-style: italic; line-height: 1.5; }
-    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px dashed #e5e7eb; font-size: 11px; color: #bbb; text-align: center; }
+    .notes { margin-top: 16px; font-size: 12px; color: #475569; line-height: 1.6; }
     @media print {
-      body { padding: 24px 32px; }
+      body { padding: 20px 20px; }
       @page { margin: 0.5in; }
     }
   </style>
@@ -286,17 +337,15 @@ function printInvoice(payment: PaymentRow) {
 <body>
   <div class="header">
     <div>
-      <div class="brand">Nest<span>Desk</span></div>
       <div class="property">${payment.hostel_name}</div>
-      <div class="property-loc">${payment.hostel_location ?? ""}</div>
-      ${propertyAddressHtml}
-      ${gstPanHtml}
+      <div class="property-sub">${propertyAddressHtml}</div>
     </div>
     <div class="meta-block">
       <div class="meta-row">
         <div class="meta-label">Receipt / Invoice</div>
         <div class="meta-value receipt">${payment.receipt_number ?? "—"}</div>
       </div>
+      ${gstHtml}
       <div class="meta-row">
         <div class="meta-label">Date Issued</div>
         <div class="meta-value">${formatDateShort(payment.paid_on)}</div>
@@ -304,11 +353,9 @@ function printInvoice(payment: PaymentRow) {
     </div>
   </div>
 
-  <hr />
-
   <div class="section-label">Billed To</div>
   <div class="tenant-name">${payment.tenant_name}</div>
-  <div class="tenant-sub">${payment.room_number ? `Room ${payment.room_number} &middot; ` : ""}${payment.hostel_name}</div>
+  <div class="tenant-sub">${payment.room_number ? `Room ${payment.room_number} · ` : ""}${payment.hostel_name}</div>
 
   <hr />
 
@@ -329,19 +376,14 @@ function printInvoice(payment: PaymentRow) {
       <div class="detail-label">Status</div>
       <div class="detail-value">${statusLabel}</div>
     </div>
-  </div>
-
-  <div class="amount-box">
     <div>
-      <div class="amount-label">Amount Paid</div>
-      <div class="amount-value">${formatAmount(Number(payment.amount))}</div>
+      <div class="detail-label">Amount Paid</div>
+      <div class="detail-value">${formatAmount(Number(payment.amount))}</div>
     </div>
-    <div class="status-pill ${payment.status}">${statusLabel}</div>
   </div>
 
   ${payment.notes ? `<div class="notes">Note: ${payment.notes}</div>` : ""}
-
-  <div class="footer">Generated by NestDesk &middot; ${generatedOn}</div>
+  <div class="footer"> NestDesk.in: A Rental Property Management System</div>
 </body>
 </html>`;
 
@@ -379,8 +421,8 @@ export default function OwnerPaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterHostelId, setFilterHostelId] = useState("all");
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(() => thisMonthRange().startDate);
+  const [toDate, setToDate] = useState(() => thisMonthRange().endDate);
 
   // Record modal
   const [recordOpen, setRecordOpen] = useState(false);
@@ -399,8 +441,14 @@ export default function OwnerPaymentsPage() {
     notes: "",
     amount: "",
     paid_on: todayISO(),
+    startDate: todayISO(),
+    endDate: todayISO(),
   });
   const [editSaving, setEditSaving] = useState(false);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailPayment, setDetailPayment] = useState<PaymentRow | null>(null);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   // Delete
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -521,6 +569,243 @@ export default function OwnerPaymentsPage() {
     });
   }, [payments, filterHostelId, filterStatus, fromDate, toDate, searchQuery]);
 
+  const columns = [
+    columnHelper.accessor("hostel_name", {
+      header: "Property",
+      cell: (info) => <span className="text-foreground">{info.getValue()}</span>,
+      enableSorting: true,
+    }),
+    columnHelper.accessor("room_number", {
+      header: "Room Number",
+      cell: (info) => info.getValue() ?? "—",
+      enableSorting: true,
+    }),
+    columnHelper.accessor("tenant_name", {
+      header: "Tenant Name",
+      cell: (info) => <span className="text-foreground">{info.getValue()}</span>,
+      enableSorting: true,
+    }),
+    columnHelper.accessor("month", {
+      header: "Billing Period",
+      cell: (info) => formatBillingPeriod(info.getValue()),
+      enableSorting: true,
+    }),
+    columnHelper.accessor("amount", {
+      header: "Paid Amount",
+      cell: (info) => (
+        <span className="text-foreground">
+          {formatAmount(Number(info.getValue()))}
+        </span>
+      ),
+      enableSorting: true,
+    }),
+    columnHelper.accessor("paid_on", {
+      header: "Paid On",
+      cell: (info) => formatDateShort(info.getValue()),
+      enableSorting: true,
+    }),
+    columnHelper.display({
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const payment = row.original;
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full p-0"
+                  aria-label="Open payment actions"
+                >
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => openDetailModal(payment)}>
+                  <Receipt className="h-4 w-4" />
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!payment.receipt_number}
+                  onSelect={() => payment.receipt_number && printInvoice(payment)}
+                >
+                  <FileDown className="h-4 w-4" />
+                  {payment.receipt_number ? "Download invoice" : "No invoice"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => openEditModal(payment)}>
+                  <Pencil className="h-4 w-4" />
+                  Edit payment
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setConfirmDeleteId(payment.id)}
+                  className="text-rose-600 focus:text-rose-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete payment
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+    }),
+  ];
+
+  const table = useReactTable({
+    data: filtered,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  function downloadExcel() {
+    const rows = table.getRowModel().rows.map((row) => row.original);
+    const header = [
+      "Property Name",
+      "Property Address",
+      "GST Number",
+      "PAN Number",
+      "Room Number",
+      "Tenant Name",
+      "Billing Period",
+      "Paid Amount",
+      "Paid On",
+      "Payment Method",
+      "Status",
+      "Receipt Number",
+      "Paid At",
+      "Created At",
+      "Updated At",
+      "Notes",
+    ];
+    const csv = [header.join(",")];
+
+    for (const payment of rows) {
+      const values = [
+        payment.hostel_name,
+        formatPropertyAddress(payment),
+        payment.hostel_gst_number ?? "",
+        payment.hostel_pan_number ?? "",
+        payment.room_number ?? "",
+        payment.tenant_name,
+        formatBillingPeriod(payment.month),
+        formatAmount(Number(payment.amount)),
+        formatDateShort(payment.paid_on),
+        payment.method ? METHOD_LABEL[payment.method] : "",
+        payment.status,
+        payment.receipt_number ?? "",
+        payment.paid_at ? formatDateShort(payment.paid_at) : "",
+        payment.created_at ? formatDateShort(payment.created_at) : "",
+        payment.updated_at ? formatDateShort(payment.updated_at) : "",
+        payment.notes ?? "",
+      ];
+      csv.push(
+        values.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
+      );
+    }
+
+    const blob = new Blob([csv.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadPdf() {
+    const rows = table.getRowModel().rows.map((row) => row.original);
+    const htmlRows = rows
+      .map(
+        (payment) => `
+          <tr>
+            <td>${payment.hostel_name}</td>
+            <td>${formatPropertyAddress(payment)}</td>
+            <td>${payment.hostel_gst_number ?? ""}</td>
+            <td>${payment.hostel_pan_number ?? ""}</td>
+            <td>${payment.room_number ?? ""}</td>
+            <td>${payment.tenant_name}</td>
+            <td>${formatBillingPeriod(payment.month)}</td>
+            <td>${formatAmount(Number(payment.amount))}</td>
+            <td>${formatDateShort(payment.paid_on)}</td>
+            <td>${payment.method ? METHOD_LABEL[payment.method] : ""}</td>
+            <td>${payment.status}</td>
+            <td>${payment.receipt_number ?? ""}</td>
+            <td>${payment.paid_at ? formatDateShort(payment.paid_at) : ""}</td>
+            <td>${payment.created_at ? formatDateShort(payment.created_at) : ""}</td>
+            <td>${payment.updated_at ? formatDateShort(payment.updated_at) : ""}</td>
+            <td>${payment.notes ?? ""}</td>
+          </tr>
+        `,
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payments Export</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { padding: 10px 8px; border: 1px solid #d1d5db; text-align: left; vertical-align: top; }
+    th { background: #f9fafb; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    td { font-size: 10px; }
+    h1 { font-size: 18px; margin-bottom: 16px; }
+    .wrap { white-space: pre-wrap; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+  <h1>Exported Payments</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Property Name</th>
+        <th>Address</th>
+        <th>GST Number</th>
+        <th>PAN Number</th>
+        <th>Room</th>
+        <th>Tenant</th>
+        <th>Billing Period</th>
+        <th>Paid Amount</th>
+        <th>Paid On</th>
+        <th>Method</th>
+        <th>Status</th>
+        <th>Receipt</th>
+        <th>Paid At</th>
+        <th>Created At</th>
+        <th>Updated At</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${htmlRows}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast.error("Pop-up blocked — please allow pop-ups and try again.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  }
+
   // This-month stats
   const thisMonthStats = useMemo(() => {
     const now = new Date();
@@ -564,12 +849,7 @@ export default function OwnerPaymentsPage() {
     };
   }, [payments]);
 
-  const hasActiveFilters =
-    filterHostelId !== "all" ||
-    filterStatus !== "all" ||
-    !!fromDate ||
-    !!toDate ||
-    !!searchQuery;
+  const hasActiveFilters = !!fromDate || !!toDate || !!searchQuery;
 
   // Billing calculation preview — shown in record modal when tenant + dates are set
   const billingPreview = useMemo<RentCalculation | null>(() => {
@@ -664,6 +944,8 @@ export default function OwnerPaymentsPage() {
   }
 
   function openEditModal(payment: PaymentRow) {
+    const startDate = payment.month;
+    const endDate = payment.month ? getMonthEndDate(payment.month) : todayISO();
     setEditingId(payment.id);
     setEditDraft({
       status: payment.status,
@@ -671,8 +953,15 @@ export default function OwnerPaymentsPage() {
       notes: payment.notes ?? "",
       amount: String(payment.amount),
       paid_on: payment.paid_on ?? todayISO(),
+      startDate,
+      endDate,
     });
     setEditOpen(true);
+  }
+
+  function openDetailModal(payment: PaymentRow) {
+    setDetailPayment(payment);
+    setDetailOpen(true);
   }
 
   async function handleEditSave() {
@@ -680,6 +969,15 @@ export default function OwnerPaymentsPage() {
     const amount = parseFloat(editDraft.amount);
     if (isNaN(amount) || amount < 0) {
       toast.error("Enter a valid amount.");
+      return;
+    }
+
+    if (!editDraft.startDate || !editDraft.endDate) {
+      toast.error("Please select billing start and end dates.");
+      return;
+    }
+    if (editDraft.endDate < editDraft.startDate) {
+      toast.error("Billing end cannot be before billing start.");
       return;
     }
 
@@ -694,6 +992,13 @@ export default function OwnerPaymentsPage() {
     if (current && amount !== Number(current.amount)) payload.amount = amount;
     if (current && editDraft.paid_on !== current.paid_on)
       payload.paid_on = editDraft.paid_on;
+    if (current) {
+      const start = new Date(editDraft.startDate);
+      const monthValue = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`;
+      if (monthValue !== current.month.slice(0, 7)) {
+        payload.month = monthValue;
+      }
+    }
 
     if (Object.keys(payload).length === 0) {
       toast.info("No changes made.");
@@ -771,78 +1076,13 @@ export default function OwnerPaymentsPage() {
         </Button>
       </div>
 
-      {/* â”€â”€ This-month dashboard â”€â”€ */}
-      {!loading && (
-        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {thisMonthStats.monthLabel}
-            </p>
-            <Badge variant="outline" className="text-[11px]">
-              This Month
-            </Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {/* Collected */}
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-              <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                Collected
-              </p>
-              <p className="mt-1 text-xl font-bold text-emerald-700 dark:text-emerald-300">
-                {formatAmount(thisMonthStats.totalPaid)}
-              </p>
-              <p className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
-                {thisMonthStats.totalCount} payment
-                {thisMonthStats.totalCount !== 1 ? "s" : ""}
-              </p>
-            </div>
-            <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-500/30 dark:bg-violet-500/10">
-              <p className="text-[11px] font-medium text-violet-700 dark:text-violet-400">
-                Disputed
-              </p>
-              <p className="mt-1 text-xl font-bold text-violet-700 dark:text-violet-300">
-                {formatAmount(thisMonthStats.disputedAmt)}
-              </p>
-              <p className="text-[11px] text-violet-600/70 dark:text-violet-400/70">
-                this month
-              </p>
-            </div>
-            {/* Per-property */}
-            {thisMonthStats.byHostel.size > 0 && (
-              <div className="col-span-2 sm:col-span-1 rounded-xl border border-border/60 bg-muted/40 p-3">
-                <p className="text-[11px] font-medium text-muted-foreground mb-2">
-                  By Property
-                </p>
-                <div className="space-y-1.5">
-                  {Array.from(thisMonthStats.byHostel.values()).map((h) => (
-                    <div
-                      key={h.name}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <span className="truncate text-[11px] text-foreground/80">
-                        {h.name}
-                      </span>
-                      <span className="shrink-0 text-[11px] font-semibold text-foreground">
-                        {formatAmount(h.paid)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* —— Filters —— */}
       {!loading && payments.length > 0 && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-3 items-center w-full">
-            {/* Search — narrower fixed width */}
-            <div className="relative w-36 sm:w-44 shrink-0">
+          <div className="grid w-full gap-3 lg:grid-cols-[2.7fr_2.3fr_auto] lg:items-center">
+            <div className="relative min-w-0 w-full">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-9 pl-8 pr-7 text-sm"
+                className="h-9 w-full pl-8 pr-7 text-sm"
                 placeholder="Search…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -858,64 +1098,28 @@ export default function OwnerPaymentsPage() {
               )}
             </div>
 
-            {/* Paid On Date Range Picker — takes remaining horizontal space */}
-            <div className="flex items-center gap-1.5 flex-1 min-w-[210px]">
+            <div className="flex min-w-0 w-full items-center gap-2">
               <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground shrink-0">
                 Paid on
               </span>
-              <DateRangePicker
-                value={{
-                  from: fromDate ? new Date(fromDate) : null,
-                  to: toDate ? new Date(toDate) : null,
-                }}
-                onChange={(range: DateRange) => {
-                  setFromDate(
-                    range.from ? range.from.toISOString().slice(0, 10) : "",
-                  );
-                  setToDate(range.to ? range.to.toISOString().slice(0, 10) : "");
-                }}
-                placeholder="Any date range"
-                className="flex-1"
-              />
+              <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                <DatePicker
+                  value={fromDate}
+                  onChange={(value) => setFromDate(value)}
+                  placeholder="Start date"
+                  className="min-w-0"
+                />
+                <DatePicker
+                  value={toDate}
+                  onChange={(value) => setToDate(value)}
+                  placeholder="End date"
+                  className="min-w-0"
+                />
+              </div>
             </div>
 
-            {/* Property */}
-            {hostels.length > 1 && (
-              <select
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                value={filterHostelId}
-                onChange={(e) => setFilterHostelId(e.target.value)}
-              >
-                <option value="all">All Properties</option>
-                {hostels.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {/* Status pills */}
-            <div className="flex gap-1 flex-wrap">
-              {(["all", "paid", "disputed"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setFilterStatus(s)}
-                  className={cn(
-                    "h-9 rounded-md px-3 text-xs font-medium capitalize transition-colors",
-                    filterStatus === s
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {hasActiveFilters && (
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -925,11 +1129,30 @@ export default function OwnerPaymentsPage() {
                   setFromDate("");
                   setToDate("");
                 }}
-                className="text-xs text-primary hover:underline ml-2"
+                title="Reset filters"
+                aria-label="Reset filters"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition hover:border-primary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                Clear all
+                <RotateCcw className="h-4 w-4" />
               </button>
-            )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-2">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onSelect={downloadExcel}>
+                    Download Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={downloadPdf}>
+                    Download PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       )}
@@ -978,143 +1201,194 @@ export default function OwnerPaymentsPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {filtered.map((payment) => (
-            <Card
-              key={payment.id}
-              className={cn(
-                "rounded-2xl border transition-colors",
-                payment.status === "disputed"
-                  ? "border-violet-200/70 dark:border-violet-500/20"
-                  : "border-border/70",
-              )}
-            >
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <User className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground">
-                          {payment.tenant_name}
-                        </span>
-                        {payment.room_number && (
-                          <span className="text-xs text-muted-foreground">
-                            Room {payment.room_number}
-                          </span>
+        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border text-left text-[13px]">
+              <thead className="bg-muted text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b border-border">
+                    {headerGroup.headers.map((header) => (
+                      <th key={header.id} className="px-3 py-2 align-top">
+                        {header.isPlaceholder ? null : (
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-muted-foreground"
+                            onClick={
+                              header.column.getCanSort()
+                                ? header.column.getToggleSortingHandler()
+                                : undefined
+                            }
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                            {header.column.getCanSort() ? (
+                              <ArrowUpDown
+                                className={
+                                  header.column.getIsSorted()
+                                    ? "h-3.5 w-3.5 text-foreground"
+                                    : "h-3.5 w-3.5 text-muted-foreground"
+                                }
+                              />
+                            ) : null}
+                          </button>
                         )}
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "h-5 text-[11px]",
-                            STATUS_CHIP[payment.status],
-                          )}
-                        >
-                          {payment.status === "paid" && (
-                            <CheckCircle2 className="mr-1 h-2.5 w-2.5" />
-                          )}
-                          {payment.status.charAt(0).toUpperCase() +
-                            payment.status.slice(1)}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <CalendarCheck className="h-3 w-3" />
-                          Paid: {formatDateShort(payment.paid_on)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
-                          {formatBillingPeriod(payment.month)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <BadgeIndianRupee className="h-3 w-3" />
-                          {formatAmount(Number(payment.amount))}
-                          {payment.method && ` · ${METHOD_LABEL[payment.method]}`}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />
-                          {payment.hostel_name}
-                        </span>
-                        {payment.receipt_number && (
-                          <span className="flex items-center gap-1">
-                            <Receipt className="h-3 w-3" />
-                            {payment.receipt_number}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                printInvoice(payment);
-                              }}
-                              className="ml-0.5 text-muted-foreground transition-colors hover:text-primary"
-                              title="Download / Print invoice"
-                            >
-                              <FileDown className="h-3 w-3" />
-                            </button>
-                          </span>
-                        )}
-                      </div>
-                      {payment.notes && (
-                        <p className="text-xs text-muted-foreground">
-                          Note: {payment.notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => openEditModal(payment)}
-                      title="Edit payment"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    {confirmDeleteId === payment.id ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">Sure?</span>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          disabled={deletingId === payment.id}
-                          onClick={() => handleDelete(payment.id)}
-                        >
-                          {deletingId === payment.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            "Yes"
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => setConfirmDeleteId(null)}
-                        >
-                          No
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/50 dark:hover:text-rose-400"
-                        onClick={() => setConfirmDeleteId(payment.id)}
-                        title="Delete payment"
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="divide-y divide-border bg-background">
+                {table.getRowModel().rows.map((row) => (
+                  <tr key={row.id} className="transition-colors hover:bg-muted/50">
+                    {row.getVisibleCells().map((cell) => (
+                      <td
+                        key={cell.id}
+                        className={
+                          cell.column.id === "actions"
+                            ? "px-3 py-2 align-top text-right"
+                            : "px-3 py-2 align-top text-foreground/90"
+                        }
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {detailOpen && detailPayment && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDetailOpen(false);
+          }}
+        >
+          <div className="w-full max-w-lg rounded-t-2xl border border-border bg-background p-6 shadow-xl sm:rounded-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-foreground">
+                Payment details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDetailOpen(false)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Tenant
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {detailPayment.tenant_name}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Room
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {detailPayment.room_number ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Billing period
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {formatBillingPeriod(detailPayment.month)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Paid on
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {formatDateShort(detailPayment.paid_on)}
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Amount
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {formatAmount(Number(detailPayment.amount))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </p>
+                  <p className="mt-1 text-sm text-foreground capitalize">
+                    {detailPayment.status}
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Method
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {detailPayment.method
+                      ? METHOD_LABEL[detailPayment.method]
+                      : "Not specified"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Receipt
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {detailPayment.receipt_number ?? "—"}
+                  </p>
+                </div>
+              </div>
+              {detailPayment.notes && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Notes
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {detailPayment.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailOpen(false)}
+              >
+                Close
+              </Button>
+              {detailPayment.receipt_number && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    printInvoice(detailPayment);
+                    setDetailOpen(false);
+                  }}
+                  className="gap-2"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Download invoice
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1404,6 +1678,33 @@ export default function OwnerPaymentsPage() {
                       setEditDraft((d) => ({ ...d, paid_on: value }))
                     }
                     placeholder="Select payment date"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Billing Start</Label>
+                  <DatePicker
+                    value={editDraft.startDate}
+                    onChange={(value) =>
+                      setEditDraft((d) => ({
+                        ...d,
+                        startDate: value,
+                        endDate: value ? getMonthEndDate(value) : d.endDate,
+                      }))
+                    }
+                    placeholder="Select start date"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Billing End</Label>
+                  <DatePicker
+                    value={editDraft.endDate}
+                    onChange={(value) =>
+                      setEditDraft((d) => ({ ...d, endDate: value }))
+                    }
+                    placeholder="Select end date"
                   />
                 </div>
               </div>

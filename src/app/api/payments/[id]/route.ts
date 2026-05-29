@@ -85,6 +85,10 @@ const patchSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "paid_on must be YYYY-MM-DD.")
     .optional(),
+  month: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, "Month must be YYYY-MM format.")
+    .optional(),
 });
 
 // PATCH /api/payments/[id]
@@ -134,6 +138,9 @@ export async function PATCH(
   if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount;
   if (parsed.data.paid_on !== undefined) {
     updates.paid_on = parsed.data.paid_on;
+  }
+  if (parsed.data.month !== undefined) {
+    updates.month = `${parsed.data.month}-01`;
   }
 
   const { data: updated, error } = await admin
