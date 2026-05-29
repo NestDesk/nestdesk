@@ -74,13 +74,17 @@ async function resolveOwnerAndPayment(paymentId: string) {
 }
 
 const patchSchema = z.object({
-  status: z.enum(["pending", "paid", "overdue", "disputed"]).optional(),
+  status: z.enum(["paid", "disputed"]).optional(),
   method: z
     .enum(["cash", "upi", "bank_transfer", "razorpay", "other"])
     .nullable()
     .optional(),
   notes: z.string().max(1000).nullable().optional(),
   amount: z.number().min(0).max(9999999).optional(),
+  paid_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "paid_on must be YYYY-MM-DD.")
+    .optional(),
 });
 
 // PATCH /api/payments/[id]
@@ -128,13 +132,16 @@ export async function PATCH(
   if (parsed.data.method !== undefined) updates.method = parsed.data.method;
   if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes;
   if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount;
+  if (parsed.data.paid_on !== undefined) {
+    updates.paid_on = parsed.data.paid_on;
+  }
 
   const { data: updated, error } = await admin
     .from("payments")
     .update(updates)
     .eq("id", id)
     .select(
-      "id, tenant_id, hostel_id, amount, month, status, method, receipt_number, notes, paid_at, created_at, updated_at",
+      "id, tenant_id, hostel_id, amount, month, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
     )
     .single();
 

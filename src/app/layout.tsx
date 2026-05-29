@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   description:
     "Modern property management platform for PGs, colives, hostels, and rentals",
   icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 

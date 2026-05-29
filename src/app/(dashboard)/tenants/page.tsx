@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
+  BadgeIndianRupee,
   Building2,
+  CalendarCheck,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -11,6 +13,7 @@ import {
   IndianRupee,
   Loader2,
   Plus,
+  Receipt,
   Search,
   ShieldCheck,
   User,
@@ -29,9 +32,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
 
@@ -51,6 +63,7 @@ type TenantRow = {
   profile_completion_percentage: number;
   agreed_rent_amount: number | null;
   join_date: string | null;
+  rent_start_date: string | null;
   move_out_date: string | null;
   created_at: string;
   updated_at: string;
@@ -90,6 +103,7 @@ type TenantDraft = {
   roomId: string | null;
   agreedRentAmount: string;
   joinDate: string;
+  rentStartDate: string;
   moveOutDate: string;
 };
 
@@ -114,6 +128,7 @@ type TenantProfileDetail = {
   profile_completion_missing: string[];
   agreed_rent_amount: number | null;
   join_date: string | null;
+  rent_start_date: string | null;
   move_out_date: string | null;
   first_activated_at: string | null;
   created_at: string;
@@ -240,7 +255,8 @@ export default function OwnerTenantsPage() {
     endDate: string;
     method: string;
     notes: string;
-    status: "pending" | "paid" | "overdue" | "disputed";
+    status: "paid" | "disputed";
+    paid_on: string;
   }>({
     amount: "",
     startDate: "",
@@ -248,7 +264,55 @@ export default function OwnerTenantsPage() {
     method: "cash",
     notes: "",
     status: "paid",
+    paid_on: new Date().toISOString().split("T")[0],
   });
+
+  // Tenant payment history (for record payment sheet)
+  type TenantPaymentRow = {
+    id: string;
+    amount: number;
+    month: string;
+    status: string;
+    method: string | null;
+    receipt_number: string | null;
+    notes: string | null;
+    paid_at: string | null;
+    paid_on: string;
+    created_at: string;
+  };
+  const [tenantPaymentHistory, setTenantPaymentHistory] = useState<
+    TenantPaymentRow[]
+  >([]);
+  const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
+
+  const PAYMENT_STATUS_CHIP: Record<string, string> = {
+    paid: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
+    disputed:
+      "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300",
+  };
+
+  function formatPaymentAmount(n: number) {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(n);
+  }
+
+  function formatPaymentDate(d: string) {
+    return new Date(d).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  function formatBillingMonth(d: string) {
+    return new Date(d).toLocaleDateString("en-IN", {
+      month: "short",
+      year: "numeric",
+    });
+  }
 
   async function loadTenants() {
     setLoading(true);
@@ -301,21 +365,27 @@ export default function OwnerTenantsPage() {
 
   function startEdit(tenant: TenantRow) {
     setEditingId(tenant.id);
-    setDrafts((prev) => ({
-      ...prev,
-      [tenant.id]: {
-        fullName: tenant.full_name,
-        phone: tenant.phone ?? "",
-        status: tenant.status,
-        roomId: tenant.room_id,
-        agreedRentAmount:
-          tenant.agreed_rent_amount !== null
-            ? String(tenant.agreed_rent_amount)
-            : "",
-        joinDate: tenant.join_date ?? "",
-        moveOutDate: tenant.move_out_date ?? "",
-      },
-    }));
+    setDrafts((prev) => {
+      const joinDate = tenant.join_date ?? "";
+      // @ts-ignore: rent_start_date may not be present on TenantRow, fallback to join_date
+      const rentStartDate = tenant.rent_start_date ?? joinDate;
+      return {
+        ...prev,
+        [tenant.id]: {
+          fullName: tenant.full_name,
+          phone: tenant.phone ?? "",
+          status: tenant.status,
+          roomId: tenant.room_id,
+          agreedRentAmount:
+            tenant.agreed_rent_amount !== null
+              ? String(tenant.agreed_rent_amount)
+              : "",
+          joinDate,
+          rentStartDate,
+          moveOutDate: tenant.move_out_date ?? "",
+        },
+      };
+    });
   }
 
   function cancelEdit() {
@@ -330,6 +400,19 @@ export default function OwnerTenantsPage() {
     setDrafts((prev) => {
       const current = prev[tenantId];
       if (!current) return prev;
+      // If joinDate changes and rentStartDate matches old joinDate, update rentStartDate too
+      if (field === "joinDate") {
+        if (current.rentStartDate === current.joinDate) {
+          return {
+            ...prev,
+            [tenantId]: {
+              ...current,
+              joinDate: value as string,
+              rentStartDate: value as string,
+            },
+          };
+        }
+      }
       return {
         ...prev,
         [tenantId]: {
@@ -396,6 +479,7 @@ export default function OwnerTenantsPage() {
           ? Number(draft.agreedRentAmount)
           : null,
         joinDate: draft.joinDate || null,
+        rentStartDate: draft.rentStartDate || null,
         moveOutDate: draft.status === "moved_out" ? draft.moveOutDate || null : null,
       };
 
@@ -452,6 +536,8 @@ export default function OwnerTenantsPage() {
                   (room) => room.id === payload.roomId,
                 )?.room_number ?? null,
               join_date: payload.joinDate,
+              // @ts-ignore: allow for rent_start_date in local state
+              rent_start_date: payload.rentStartDate,
               move_out_date: payload.moveOutDate,
               updated_at: new Date().toISOString(),
             };
@@ -472,6 +558,8 @@ export default function OwnerTenantsPage() {
                 (room) => room.id === updatedTenant.room_id,
               )?.room_number ?? null,
             join_date: updatedTenant.join_date,
+            // @ts-ignore: allow for rent_start_date in local state
+            rent_start_date: updatedTenant.rent_start_date,
             move_out_date: updatedTenant.move_out_date,
             updated_at: updatedTenant.updated_at,
           };
@@ -622,26 +710,39 @@ export default function OwnerTenantsPage() {
   }
 
   function openRecordPayment(tenant: TenantRow) {
-    setRecordPaymentOpen(true);
-    setRecordPaymentTenantId(tenant.id);
+    const today = new Date().toISOString().split("T")[0];
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const startDateStr = firstDay.toISOString().split("T")[0];
-    const endDateStr = lastDay.toISOString().split("T")[0];
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setRecordPaymentTenantId(tenant.id);
     setPaymentRecordingDraft({
       amount: tenant.agreed_rent_amount ? String(tenant.agreed_rent_amount) : "",
-      startDate: startDateStr,
-      endDate: endDateStr,
+      startDate: first.toISOString().split("T")[0],
+      endDate: last.toISOString().split("T")[0],
       method: "cash",
       notes: "",
       status: "paid",
+      paid_on: today,
     });
+    setTenantPaymentHistory([]);
+    setRecordPaymentOpen(true);
+
+    // Load payment history
+    setPaymentHistoryLoading(true);
+    fetch(`/api/tenants/${tenant.id}/payments`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.payments)
+          setTenantPaymentHistory(json.payments as TenantPaymentRow[]);
+      })
+      .catch(() => {})
+      .finally(() => setPaymentHistoryLoading(false));
   }
 
   function closeRecordPayment() {
     setRecordPaymentOpen(false);
     setRecordPaymentTenantId(null);
+    setTenantPaymentHistory([]);
     setPaymentRecordingDraft({
       amount: "",
       startDate: "",
@@ -649,6 +750,7 @@ export default function OwnerTenantsPage() {
       method: "cash",
       notes: "",
       status: "paid",
+      paid_on: new Date().toISOString().split("T")[0],
     });
   }
 
@@ -657,13 +759,11 @@ export default function OwnerTenantsPage() {
       toast.error("Tenant not selected.");
       return;
     }
-
     const amount = parseFloat(paymentRecordingDraft.amount);
     if (isNaN(amount) || amount <= 0) {
       toast.error("Enter a valid payment amount.");
       return;
     }
-
     if (!paymentRecordingDraft.startDate || !paymentRecordingDraft.endDate) {
       toast.error("Select a billing period.");
       return;
@@ -682,6 +782,7 @@ export default function OwnerTenantsPage() {
         method: paymentRecordingDraft.method || null,
         notes: paymentRecordingDraft.notes.trim() || null,
         status: paymentRecordingDraft.status,
+        paid_on: paymentRecordingDraft.paid_on,
       };
 
       const response = await fetch("/api/payments", {
@@ -690,7 +791,7 @@ export default function OwnerTenantsPage() {
         body: JSON.stringify(payload),
       });
 
-      const json = (await response.json()) as { error?: string };
+      const json = (await response.json()) as { error?: string; payment?: unknown };
       if (!response.ok) {
         toast.error(json.error ?? "Could not record payment.");
         return;
@@ -698,9 +799,7 @@ export default function OwnerTenantsPage() {
 
       toast.success("Payment recorded successfully.");
       closeRecordPayment();
-      loadTenants().catch(() => {
-        // fallback
-      });
+      loadTenants().catch(() => {});
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -1176,7 +1275,7 @@ export default function OwnerTenantsPage() {
                             </div>
                           </div>
 
-                          {/* Join Date */}
+                          {/* Join Date & Rent Start Date */}
                           <div className="space-y-1.5">
                             <Label
                               htmlFor={`join-${tenant.id}`}
@@ -1185,14 +1284,33 @@ export default function OwnerTenantsPage() {
                               Join Date
                               <span className="ml-1 text-rose-500">*</span>
                             </Label>
-                            <Input
+                            <DatePicker
                               id={`join-${tenant.id}`}
-                              type="date"
                               value={draft.joinDate}
                               disabled={savingId === tenant.id}
-                              onChange={(e) =>
-                                updateDraft(tenant.id, "joinDate", e.target.value)
+                              onChange={(value) =>
+                                updateDraft(tenant.id, "joinDate", value)
                               }
+                              placeholder="Select join date"
+                              className="h-9 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor={`rentstart-${tenant.id}`}
+                              className="text-xs font-medium"
+                            >
+                              Rent Start Date
+                              <span className="ml-1 text-rose-500">*</span>
+                            </Label>
+                            <DatePicker
+                              id={`rentstart-${tenant.id}`}
+                              value={draft.rentStartDate}
+                              disabled={savingId === tenant.id}
+                              onChange={(value) =>
+                                updateDraft(tenant.id, "rentStartDate", value)
+                              }
+                              placeholder="Select rent start date"
                               className="h-9 text-sm"
                             />
                           </div>
@@ -1215,18 +1333,14 @@ export default function OwnerTenantsPage() {
                                 >
                                   Move-out Date
                                 </Label>
-                                <Input
+                                <DatePicker
                                   id={`moveout-${tenant.id}`}
-                                  type="date"
                                   value={draft.moveOutDate}
                                   disabled={savingId === tenant.id}
-                                  onChange={(e) =>
-                                    updateDraft(
-                                      tenant.id,
-                                      "moveOutDate",
-                                      e.target.value,
-                                    )
+                                  onChange={(value) =>
+                                    updateDraft(tenant.id, "moveOutDate", value)
                                   }
+                                  placeholder="Select move-out date"
                                   className="h-9 text-sm"
                                 />
                               </div>
@@ -1498,17 +1612,17 @@ export default function OwnerTenantsPage() {
                     <Label htmlFor="approval-join-date" className="text-xs">
                       Join Date
                     </Label>
-                    <Input
+                    <DatePicker
                       id="approval-join-date"
-                      type="date"
                       value={approvalDraft.joinDate}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setApprovalDraft((prev) => ({
                           ...prev,
-                          joinDate: e.target.value,
+                          joinDate: value,
                         }))
                       }
                       disabled={approveSaving || reviewTenant.status === "active"}
+                      placeholder="Select join date"
                       className="mt-1 h-9"
                     />
                   </div>
@@ -1535,192 +1649,322 @@ export default function OwnerTenantsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={recordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-            <DialogDescription>
-              Record a payment for{" "}
+      <Sheet
+        open={recordPaymentOpen}
+        onOpenChange={(open) => {
+          if (!open) closeRecordPayment();
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 p-0 sm:max-w-lg overflow-hidden"
+        >
+          <SheetHeader className="shrink-0 border-b border-border px-6 py-4">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <IndianRupee className="h-4 w-4 text-primary" />
+              </div>
               {recordPaymentTenantId
                 ? tenants.find((t) => t.id === recordPaymentTenantId)?.full_name
-                : "tenant"}
-            </DialogDescription>
-          </DialogHeader>
+                : "Tenant"}{" "}
+              — Payments
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              View payment history and record a new payment below.
+            </SheetDescription>
+          </SheetHeader>
 
-          {recordPaymentTenantId &&
-            tenants.find((t) => t.id === recordPaymentTenantId) && (
-              <div className="space-y-4">
-                {/* Amount */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="payment-amount" className="text-xs font-medium">
-                    Amount (₹) <span className="text-rose-500">*</span>
-                  </Label>
-                  <Input
-                    id="payment-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0"
-                    value={paymentRecordingDraft.amount}
-                    onChange={(e) =>
-                      setPaymentRecordingDraft((prev) => ({
-                        ...prev,
-                        amount: e.target.value,
-                      }))
-                    }
-                    disabled={paymentRecordingSaving}
-                  />
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto">
+            {/* ── Payment History ── */}
+            <div className="px-6 pt-5">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Payment History
+              </p>
+              {paymentHistoryLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-
-                {/* Billing Period */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Billing Period</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="payment-start-date"
-                        className="text-xs text-muted-foreground"
-                      >
-                        Start Date <span className="text-rose-500">*</span>
-                      </Label>
-                      <Input
-                        id="payment-start-date"
-                        type="date"
-                        value={paymentRecordingDraft.startDate}
-                        onChange={(e) =>
-                          setPaymentRecordingDraft((prev) => ({
-                            ...prev,
-                            startDate: e.target.value,
-                          }))
-                        }
-                        disabled={paymentRecordingSaving}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="payment-end-date"
-                        className="text-xs text-muted-foreground"
-                      >
-                        End Date <span className="text-rose-500">*</span>
-                      </Label>
-                      <Input
-                        id="payment-end-date"
-                        type="date"
-                        value={paymentRecordingDraft.endDate}
-                        onChange={(e) =>
-                          setPaymentRecordingDraft((prev) => ({
-                            ...prev,
-                            endDate: e.target.value,
-                          }))
-                        }
-                        disabled={paymentRecordingSaving}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Method + Status */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="payment-method" className="text-xs font-medium">
-                      Payment Method
-                    </Label>
-                    <select
-                      id="payment-method"
-                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      value={paymentRecordingDraft.method}
-                      onChange={(e) =>
-                        setPaymentRecordingDraft((prev) => ({
-                          ...prev,
-                          method: e.target.value,
-                        }))
-                      }
-                      disabled={paymentRecordingSaving}
-                    >
-                      <option value="">Not specified</option>
-                      <option value="cash">Cash</option>
-                      <option value="upi">UPI</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="payment-status" className="text-xs font-medium">
-                      Status
-                    </Label>
-                    <select
-                      id="payment-status"
-                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      value={paymentRecordingDraft.status}
-                      onChange={(e) =>
-                        setPaymentRecordingDraft((prev) => ({
-                          ...prev,
-                          status: e.target.value as "paid" | "disputed",
-                        }))
-                      }
-                      disabled={paymentRecordingSaving}
-                    >
-                      <option value="paid">Paid</option>
-                      <option value="disputed">Disputed</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Notes */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="payment-notes" className="text-xs font-medium">
-                    Notes (optional)
-                  </Label>
-                  <Input
-                    id="payment-notes"
-                    placeholder="e.g. Partial payment, paid via UPI ref #123…"
-                    value={paymentRecordingDraft.notes}
-                    onChange={(e) =>
-                      setPaymentRecordingDraft((prev) => ({
-                        ...prev,
-                        notes: e.target.value,
-                      }))
-                    }
-                    maxLength={1000}
-                    disabled={paymentRecordingSaving}
-                  />
-                </div>
-
-                {paymentRecordingDraft.status === "paid" && (
-                  <p className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-                    A receipt number will be auto-generated and assigned.
+              ) : tenantPaymentHistory.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-center">
+                  <Receipt className="h-6 w-6 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">
+                    No payments recorded yet.
                   </p>
-                )}
-              </div>
-            )}
-
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={closeRecordPayment}
-              disabled={paymentRecordingSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={savePaymentRecord}
-              disabled={paymentRecordingSaving || !recordPaymentTenantId}
-              className="gap-1.5"
-            >
-              {paymentRecordingSaving && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tenantPaymentHistory.slice(0, 8).map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatPaymentAmount(Number(p.amount))}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-4 text-[10px]",
+                              PAYMENT_STATUS_CHIP[p.status] ?? "",
+                            )}
+                          >
+                            {p.status === "paid" && (
+                              <CheckCircle2 className="mr-0.5 h-2 w-2" />
+                            )}
+                            {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <CalendarCheck className="h-3 w-3" />
+                            Paid {formatPaymentDate(p.paid_on)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3" />
+                            {formatBillingMonth(p.month)}
+                          </span>
+                          {p.method && (
+                            <span className="capitalize">
+                              {p.method === "bank_transfer"
+                                ? "Bank Transfer"
+                                : p.method}
+                            </span>
+                          )}
+                          {p.receipt_number && (
+                            <span className="flex items-center gap-1">
+                              <Receipt className="h-3 w-3" />
+                              {p.receipt_number}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {tenantPaymentHistory.length > 8 && (
+                    <p className="pt-1 text-center text-[11px] text-muted-foreground">
+                      +{tenantPaymentHistory.length - 8} more in Payments page
+                    </p>
+                  )}
+                </div>
               )}
-              Record Payment
-            </Button>
+            </div>
+
+            <Separator className="my-5" />
+
+            {/* ── Add New Payment ── */}
+            <div className="px-6 pb-6">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Record New Payment
+              </p>
+              {recordPaymentTenantId &&
+                tenants.find((t) => t.id === recordPaymentTenantId) && (
+                  <div className="space-y-3">
+                    {/* Amount + Paid On */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="payment-amount"
+                          className="text-xs font-medium"
+                        >
+                          Amount (₹) <span className="text-rose-500">*</span>
+                        </Label>
+                        <Input
+                          id="payment-amount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          value={paymentRecordingDraft.amount}
+                          onChange={(e) =>
+                            setPaymentRecordingDraft((prev) => ({
+                              ...prev,
+                              amount: e.target.value,
+                            }))
+                          }
+                          disabled={paymentRecordingSaving}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="payment-paid-on"
+                          className="text-xs font-medium"
+                        >
+                          Paid On <span className="text-rose-500">*</span>
+                        </Label>
+                        <DatePicker
+                          id="payment-paid-on"
+                          value={paymentRecordingDraft.paid_on}
+                          max={new Date().toISOString().split("T")[0]}
+                          onChange={(value) =>
+                            setPaymentRecordingDraft((prev) => ({
+                              ...prev,
+                              paid_on: value,
+                            }))
+                          }
+                          disabled={paymentRecordingSaving}
+                          placeholder="Select paid on date"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Billing period */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="payment-start-date"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Billing Start <span className="text-rose-500">*</span>
+                        </Label>
+                        <DatePicker
+                          id="payment-start-date"
+                          value={paymentRecordingDraft.startDate}
+                          onChange={(value) =>
+                            setPaymentRecordingDraft((prev) => ({
+                              ...prev,
+                              startDate: value,
+                            }))
+                          }
+                          disabled={paymentRecordingSaving}
+                          placeholder="Select billing start"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="payment-end-date"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Billing End <span className="text-rose-500">*</span>
+                        </Label>
+                        <DatePicker
+                          id="payment-end-date"
+                          value={paymentRecordingDraft.endDate}
+                          onChange={(value) =>
+                            setPaymentRecordingDraft((prev) => ({
+                              ...prev,
+                              endDate: value,
+                            }))
+                          }
+                          disabled={paymentRecordingSaving}
+                          placeholder="Select billing end"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Method + Status */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="payment-method"
+                          className="text-xs font-medium"
+                        >
+                          Method
+                        </Label>
+                        <select
+                          id="payment-method"
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                          value={paymentRecordingDraft.method}
+                          onChange={(e) =>
+                            setPaymentRecordingDraft((prev) => ({
+                              ...prev,
+                              method: e.target.value,
+                            }))
+                          }
+                          disabled={paymentRecordingSaving}
+                        >
+                          <option value="">Not specified</option>
+                          <option value="cash">Cash</option>
+                          <option value="upi">UPI</option>
+                          <option value="bank_transfer">Bank Transfer</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="payment-status"
+                          className="text-xs font-medium"
+                        >
+                          Status
+                        </Label>
+                        <select
+                          id="payment-status"
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                          value={paymentRecordingDraft.status}
+                          onChange={(e) =>
+                            setPaymentRecordingDraft((prev) => ({
+                              ...prev,
+                              status: e.target.value as "paid" | "disputed",
+                            }))
+                          }
+                          disabled={paymentRecordingSaving}
+                        >
+                          <option value="paid">Paid</option>
+                          <option value="disputed">Disputed</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="payment-notes" className="text-xs font-medium">
+                        Notes (optional)
+                      </Label>
+                      <Input
+                        id="payment-notes"
+                        placeholder="e.g. Partial payment, UPI ref #123…"
+                        value={paymentRecordingDraft.notes}
+                        onChange={(e) =>
+                          setPaymentRecordingDraft((prev) => ({
+                            ...prev,
+                            notes: e.target.value,
+                          }))
+                        }
+                        maxLength={1000}
+                        disabled={paymentRecordingSaving}
+                      />
+                    </div>
+
+                    {paymentRecordingDraft.status === "paid" && (
+                      <p className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                        A receipt number will be auto-generated and assigned.
+                      </p>
+                    )}
+                  </div>
+                )}
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* ── Footer actions ── */}
+          <div className="shrink-0 border-t border-border px-6 py-4">
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={closeRecordPayment}
+                disabled={paymentRecordingSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={savePaymentRecord}
+                disabled={paymentRecordingSaving || !recordPaymentTenantId}
+                className="gap-1.5"
+              >
+                {paymentRecordingSaving && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                Record Payment
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

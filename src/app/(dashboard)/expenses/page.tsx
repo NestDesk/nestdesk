@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -812,12 +813,12 @@ export default function OwnerExpensesPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Date</Label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={draft.expense_date}
-                    onChange={(e) =>
-                      setDraft((p) => ({ ...p, expense_date: e.target.value }))
+                    onChange={(value) =>
+                      setDraft((p) => ({ ...p, expense_date: value }))
                     }
+                    placeholder="Select expense date"
                   />
                 </div>
               </div>
@@ -984,12 +985,12 @@ export default function OwnerExpensesPage() {
                       <Label className="text-xs font-medium">
                         Next Due Date (optional)
                       </Label>
-                      <Input
-                        type="date"
-                        value={draft.next_due_date}
-                        onChange={(e) =>
-                          setDraft((p) => ({ ...p, next_due_date: e.target.value }))
+                      <DatePicker
+                        value={draft.next_due_date ?? ""}
+                        onChange={(value) =>
+                          setDraft((p) => ({ ...p, next_due_date: value }))
                         }
+                        placeholder="Select next due date"
                       />
                     </div>
                   </div>

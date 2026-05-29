@@ -57,14 +57,15 @@ const recordPaymentSchema = z.object({
     .nullable()
     .optional(),
   notes: z.string().max(1000, "Notes too long.").optional().nullable(),
-  status: z
-    .enum(["pending", "paid", "overdue", "disputed"])
-    .optional()
-    .default("paid"),
+  status: z.enum(["paid", "disputed"]).optional().default("paid"),
   recording_mode: z.enum(["monthly", "datewise"]).default("monthly"),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   record_date: z.string().optional(),
+  paid_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "paid_on must be YYYY-MM-DD.")
+    .optional(),
 });
 
 // POST /api/tenants/payments/record — Record payment for a tenant from tenant portal
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
     start_date,
     end_date,
     record_date,
+    paid_on,
   } = parsed.data;
 
   const admin = createAdminClient();
@@ -118,6 +120,8 @@ export async function POST(request: NextRequest) {
 
   const isPaid = status === "paid";
   const now = new Date().toISOString();
+  const today = now.split("T")[0];
+  const resolvedPaidOn = paid_on ?? today;
   const receiptNumber = isPaid ? generateReceiptNumber() : null;
 
   // Determine the month field based on recording mode
@@ -164,6 +168,7 @@ export async function POST(request: NextRequest) {
       notes: paymentNotes || null,
       receipt_number: receiptNumber,
       paid_at: isPaid ? now : null,
+      paid_on: resolvedPaidOn,
       recorded_by: ctx.ownerId,
       created_at: now,
       updated_at: now,

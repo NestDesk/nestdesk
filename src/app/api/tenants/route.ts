@@ -107,7 +107,7 @@ export async function GET() {
   const { data: tenants, error: tenantsError } = await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, join_date, move_out_date, created_at, updated_at, first_activated_at",
+      "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
     )
     .eq("owner_id", ctx.ownerId)
     .is("deleted_at", null)
@@ -190,6 +190,7 @@ export async function GET() {
         profile_completion_percentage: completion.percentage,
         agreed_rent_amount: tenant.agreed_rent_amount,
         join_date: tenant.join_date,
+        rent_start_date: tenant.rent_start_date,
         move_out_date: tenant.move_out_date,
         created_at: tenant.created_at,
         updated_at: tenant.updated_at,
