@@ -108,12 +108,12 @@ export async function GET(request: NextRequest) {
   }
 
   // Enrich with tenant + hostel display names
-  const uniqueTenantIds = [
-    ...new Set(invoices.map((i: { tenant_id: string }) => i.tenant_id)),
-  ];
-  const uniqueHostelIds = [
-    ...new Set(invoices.map((i: { hostel_id: string }) => i.hostel_id)),
-  ];
+  const uniqueTenantIds = Array.from(
+    new Set(invoices.map((i: { tenant_id: string }) => i.tenant_id)),
+  );
+  const uniqueHostelIds = Array.from(
+    new Set(invoices.map((i: { hostel_id: string }) => i.hostel_id)),
+  );
 
   const [{ data: tenantRows }, { data: hostelRows }] = await Promise.all([
     admin

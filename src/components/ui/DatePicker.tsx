@@ -278,7 +278,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               })}
             </div>
           </div>,
-          document.body,
+          wrapperRef.current ?? document.body,
         )}
     </div>
   );

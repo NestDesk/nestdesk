@@ -223,7 +223,7 @@ export async function PATCH(
       : input.agreedRentAmount;
   let nextJoinDate =
     input.joinDate === undefined ? tenant.join_date : input.joinDate;
-  let nextRentStartDate =
+  const nextRentStartDate =
     input.rentStartDate === undefined
       ? (tenant.rent_start_date ?? tenant.join_date)
       : input.rentStartDate;

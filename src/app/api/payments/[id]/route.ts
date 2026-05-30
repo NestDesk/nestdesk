@@ -89,6 +89,14 @@ const patchSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}$/, "Month must be YYYY-MM format.")
     .optional(),
+  billing_start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  billing_end: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 // PATCH /api/payments/[id]
@@ -142,13 +150,17 @@ export async function PATCH(
   if (parsed.data.month !== undefined) {
     updates.month = `${parsed.data.month}-01`;
   }
+  if (parsed.data.billing_start !== undefined)
+    updates.billing_start = parsed.data.billing_start;
+  if (parsed.data.billing_end !== undefined)
+    updates.billing_end = parsed.data.billing_end;
 
   const { data: updated, error } = await admin
     .from("payments")
     .update(updates)
     .eq("id", id)
     .select(
-      "id, tenant_id, hostel_id, amount, month, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
+      "id, tenant_id, hostel_id, amount, month, billing_start, billing_end, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
     )
     .single();
 

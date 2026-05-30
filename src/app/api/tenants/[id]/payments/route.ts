@@ -49,7 +49,7 @@ export async function GET(
   const { data: payments, error } = await admin
     .from("payments")
     .select(
-      "id, amount, month, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
+      "id, amount, month, billing_start, billing_end, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
     )
     .eq("tenant_id", tenantId)
     .order("paid_on", { ascending: false })
@@ -59,7 +59,40 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const { data: hostel } = await admin
+    .from("hostels")
+    .select("name, address, city, state, pincode")
+    .eq("id", tenant.hostel_id)
+    .maybeSingle();
+
+  const { data: billing } = await admin
+    .from("property_billing")
+    .select("gst_number, pan_number, billing_address")
+    .eq("hostel_id", tenant.hostel_id)
+    .maybeSingle();
+
+  const { data: roomData } = await admin
+    .from("rooms")
+    .select("room_number")
+    .eq("id", tenant.room_id)
+    .maybeSingle();
+
+  const roomNumber = roomData?.room_number ?? null;
   const rows = payments ?? [];
+  const responseRows = rows.map((p) => ({
+    ...p,
+    tenant_name: tenant.full_name,
+    room_number: roomNumber,
+    hostel_name: hostel?.name ?? "Property",
+    hostel_address: hostel?.address ?? null,
+    hostel_city: hostel?.city ?? null,
+    hostel_state: hostel?.state ?? null,
+    hostel_pincode: hostel?.pincode ?? null,
+    hostel_billing_address: billing?.billing_address ?? null,
+    hostel_gst_number: billing?.gst_number ?? null,
+    hostel_pan_number: billing?.pan_number ?? null,
+  }));
+
   const totalPaid = rows
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + Number(p.amount), 0);
@@ -68,7 +101,7 @@ export async function GET(
     .reduce((s, p) => s + Number(p.amount), 0);
 
   return NextResponse.json({
-    payments: rows,
+    payments: responseRows,
     summary: {
       totalPaid,
       disputedAmount,

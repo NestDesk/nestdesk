@@ -3,30 +3,37 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
-  BadgeIndianRupee,
-  Building2,
   CalendarCheck,
-  CalendarDays,
-  CheckCircle2,
   CreditCard,
   Download,
-  MoreVertical,
   FileDown,
   IndianRupee,
   Loader2,
+  MoreVertical,
   Pencil,
   Plus,
   Receipt,
   RotateCcw,
   Search,
   Trash2,
-  User,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  RecordPaymentModal,
+  type PaymentMethod,
+  type PaymentStatus,
+  type RecordPaymentTenantOption,
+} from "@/components/payments/RecordPaymentModal";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,7 +44,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import {
   createColumnHelper,
   flexRender,
@@ -46,10 +52,6 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { calculateRent, type RentCalculation } from "@/lib/billing";
-
-type PaymentStatus = "paid" | "disputed";
-type PaymentMethod = "cash" | "upi" | "bank_transfer" | "other";
 
 type PaymentRow = {
   id: string;
@@ -74,38 +76,18 @@ type PaymentRow = {
   notes: string | null;
   paid_at: string | null;
   paid_on: string;
+  billing_start: string;
+  billing_end: string;
   created_at: string;
   updated_at: string;
 };
 
-type TenantOption = {
-  id: string;
-  full_name: string;
-  hostel_id: string;
-  hostel_name: string;
-  room_number: string | null;
-  agreed_rent_amount: number | null;
-  status: string;
-  rent_start_date?: string | null;
-  join_date?: string | null;
-};
+type TenantOption = RecordPaymentTenantOption;
 
 type HostelOption = {
   id: string;
   name: string;
   location: string | null;
-};
-
-type RecordDraft = {
-  tenant_id: string;
-  hostel_id: string;
-  amount: string;
-  startDate: string;
-  endDate: string;
-  method: PaymentMethod | "";
-  notes: string;
-  status: PaymentStatus;
-  paid_on: string;
 };
 
 type EditDraft = {
@@ -116,12 +98,6 @@ type EditDraft = {
   paid_on: string;
   startDate: string;
   endDate: string;
-};
-
-const STATUS_CHIP: Record<PaymentStatus, string> = {
-  paid: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
-  disputed:
-    "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300",
 };
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -204,50 +180,6 @@ function getMonthEndDate(dateStr: string) {
   return toLocalISO(new Date(year, month - 1, lastDay));
 }
 
-function getNextBillingPeriod(
-  tenant?: TenantOption,
-  paymentsList: PaymentRow[] = [],
-) {
-  if (!tenant) {
-    return thisMonthRange();
-  }
-
-  const tenantPayments = paymentsList.filter(
-    (payment) =>
-      payment.tenant_id === tenant.id && /^\d{4}-\d{2}-\d{2}$/.test(payment.month),
-  );
-
-  if (tenantPayments.length > 0) {
-    const latest = tenantPayments.reduce(
-      (current, payment) => (payment.month > current.month ? payment : current),
-      tenantPayments[0],
-    );
-
-    const [year, month] = latest.month.split("-").map(Number);
-    const nextStart = new Date(year, month, 1);
-    const startDate = toLocalISO(nextStart);
-    return {
-      startDate,
-      endDate: getMonthEndDate(startDate),
-    };
-  }
-
-  const rentStart = tenant.rent_start_date ?? tenant.join_date;
-  if (!rentStart) {
-    return thisMonthRange();
-  }
-
-  const [year, month, day] = rentStart.split("-").map(Number);
-  if (!year || !month || !day) {
-    return thisMonthRange();
-  }
-  const startDate = toLocalISO(new Date(year, month - 1, day));
-  return {
-    startDate,
-    endDate: getMonthEndDate(startDate),
-  };
-}
-
 function thisMonthRange() {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -296,8 +228,14 @@ function printInvoice(payment: PaymentRow) {
     ? `<div class="property-address">${propertyAddressParts.join("<br />")}</div>`
     : "";
 
-  const gstHtml = payment.hostel_gst_number
-    ? `<div class="gst-row"><div class="meta-label">GST</div><div class="meta-value">${payment.hostel_gst_number}</div></div>`
+  const gstOrPan = payment.hostel_gst_number
+    ? { label: "GST", value: payment.hostel_gst_number }
+    : payment.hostel_pan_number
+      ? { label: "PAN", value: payment.hostel_pan_number }
+      : null;
+
+  const gstHtml = gstOrPan
+    ? `<div class="gst-row"><div class="meta-label">${gstOrPan.label}</div><div class="meta-value">${gstOrPan.value}</div></div>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -398,18 +336,6 @@ function printInvoice(payment: PaymentRow) {
   setTimeout(() => win.print(), 300);
 }
 
-const EMPTY_DRAFT: RecordDraft = {
-  tenant_id: "",
-  hostel_id: "",
-  amount: "",
-  startDate: "",
-  endDate: "",
-  method: "cash",
-  notes: "",
-  status: "paid",
-  paid_on: todayISO(),
-};
-
 export default function OwnerPaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [hostels, setHostels] = useState<HostelOption[]>([]);
@@ -423,14 +349,10 @@ export default function OwnerPaymentsPage() {
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>("all");
   const [fromDate, setFromDate] = useState(() => thisMonthRange().startDate);
   const [toDate, setToDate] = useState(() => thisMonthRange().endDate);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   // Record modal
   const [recordOpen, setRecordOpen] = useState(false);
-  const [draft, setDraft] = useState<RecordDraft>({
-    ...EMPTY_DRAFT,
-    ...thisMonthRange(),
-  });
-  const [saving, setSaving] = useState(false);
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
@@ -445,18 +367,35 @@ export default function OwnerPaymentsPage() {
     endDate: todayISO(),
   });
   const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailPayment, setDetailPayment] = useState<PaymentRow | null>(null);
-  const [sorting, setSorting] = useState<SortingState>([]);
+  function openDeleteDialog(paymentId: string) {
+    setDeletingId(paymentId);
+    setDeleteDialogOpen(true);
+  }
 
-  // Delete
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  async function confirmDelete() {
+    if (!deletingId) return;
+    try {
+      const res = await fetch(`/api/payments/${deletingId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not delete payment.");
+        return;
+      }
+      setPayments((prev) => prev.filter((p) => p.id !== deletingId));
+      toast.success("Payment deleted.");
+      setDeleteDialogOpen(false);
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
-  /* ------------------------------------------------------------------ */
-  /* Data loading                                                         */
-  /* ------------------------------------------------------------------ */
   async function loadPayments() {
     setLoading(true);
     try {
@@ -466,22 +405,24 @@ export default function OwnerPaymentsPage() {
         toast.error(json.error ?? "Could not load payments.");
         return;
       }
+
       const rows = (json.payments ?? []) as PaymentRow[];
       setPayments(rows);
 
-      const seen = new Set<string>();
-      const opts: HostelOption[] = [];
-      for (const row of rows) {
-        if (!seen.has(row.hostel_id)) {
-          seen.add(row.hostel_id);
-          opts.push({
-            id: row.hostel_id,
-            name: row.hostel_name,
-            location: row.hostel_location,
-          });
-        }
-      }
-      setHostels(opts);
+      const uniqueHostels = Array.from(
+        new Map(
+          rows.map((row) => [
+            row.hostel_id,
+            {
+              id: row.hostel_id,
+              name: row.hostel_name,
+              location: row.hostel_location,
+            },
+          ]),
+        ).values(),
+      );
+
+      setHostels(uniqueHostels);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -587,7 +528,15 @@ export default function OwnerPaymentsPage() {
     }),
     columnHelper.accessor("month", {
       header: "Billing Period",
-      cell: (info) => formatBillingPeriod(info.getValue()),
+      cell: (info) => {
+        const payment = info.row.original;
+        if (payment.billing_start && payment.billing_end) {
+          return `${formatDateShort(payment.billing_start)} - ${formatDateShort(
+            payment.billing_end,
+          )}`;
+        }
+        return formatBillingPeriod(info.getValue());
+      },
       enableSorting: true,
     }),
     columnHelper.accessor("amount", {
@@ -640,7 +589,7 @@ export default function OwnerPaymentsPage() {
                   Edit payment
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onSelect={() => setConfirmDeleteId(payment.id)}
+                  onSelect={() => openDeleteDialog(payment.id)}
                   className="text-rose-600 focus:text-rose-600"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -721,6 +670,9 @@ export default function OwnerPaymentsPage() {
     link.click();
     URL.revokeObjectURL(url);
   }
+  // ...existing code...
+  // Place the delete confirmation dialog at the root of the component render
+  // ...existing code...
 
   function downloadPdf() {
     const rows = table.getRowModel().rows.map((row) => row.original);
@@ -806,141 +758,15 @@ export default function OwnerPaymentsPage() {
     setTimeout(() => win.print(), 300);
   }
 
-  // This-month stats
-  const thisMonthStats = useMemo(() => {
-    const now = new Date();
-    const yyyyMM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const thisMonth = payments.filter((p) => p.paid_on.startsWith(yyyyMM));
-
-    const byHostel = new Map<
-      string,
-      { name: string; paid: number; count: number }
-    >();
-    let totalPaid = 0;
-    let totalCount = 0;
-    let disputedAmt = 0;
-
-    for (const p of thisMonth) {
-      if (p.status === "paid") {
-        totalPaid += Number(p.amount);
-        totalCount += 1;
-        const h = byHostel.get(p.hostel_id) ?? {
-          name: p.hostel_name,
-          paid: 0,
-          count: 0,
-        };
-        h.paid += Number(p.amount);
-        h.count += 1;
-        byHostel.set(p.hostel_id, h);
-      } else if (p.status === "disputed") {
-        disputedAmt += Number(p.amount);
-      }
-    }
-
-    return {
-      totalPaid,
-      totalCount,
-      disputedAmt,
-      byHostel,
-      monthLabel: now.toLocaleDateString("en-IN", {
-        month: "long",
-        year: "numeric",
-      }),
-    };
-  }, [payments]);
-
-  const hasActiveFilters = !!fromDate || !!toDate || !!searchQuery;
-
-  // Billing calculation preview — shown in record modal when tenant + dates are set
-  const billingPreview = useMemo<RentCalculation | null>(() => {
-    const tenant = tenants.find((t) => t.id === draft.tenant_id);
-    if (!tenant?.agreed_rent_amount || !draft.startDate || !draft.endDate)
-      return null;
-    if (draft.endDate < draft.startDate) return null;
-    try {
-      return calculateRent(
-        Number(tenant.agreed_rent_amount),
-        draft.startDate,
-        draft.endDate,
-      );
-    } catch {
-      return null;
-    }
-  }, [draft.tenant_id, draft.startDate, draft.endDate, tenants]);
-
   /* ------------------------------------------------------------------ */
   /* Actions                                                              */
   /* ------------------------------------------------------------------ */
   function openRecordModal() {
     loadTenants().catch(() => {});
-    setDraft({ ...EMPTY_DRAFT, ...thisMonthRange(), paid_on: todayISO() });
     setRecordOpen(true);
   }
   function closeRecordModal() {
     setRecordOpen(false);
-  }
-
-  function handleTenantChange(tenantId: string) {
-    const found = tenants.find((t) => t.id === tenantId);
-    const { startDate, endDate } = getNextBillingPeriod(found, payments);
-    setDraft((d) => ({
-      ...d,
-      tenant_id: tenantId,
-      hostel_id: found?.hostel_id ?? d.hostel_id,
-      amount: found?.agreed_rent_amount
-        ? String(found.agreed_rent_amount)
-        : d.amount,
-      startDate,
-      endDate,
-    }));
-  }
-
-  async function handleRecord() {
-    const amount = parseFloat(draft.amount);
-    if (!draft.tenant_id) {
-      toast.error("Please select a tenant.");
-      return;
-    }
-    if (isNaN(amount) || amount < 0) {
-      toast.error("Enter a valid amount.");
-      return;
-    }
-    if (!draft.startDate || !draft.endDate) {
-      toast.error("Please select a billing period.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const startDate = new Date(draft.startDate);
-      const month = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
-      const res = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenant_id: draft.tenant_id,
-          hostel_id: draft.hostel_id,
-          amount,
-          month,
-          method: draft.method || null,
-          notes: draft.notes.trim() || null,
-          status: draft.status,
-          paid_on: draft.paid_on,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error ?? "Could not record payment.");
-        return;
-      }
-      setPayments((prev) => [json.payment as PaymentRow, ...prev]);
-      toast.success("Payment recorded.");
-      closeRecordModal();
-    } catch {
-      toast.error("Network error. Please try again.");
-    } finally {
-      setSaving(false);
-    }
   }
 
   function openEditModal(payment: PaymentRow) {
@@ -1031,30 +857,38 @@ export default function OwnerPaymentsPage() {
     }
   }
 
-  async function handleDelete(paymentId: string) {
-    setDeletingId(paymentId);
-    try {
-      const res = await fetch(`/api/payments/${paymentId}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error ?? "Could not delete payment.");
-        return;
-      }
-      setPayments((prev) => prev.filter((p) => p.id !== paymentId));
-      toast.success("Payment deleted.");
-    } catch {
-      toast.error("Network error. Please try again.");
-    } finally {
-      setDeletingId(null);
-      setConfirmDeleteId(null);
-    }
-  }
-
   /* ------------------------------------------------------------------ */
   /* Render                                                               */
   /* ------------------------------------------------------------------ */
   return (
     <div className="space-y-6">
+      {/* Delete Payment Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete Payment
+            </DialogTitle>
+            <DialogDescription>
+              This will{" "}
+              <strong className="text-foreground">permanently delete</strong> this
+              payment record. <br />
+              <span className="text-destructive font-semibold">
+                This action cannot be undone.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* â”€â”€ Header â”€â”€ */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -1098,12 +932,14 @@ export default function OwnerPaymentsPage() {
               )}
             </div>
 
-            <div className="flex min-w-0 w-full items-center gap-2">
-              <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground shrink-0">
-                Paid on
-              </span>
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+            <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2">
+                <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">
+                  Paid on
+                </span>
+              </div>
+              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                 <DatePicker
                   value={fromDate}
                   onChange={(value) => setFromDate(value)}
@@ -1119,7 +955,7 @@ export default function OwnerPaymentsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
               <button
                 type="button"
                 onClick={() => {
@@ -1310,6 +1146,22 @@ export default function OwnerPaymentsPage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Billing Start
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {formatDateShort(detailPayment.billing_start)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Billing End
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {formatDateShort(detailPayment.billing_end)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Paid on
                   </p>
                   <p className="mt-1 text-sm text-foreground">
@@ -1392,247 +1244,16 @@ export default function OwnerPaymentsPage() {
         </div>
       )}
 
-      {/* â”€â”€ Record Payment Modal â”€â”€ */}
-      {recordOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeRecordModal();
-          }}
-        >
-          <div className="w-full max-w-lg rounded-t-2xl border border-border bg-background p-6 shadow-xl sm:rounded-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-foreground">
-                Record Payment
-              </h3>
-              <button
-                type="button"
-                onClick={closeRecordModal}
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {/* Tenant */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">
-                  Tenant <span className="text-rose-500">*</span>
-                </Label>
-                {tenantsLoading ? (
-                  <div className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading tenants…
-                  </div>
-                ) : tenants.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No active tenants found.
-                  </p>
-                ) : (
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={draft.tenant_id}
-                    onChange={(e) => handleTenantChange(e.target.value)}
-                  >
-                    <option value="">Select a tenant…</option>
-                    {tenants.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.full_name}
-                        {t.room_number ? ` — Room ${t.room_number}` : ""}
-                        {` (${t.hostel_name})`}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              {/* Billing period */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Billing Start <span className="text-rose-500">*</span>
-                  </Label>
-                  <DatePicker
-                    id="start-date"
-                    value={draft.startDate}
-                    onChange={(value) =>
-                      setDraft((d) => ({
-                        ...d,
-                        startDate: value,
-                        endDate: value ? getMonthEndDate(value) : d.endDate,
-                      }))
-                    }
-                    placeholder="Select start date"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Billing End <span className="text-rose-500">*</span>
-                  </Label>
-                  <DatePicker
-                    id="end-date"
-                    value={draft.endDate}
-                    onChange={(value) => setDraft((d) => ({ ...d, endDate: value }))}
-                    placeholder="Select end date"
-                  />
-                </div>
-              </div>
-              {/* Billing calculation preview */}
-              {billingPreview && (
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <p className="text-xs font-medium text-primary">
-                      Calculated Amount
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDraft((d) => ({
-                          ...d,
-                          amount: String(billingPreview.payableAmount),
-                        }))
-                      }
-                      className="text-[11px] text-primary underline-offset-2 hover:underline"
-                    >
-                      Apply ₹{billingPreview.payableAmount.toLocaleString("en-IN")}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
-                    <div>
-                      <p>Monthly rent</p>
-                      <p className="font-medium text-foreground/80">
-                        ₹{billingPreview.monthlyRent.toLocaleString("en-IN")}
-                      </p>
-                    </div>
-                    <div>
-                      <p>Occupied days</p>
-                      <p className="font-medium text-foreground/80">
-                        {billingPreview.occupiedDays} / {billingPreview.daysInMonth}
-                      </p>
-                    </div>
-                    <div>
-                      <p>Per day</p>
-                      <p className="font-medium text-foreground/80">
-                        ₹{billingPreview.perDayRent.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                  {billingPreview.isProrated && (
-                    <p className="mt-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                      Pro-rated billing
-                    </p>
-                  )}
-                </div>
-              )}
-              {/* Amount + Paid On */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">
-                    Amount (₹) <span className="text-rose-500">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0"
-                    value={draft.amount}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, amount: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">
-                    Paid On <span className="text-rose-500">*</span>
-                  </Label>
-                  <DatePicker
-                    value={draft.paid_on}
-                    onChange={(value) => setDraft((d) => ({ ...d, paid_on: value }))}
-                    placeholder="Select payment date"
-                  />
-                </div>
-              </div>
-
-              {/* Method + Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Payment Method</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={draft.method}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        method: e.target.value as PaymentMethod | "",
-                      }))
-                    }
-                  >
-                    <option value="">Not specified</option>
-                    <option value="cash">Cash</option>
-                    <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Status</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={draft.status}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        status: e.target.value as PaymentStatus,
-                      }))
-                    }
-                  >
-                    <option value="paid">Paid</option>
-                    <option value="disputed">Disputed</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Notes (optional)</Label>
-                <Input
-                  placeholder="e.g. Partial payment, UPI ref #123…"
-                  value={draft.notes}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, notes: e.target.value }))
-                  }
-                  maxLength={1000}
-                />
-              </div>
-
-              {draft.status === "paid" && (
-                <p className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-                  A receipt number will be auto-generated.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={closeRecordModal}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleRecord}
-                disabled={saving}
-                className="gap-1.5"
-              >
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Record Payment
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RecordPaymentModal
+        open={recordOpen}
+        onClose={closeRecordModal}
+        tenants={tenants}
+        tenantsLoading={tenantsLoading}
+        payments={payments}
+        onRecorded={(payment) => {
+          setPayments((prev) => [payment as PaymentRow, ...prev]);
+        }}
+      />
 
       {/* â”€â”€ Edit Payment Modal â”€â”€ */}
       {editOpen && (
@@ -1657,7 +1278,7 @@ export default function OwnerPaymentsPage() {
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Amount (₹)</Label>
                   <Input
@@ -1682,7 +1303,7 @@ export default function OwnerPaymentsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Billing Start</Label>
                   <DatePicker
@@ -1709,7 +1330,7 @@ export default function OwnerPaymentsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Status</Label>
                   <select

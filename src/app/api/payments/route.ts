@@ -3,10 +3,26 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+type BillingDataRow = {
+  hostel_id: string;
+  gst_number: string | null;
+  pan_number: string | null;
+  billing_address: string | null;
+};
+
 type OwnerContext = {
   ownerId: string;
   hostelIds: string[];
-  hostelMap: Map<string, { name: string; city: string; state: string }>;
+  hostelMap: Map<
+    string,
+    {
+      name: string;
+      city: string;
+      state: string;
+      address: string | null;
+      pincode: string | null;
+    }
+  >;
 };
 
 async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
@@ -110,7 +126,7 @@ export async function GET(request: NextRequest) {
   let query = admin
     .from("payments")
     .select(
-      "id, tenant_id, hostel_id, amount, month, status, method, receipt_number, notes, paid_at, paid_on, recorded_by, created_at, updated_at",
+      "id, tenant_id, hostel_id, amount, month, billing_start, billing_end, status, method, receipt_number, notes, paid_at, paid_on, recorded_by, created_at, updated_at",
     )
     .in("hostel_id", ctx.hostelIds)
     .order("paid_on", { ascending: false })
@@ -155,8 +171,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: billingError.message }, { status: 500 });
   }
 
-  const billingMap = new Map(
-    (billingData ?? []).map((entry: any) => [entry.hostel_id, entry]),
+  const billingMap = new Map<string, BillingDataRow>(
+    (billingData ?? []).map((entry) => [entry.hostel_id, entry as BillingDataRow]),
   );
 
   const tenantIds = Array.from(
@@ -230,6 +246,12 @@ const createSchema = z.object({
     .min(0, "Amount cannot be negative.")
     .max(9999999, "Amount too large."),
   month: z.string().regex(/^\d{4}-\d{2}$/, "Month must be YYYY-MM format."),
+  billing_start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Billing start must be YYYY-MM-DD."),
+  billing_end: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Billing end must be YYYY-MM-DD."),
   method: z
     .enum(["cash", "upi", "bank_transfer", "razorpay", "other"])
     .nullable()
@@ -262,8 +284,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { tenant_id, hostel_id, amount, month, method, notes, status, paid_on } =
-    parsed.data;
+  const {
+    tenant_id,
+    hostel_id,
+    amount,
+    month,
+    billing_start,
+    billing_end,
+    method,
+    notes,
+    status,
+    paid_on,
+  } = parsed.data;
 
   const today = todayString();
   const resolvedPaidOn = paid_on ?? today;
@@ -304,6 +336,8 @@ export async function POST(request: NextRequest) {
       hostel_id,
       amount,
       month: `${month}-01`,
+      billing_start,
+      billing_end,
       status,
       method: method ?? null,
       notes: notes ?? null,
@@ -313,7 +347,7 @@ export async function POST(request: NextRequest) {
       recorded_by: ctx.ownerId,
     })
     .select(
-      "id, tenant_id, hostel_id, amount, month, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
+      "id, tenant_id, hostel_id, amount, month, billing_start, billing_end, status, method, receipt_number, notes, paid_at, paid_on, created_at, updated_at",
     )
     .single();
 
