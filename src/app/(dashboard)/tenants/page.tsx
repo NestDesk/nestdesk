@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CalendarDays,
@@ -9,7 +9,6 @@ import {
   Clock,
   Download,
   FileImage,
-  History,
   IndianRupee,
   Loader2,
   Receipt,
@@ -566,7 +565,7 @@ export default function OwnerTenantsPage() {
   const [pendingInfoDetail, setPendingInfoDetail] =
     useState<TenantPaymentCoverage | null>(null);
 
-  async function loadPaymentCoverage(tenantRows: TenantRow[]) {
+  const loadPaymentCoverage = useCallback(async (tenantRows: TenantRow[]) => {
     const activeRows = tenantRows.filter(
       (tenant) =>
         tenant.status === "active" &&
@@ -663,9 +662,9 @@ export default function OwnerTenantsPage() {
     } catch {
       toast.error("Network error while loading payment status.");
     }
-  }
+  }, []);
 
-  async function loadTenants() {
+  const loadTenants = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch("/api/tenants", { cache: "no-store" });
@@ -688,13 +687,13 @@ export default function OwnerTenantsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [loadPaymentCoverage]);
 
   useEffect(() => {
     loadTenants().catch(() => {
       // handled in loadTenants
     });
-  }, []);
+  }, [loadTenants]);
 
   const filteredTenants = useMemo(() => {
     return tenants.filter((tenant) => {
