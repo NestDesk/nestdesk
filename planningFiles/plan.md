@@ -126,6 +126,12 @@ The active product flow is:
 - Paid plan cards now use clearer property/tenant scale limits and support tiers aligned to the current product surface.
 - Reset-password submission validates strong passwords server-side and clears the recovery session after a successful change.
 
+20. Owner payment recording is now consistent across payments and tenants screens:
+
+- The Add Payment action on the owner tenants page now opens the same record-payment modal used on the payments page.
+- Both entry points now share the same billing-period defaults, form fields, payload shape, receipt-generation behavior, and /api/payments create flow.
+- The shared fixed overlay keeps the calendar popover in the same working layout as the payments page to avoid clipped or hidden date pickers.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management
