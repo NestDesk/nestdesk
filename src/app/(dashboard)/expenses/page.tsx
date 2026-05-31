@@ -107,17 +107,6 @@ type PropertyTotal = {
   total: number;
 };
 
-type RecurringTemplate = {
-  id: string;
-  hostel_id: string;
-  hostel_name: string;
-  title: string;
-  amount: number;
-  status: ExpenseStatus;
-  recurring_frequency: ExpenseRecurringFrequency | null;
-  next_due_date: string | null;
-};
-
 type DailyTotal = {
   date: string;
   total: number;
