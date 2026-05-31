@@ -126,11 +126,37 @@ export async function POST(
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
 
+  const normalizedName = normalizeText(parsedBody.data.name);
+
+  const existingFloorsResult = await resolved.admin
+    .from("floors")
+    .select("id, name")
+    .eq("hostel_id", parsedParams.data.id)
+    .is("deleted_at", null);
+
+  if (existingFloorsResult.error) {
+    return NextResponse.json(
+      { error: existingFloorsResult.error.message },
+      { status: 500 },
+    );
+  }
+
+  const duplicate = (existingFloorsResult.data ?? []).some(
+    (floor) =>
+      normalizeText(floor.name).toLowerCase() === normalizedName.toLowerCase(),
+  );
+  if (duplicate) {
+    return NextResponse.json(
+      { error: `Floor "${normalizedName}" already exists.` },
+      { status: 409 },
+    );
+  }
+
   const insertResult = await resolved.admin
     .from("floors")
     .insert({
       hostel_id: parsedParams.data.id,
-      name: normalizeText(parsedBody.data.name),
+      name: normalizedName,
     })
     .select("id, name, created_at")
     .single();

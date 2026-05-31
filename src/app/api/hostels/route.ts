@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import https from "https";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,87 @@ const createHostelSchema = z.object({
 
 function normalizeText(value: string): string {
   return value.trim();
+}
+
+function fetchPincodeData(pincode: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "api.postalpincode.in",
+        path: `/pincode/${encodeURIComponent(pincode)}`,
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        agent: new https.Agent({ rejectUnauthorized: false }),
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(data);
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}`));
+          }
+        });
+      },
+    );
+
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+async function verifyCityStateForPincode(
+  pincode: string,
+  city: string,
+  state: string,
+): Promise<boolean> {
+  try {
+    const raw = await fetchPincodeData(pincode);
+    const payload = JSON.parse(raw) as Array<{
+      Status?: string;
+      PostOffice?: Array<{ Name?: string; District?: string; State?: string }>;
+    }>;
+
+    if (!Array.isArray(payload) || payload.length === 0) {
+      return false;
+    }
+
+    const result = payload[0];
+    if (result.Status !== "Success" || !Array.isArray(result.PostOffice)) {
+      return false;
+    }
+
+    const normalizedCity = normalizeText(city).toLowerCase();
+    const normalizedState = normalizeText(state).toLowerCase();
+
+    return result.PostOffice.some(
+      (office: { State?: string; District?: string; Name?: string }) => {
+        const officeState = normalizeText(String(office.State ?? "")).toLowerCase();
+        const officeDistrict = normalizeText(
+          String(office.District ?? ""),
+        ).toLowerCase();
+        const officeName = normalizeText(String(office.Name ?? "")).toLowerCase();
+
+        const stateMatches = officeState === normalizedState;
+        const cityMatches =
+          officeDistrict === normalizedCity ||
+          officeName === normalizedCity ||
+          officeDistrict.includes(normalizedCity) ||
+          officeName.includes(normalizedCity) ||
+          normalizedCity.includes(officeDistrict) ||
+          normalizedCity.includes(officeName);
+
+        return stateMatches && cityMatches;
+      },
+    );
+  } catch {
+    return false;
+  }
 }
 
 function getClientIp(req: NextRequest): string {
@@ -93,6 +175,20 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
+
+  const isValidLocation = await verifyCityStateForPincode(
+    data.pincode,
+    data.city,
+    data.state,
+  );
+
+  if (!isValidLocation) {
+    return NextResponse.json(
+      { error: "Pincode does not match the provided city and state." },
+      { status: 400 },
+    );
+  }
+
   const admin = createAdminClient();
   const ip = getClientIp(request);
 

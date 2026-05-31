@@ -256,6 +256,13 @@ Current behavior notes:
 1. Duplicate room numbers are blocked per property.
 2. Deleting a floor soft-deletes its child rooms.
 3. Floor and room mutations currently do not write audit log rows.
+4. Setup flow now hardens room generation with locked-after-save state, bounded range inputs, sanitized prefixes, and reset-to-next-batch behavior.
+5. Floor and room API routes now enforce case-insensitive duplicate checks before create/update operations.
+6. Blueprint destructive actions now require explicit user confirmation before delete calls.
+7. Setup wizard now shows per-step guidance, explicit done criteria, guarded step transitions, and clearer CTA labels to reduce user confusion.
+8. Add-rooms step now provides batch save preview context, explicit Start Next Batch action, and quick navigation to the next floor that still needs rooms.
+9. Blueprint now warns about unsaved edits and blocks step navigation unless the user confirms discarding in-progress changes.
+10. Setup wizard now includes a dedicated Final Review step with checklist-driven readiness, activation controls, and in-flow invite sharing after activation.
 
 ## Database-backed Features That Are Live
 

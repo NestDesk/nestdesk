@@ -117,9 +117,33 @@ export async function PATCH(
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
 
+  const normalizedName = normalizeText(parsedBody.data.name);
+
+  const floorsResult = await resolved.admin
+    .from("floors")
+    .select("id, name")
+    .eq("hostel_id", parsedParams.data.id)
+    .is("deleted_at", null);
+
+  if (floorsResult.error) {
+    return NextResponse.json({ error: floorsResult.error.message }, { status: 500 });
+  }
+
+  const duplicate = (floorsResult.data ?? []).some(
+    (floor) =>
+      floor.id !== parsedParams.data.floorId &&
+      normalizeText(floor.name).toLowerCase() === normalizedName.toLowerCase(),
+  );
+  if (duplicate) {
+    return NextResponse.json(
+      { error: `Floor "${normalizedName}" already exists.` },
+      { status: 409 },
+    );
+  }
+
   const updateResult = await resolved.admin
     .from("floors")
-    .update({ name: normalizeText(parsedBody.data.name) })
+    .update({ name: normalizedName })
     .eq("id", parsedParams.data.floorId)
     .eq("hostel_id", parsedParams.data.id)
     .is("deleted_at", null)

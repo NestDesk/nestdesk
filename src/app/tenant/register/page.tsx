@@ -35,13 +35,14 @@ import { cn } from "@/lib/utils";
 
 const tenantRegisterSchema = z
   .object({
-    fullName: z.string().min(2, "Enter your full name (at least 2 characters)."),
-    email: z.string().email("Enter a valid email address."),
-    phone: z
+    fullName: z
       .string()
-      .regex(/^\d{10}$/, "Enter a valid 10-digit phone number.")
-      .optional()
-      .or(z.literal("")),
+      .min(2, "Enter your full name (at least 2 characters).")
+      .refine((value) => !/\d/.test(value), {
+        message: "Full name cannot contain numbers.",
+      }),
+    email: z.string().email("Enter a valid email address."),
+    phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number."),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters.")
@@ -102,6 +103,12 @@ const STRENGTH_COLORS = [
   "bg-emerald-400",
 ];
 
+function normalizePhoneNumber(value: string) {
+  return String(value ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
+}
+
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const passed = STRENGTH_RULES.filter((r) => r.test(password)).length;
@@ -145,6 +152,7 @@ type HostelInfo = {
   id: string;
   name: string;
   property_type: string;
+  address: string;
   city: string;
   state: string;
 };
@@ -170,6 +178,10 @@ const GENDER_LABELS: Record<string, string> = {
 };
 
 function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
+  const address = [hostel.address, hostel.city, hostel.state]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/8 p-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
@@ -180,9 +192,9 @@ function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
         <p className="text-xs text-white/50">
           {PROPERTY_TYPE_LABELS[hostel.property_type] ?? hostel.property_type}
         </p>
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-white/40">
-          <MapPin className="h-3 w-3" />
-          {hostel.city}, {hostel.state}
+        <p className="mt-0.5 flex items-start gap-1 text-xs text-white/40">
+          <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+          <span className="break-words">{address}</span>
         </p>
       </div>
     </div>
@@ -256,7 +268,7 @@ function TenantRegisterPageContent() {
     defaultValues: {
       consentGiven: false,
       occupationType: "student",
-      gender: "rather_not_say",
+      gender: "male",
     },
   });
 
@@ -398,21 +410,32 @@ function TenantRegisterPageContent() {
                 )}
               </div>
 
-              {/* Phone (optional) */}
+              {/* Phone */}
               <div className="space-y-1.5">
                 <Label htmlFor="phone" className="text-white/80">
-                  Phone number{" "}
-                  <span className="text-white/40 font-normal">(optional)</span>
+                  Phone number
                 </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  placeholder="10-digit mobile number"
-                  autoComplete="tel-national"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
-                  {...register("phone")}
-                />
+                <div className="flex overflow-hidden rounded-xl border border-white/15 bg-white/10 text-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary">
+                  <span className="flex items-center px-3 text-sm text-white/60">
+                    +91
+                  </span>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="1234567890"
+                    autoComplete="tel-national"
+                    maxLength={10}
+                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-0 text-white placeholder:text-white/30 focus-visible:ring-0"
+                    {...register("phone", {
+                      onChange: (event) => {
+                        const value = normalizePhoneNumber(event.target.value);
+                        event.target.value = value;
+                        setValue("phone", value, { shouldValidate: true });
+                      },
+                    })}
+                  />
+                </div>
                 {errors.phone && (
                   <p className="text-xs text-red-400">{errors.phone.message}</p>
                 )}

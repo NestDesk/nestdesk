@@ -1560,9 +1560,9 @@ export default function OwnerTenantsPage() {
                         </div>
 
                         {/* Right side: action buttons */}
-                        <div className="flex flex-col items-start gap-2.5 sm:items-end">
+                        <div className="flex flex-col items-start gap-2 sm:items-end">
                           {/* Row 1: Action buttons */}
-                          <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          <div className="flex shrink-0 flex-wrap items-center gap-1">
                             {!isEditing ? (
                               <div className="inline-flex overflow-hidden rounded-lg border border-border">
                                 <button
@@ -1574,7 +1574,7 @@ export default function OwnerTenantsPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="h-8 border-r border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-emerald-500/5 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-400"
+                                  className="h-8 border-r border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-emerald-500/5 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-400"
                                   onClick={() => openRecordPayment(tenant)}
                                   disabled={tenant.status !== "active"}
                                   title={

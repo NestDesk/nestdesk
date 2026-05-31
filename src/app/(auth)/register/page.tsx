@@ -30,8 +30,14 @@ import { PrivacyPolicyLink } from "@/components/legal/PrivacyPolicyLink";
 
 const registerSchema = z
   .object({
-    fullName: z.string().min(2, "Enter your full name (at least 2 characters)."),
-    email: z.string().email("Enter a valid email address."),
+    fullName: z
+      .string()
+      .min(2, "Enter your full name (at least 2 characters).")
+      .max(100)
+      .refine((value) => !/\d/.test(value), {
+        message: "Name should not contain numbers.",
+      }),
+    email: z.string().trim().email("Enter a valid email address."),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters.")
@@ -214,7 +220,7 @@ export default function RegisterPage() {
             Create your account
           </CardTitle>
           <CardDescription className="text-white/60">
-            Manage your PG / hostel with NestDesk
+            Manage your property with NestDesk
           </CardDescription>
         </div>
       </CardHeader>
@@ -229,7 +235,7 @@ export default function RegisterPage() {
             <Input
               id="fullName"
               type="text"
-              placeholder="Ahmad Khan"
+              placeholder="Owner Name"
               autoComplete="name"
               className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
               {...register("fullName")}

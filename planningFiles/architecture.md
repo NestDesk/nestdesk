@@ -383,6 +383,12 @@ Behavior:
 2. The UI always re-syncs from the database after a mutation.
 3. Floors and rooms use soft delete via deleted_at.
 4. Bulk room generation skips duplicates instead of failing the entire request.
+5. Add-rooms generator enforces bounded ranges, sanitized prefixes, and a lock-then-reset flow to prevent accidental re-edit after save.
+6. Floor and room mutations include case-insensitive duplicate guards on both client and API layers.
+7. Blueprint delete actions require explicit user confirmation before soft-delete operations.
+8. The setup manager adds explicit step guidance, done criteria, and guarded step navigation to keep the wizard self-explanatory.
+9. The add-rooms UI includes save-impact summaries and a next-pending-floor helper action to guide floor-by-floor completion.
+10. Blueprint edit sessions propagate a dirty-state flag to the wizard, and step changes prompt before discarding unsaved edits.
 
 ### OTP Infrastructure
 
@@ -477,3 +483,5 @@ If you need to work on a specific area, start here:
 8. Room setup issues: src/app/api/hostels/[id]/rooms/route.ts, src/app/api/hostels/[id]/rooms/[roomId]/route.ts, and src/app/api/hostels/[id]/rooms/bulk/route.ts
 9. Theme/provider issues: src/app/layout.tsx and src/providers/ThemeProvider.tsx
 10. Database ownership or RLS issues: supabase/migrations/001_init_simple.sql
+
+- Wizard now has a terminal "Finalize" stage that centralizes readiness checklist, activation trigger, and tenant invite distribution so the setup lifecycle ends in one canonical flow.

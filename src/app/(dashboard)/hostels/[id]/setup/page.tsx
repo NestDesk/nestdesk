@@ -4,9 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { PropertySetupManager } from "@/components/hostels/PropertySetupManager";
-import { PropertyInviteCard } from "@/components/hostels/PropertyInviteCard";
 
 type Props = {
   params: Promise<{ id: string }> | { id: string };
@@ -44,9 +43,6 @@ export default async function PropertySetupPage({ params }: Props) {
   const floors = floorsResult.data ?? [];
   const rooms = roomsResult.data ?? [];
 
-  const floorStepDone = floors.length > 0;
-  const roomStepDone = rooms.length > 0;
-
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -78,33 +74,13 @@ export default async function PropertySetupPage({ params }: Props) {
 
       <PropertySetupManager
         hostelId={property.id}
+        propertyName={property.name}
+        isActive={property.is_active}
+        tenantJoinToken={property.tenant_join_token}
+        propertyCode={property.property_code}
         initialFloors={floors}
         initialRooms={rooms}
       />
-
-      {property.is_active && property.tenant_join_token ? (
-        <PropertyInviteCard
-          joinToken={property.tenant_join_token}
-          propertyName={property.name}
-          propertyCode={property.property_code ?? undefined}
-        />
-      ) : null}
-
-      {!property.is_active && (!floorStepDone || !roomStepDone) ? (
-        <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5">
-          <CardHeader>
-            <CardTitle className="text-base text-amber-600 dark:text-amber-400">
-              Activation Reminder
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              At least one floor and rooms on that floor must be setup to unlock
-              property activation.
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
     </div>
   );
 }
