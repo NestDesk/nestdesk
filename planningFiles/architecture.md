@@ -214,6 +214,8 @@ The app is split into five main layers:
    - Owner list shows tenant profile pictures from signed URLs
    - Clicking avatar/review opens a full tenant profile review dialog
    - Review dialog renders tenant KYC documents and supports approve-as-active action
+   - Property selection is rendered as tabs (no property dropdown), with tenant list scoped by selected property tab
+   - Top-level total summary also shows per-property tenant counts for quick property-wise visibility
 
 ### Tenant Profile and KYC Workflow
 

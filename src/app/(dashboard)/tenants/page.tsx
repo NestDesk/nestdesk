@@ -18,6 +18,7 @@ import {
   UserCheck,
   UserX,
   X,
+  ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/DatePicker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -100,6 +108,21 @@ type TenantDraft = {
   joinDate: string;
   rentStartDate: string;
   moveOutDate: string;
+};
+
+type TenantSortOption =
+  | "none"
+  | "room_number"
+  | "join_date"
+  | "profile_completion"
+  | "rent_amount";
+
+const SORT_OPTION_LABELS: Record<TenantSortOption, string> = {
+  none: "Sort by",
+  room_number: "Room number",
+  join_date: "Joined date",
+  profile_completion: "Profile completion",
+  rent_amount: "Rent amount",
 };
 
 type TenantProfileDetail = {
@@ -521,8 +544,12 @@ export default function OwnerTenantsPage() {
   );
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [hostelFilter, setHostelFilter] = useState<string>("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<
+    "all" | "paid" | "pending"
+  >("all");
+  const [sortOption, setSortOption] = useState<TenantSortOption>("none");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, TenantDraft>>({});
@@ -696,7 +723,7 @@ export default function OwnerTenantsPage() {
   }, [loadTenants]);
 
   const filteredTenants = useMemo(() => {
-    return tenants.filter((tenant) => {
+    const matches = tenants.filter((tenant) => {
       const query = searchQuery.trim().toLowerCase();
       const matchesQuery =
         !query ||
@@ -709,10 +736,50 @@ export default function OwnerTenantsPage() {
       const matchesStatus = statusFilter === "all" || tenant.status === statusFilter;
       const matchesHostel =
         hostelFilter === "all" || tenant.hostel_id === hostelFilter;
+      const coverage = paymentCoverageByTenant[tenant.id];
+      const matchesPaymentStatus =
+        paymentStatusFilter === "all" ||
+        (coverage ? coverage.status === paymentStatusFilter : false);
 
-      return matchesQuery && matchesStatus && matchesHostel;
+      return matchesQuery && matchesStatus && matchesHostel && matchesPaymentStatus;
     });
-  }, [hostelFilter, searchQuery, statusFilter, tenants]);
+
+    if (sortOption === "none") {
+      return matches;
+    }
+
+    return [...matches].sort((a, b) => {
+      if (sortOption === "room_number") {
+        const aRoom = Number(a.room_number ?? "") || Number.POSITIVE_INFINITY;
+        const bRoom = Number(b.room_number ?? "") || Number.POSITIVE_INFINITY;
+        return aRoom - bRoom;
+      }
+
+      if (sortOption === "join_date") {
+        const aDate = a.join_date ? new Date(a.join_date).getTime() : 0;
+        const bDate = b.join_date ? new Date(b.join_date).getTime() : 0;
+        return bDate - aDate;
+      }
+
+      if (sortOption === "profile_completion") {
+        return b.profile_completion_percentage - a.profile_completion_percentage;
+      }
+
+      if (sortOption === "rent_amount") {
+        return (b.agreed_rent_amount ?? 0) - (a.agreed_rent_amount ?? 0);
+      }
+
+      return 0;
+    });
+  }, [
+    hostelFilter,
+    paymentCoverageByTenant,
+    paymentStatusFilter,
+    searchQuery,
+    sortOption,
+    statusFilter,
+    tenants,
+  ]);
 
   function startEdit(tenant: TenantRow) {
     setEditingId(tenant.id);
@@ -1093,6 +1160,37 @@ export default function OwnerTenantsPage() {
     setPendingInfoOpen(true);
   }
 
+  // Compute per-property counts for each status
+  const propertyStatusCounts = useMemo(() => {
+    const counts: Record<
+      string,
+      {
+        name: string;
+        total: number;
+        pending: number;
+        active: number;
+        moved_out: number;
+      }
+    > = {};
+    for (const hostel of hostels) {
+      counts[hostel.id] = {
+        name: hostel.name,
+        total: 0,
+        pending: 0,
+        active: 0,
+        moved_out: 0,
+      };
+    }
+    for (const tenant of tenants) {
+      if (!counts[tenant.hostel_id]) continue;
+      counts[tenant.hostel_id].total += 1;
+      if (tenant.status === "pending") counts[tenant.hostel_id].pending += 1;
+      if (tenant.status === "active") counts[tenant.hostel_id].active += 1;
+      if (tenant.status === "moved_out") counts[tenant.hostel_id].moved_out += 1;
+    }
+    return counts;
+  }, [hostels, tenants]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1108,78 +1206,131 @@ export default function OwnerTenantsPage() {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Card */}
         <Card className="rounded-xl border-border/70">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-              <User className="h-4 w-4 text-primary" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Total
+                </p>
+                <p className="text-xl font-bold text-foreground">{summary.total}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Total
-              </p>
-              <p className="text-xl font-bold text-foreground">{summary.total}</p>
+            {/* Per-property breakdown */}
+            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+              {Object.values(propertyStatusCounts).map((item) => (
+                <div key={item.name}>
+                  {item.name}:{" "}
+                  <span className="font-semibold text-foreground">{item.total}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
+        {/* Pending Card */}
         <Card className="rounded-xl border-border/70">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
-              <Clock className="h-4 w-4 text-amber-500" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
+                <Clock className="h-4 w-4 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Pending
+                </p>
+                <p className="text-xl font-bold text-foreground">
+                  {summary.pending}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Pending
-              </p>
-              <p className="text-xl font-bold text-foreground">{summary.pending}</p>
+            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+              {Object.values(propertyStatusCounts).map((item) => (
+                <div key={item.name}>
+                  {item.name}:{" "}
+                  <span className="font-semibold text-foreground">
+                    {item.pending}
+                  </span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
+        {/* Active Card */}
         <Card className="rounded-xl border-border/70">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
-              <UserCheck className="h-4 w-4 text-emerald-500" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
+                <UserCheck className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Active
+                </p>
+                <p className="text-xl font-bold text-foreground">{summary.active}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Active
-              </p>
-              <p className="text-xl font-bold text-foreground">{summary.active}</p>
+            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+              {Object.values(propertyStatusCounts).map((item) => (
+                <div key={item.name}>
+                  {item.name}:{" "}
+                  <span className="font-semibold text-foreground">
+                    {item.active}
+                  </span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
+        {/* Moved Out Card */}
         <Card className="rounded-xl border-border/70">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-500/10">
-              <UserX className="h-4 w-4 text-slate-500" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-500/10">
+                <UserX className="h-4 w-4 text-slate-500" />
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Moved Out
+                </p>
+                <p className="text-xl font-bold text-foreground">
+                  {summary.moved_out}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Moved Out
-              </p>
-              <p className="text-xl font-bold text-foreground">
-                {summary.moved_out}
-              </p>
+            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+              {Object.values(propertyStatusCounts).map((item) => (
+                <div key={item.name}>
+                  {item.name}:{" "}
+                  <span className="font-semibold text-foreground">
+                    {item.moved_out}
+                  </span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Card className="rounded-xl border-border/70">
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-3">
-          <div className="relative sm:col-span-2">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-[30%_70%]">
+          <div className="relative min-w-0">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, email, room, or property"
-              className="pl-8"
+              className="pl-8 min-w-0"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
             <select
               className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
               value={statusFilter}
@@ -1205,6 +1356,53 @@ export default function OwnerTenantsPage() {
                 </option>
               ))}
             </select>
+
+            <select
+              className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
+              value={paymentStatusFilter}
+              onChange={(e) =>
+                setPaymentStatusFilter(e.target.value as "all" | "paid" | "pending")
+              }
+            >
+              <option value="all">All rent status</option>
+              <option value="paid">Rent paid</option>
+              <option value="pending">Rent pending</option>
+            </select>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 min-w-[10rem] justify-between"
+                >
+                  <span className="truncate text-sm">
+                    {SORT_OPTION_LABELS[sortOption]}
+                  </span>
+                  <ArrowUpDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onSelect={() => setSortOption("room_number")}>
+                  Room number
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortOption("join_date")}>
+                  Joined date
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setSortOption("profile_completion")}
+                >
+                  Profile completion
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSortOption("rent_amount")}>
+                  Rent amount
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setSortOption("none")}>
+                  Clear sorting
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>

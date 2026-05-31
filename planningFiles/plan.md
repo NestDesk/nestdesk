@@ -132,6 +132,12 @@ The active product flow is:
 - Both entry points now share the same billing-period defaults, form fields, payload shape, receipt-generation behavior, and /api/payments create flow.
 - The shared fixed overlay keeps the calendar popover in the same working layout as the payments page to avoid clipped or hidden date pickers.
 
+21. Owner tenants property navigation is now tab-based:
+
+- Removed property dropdown filter from the tenants management toolbar.
+- Added property tabs so owners can switch directly between properties and view tenants per property.
+- Added per-property tenant counts in the top Total card while keeping the overall total visible.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

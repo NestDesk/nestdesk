@@ -962,8 +962,9 @@ export default function OwnerPaymentsPage() {
                   setSearchQuery("");
                   setFilterHostelId("all");
                   setFilterStatus("all");
-                  setFromDate("");
-                  setToDate("");
+                  const { startDate, endDate } = thisMonthRange();
+                  setFromDate(startDate);
+                  setToDate(endDate);
                 }}
                 title="Reset filters"
                 aria-label="Reset filters"
