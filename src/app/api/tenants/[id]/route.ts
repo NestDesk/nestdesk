@@ -14,13 +14,14 @@ const updateTenantSchema = z.object({
   fullName: z.string().min(2).max(100).optional(),
   phone: z
     .string()
-    .regex(/^\d{10}$/, "Phone must be exactly 10 digits.")
+    .regex(/^[\d]{10}$/, "Phone must be exactly 10 digits.")
     .or(z.literal(""))
     .optional(),
   status: z.enum(["pending", "active", "moved_out", "rejected"]).optional(),
   roomId: z.string().uuid().nullable().optional(),
   agreedRentAmount: z.number().positive().max(1000000).nullable().optional(),
   joinDate: z.string().date().nullable().optional(),
+  rentStartDate: z.string().date().nullable().optional(),
   moveOutDate: z.string().date().nullable().optional(),
 });
 
@@ -198,7 +199,7 @@ export async function PATCH(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, status, agreed_rent_amount, join_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
+      "id, owner_id, hostel_id, room_id, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -222,6 +223,10 @@ export async function PATCH(
       : input.agreedRentAmount;
   let nextJoinDate =
     input.joinDate === undefined ? tenant.join_date : input.joinDate;
+  const nextRentStartDate =
+    input.rentStartDate === undefined
+      ? (tenant.rent_start_date ?? tenant.join_date)
+      : input.rentStartDate;
   let nextMoveOutDate =
     input.moveOutDate === undefined ? tenant.move_out_date : input.moveOutDate;
   let nextFirstActivatedAt = tenant.first_activated_at;
@@ -347,6 +352,7 @@ export async function PATCH(
     room_id: string | null;
     agreed_rent_amount: number | null;
     join_date: string | null;
+    rent_start_date: string | null;
     move_out_date: string | null;
     first_activated_at: string | null;
     updated_at: string;
@@ -355,6 +361,7 @@ export async function PATCH(
     room_id: nextRoomId,
     agreed_rent_amount: nextAgreedRentAmount,
     join_date: nextJoinDate,
+    rent_start_date: nextRentStartDate,
     move_out_date: nextMoveOutDate,
     first_activated_at: nextFirstActivatedAt,
     updated_at: new Date().toISOString(),
@@ -416,6 +423,7 @@ export async function PATCH(
       room_id: nextRoomId,
       agreed_rent_amount: nextAgreedRentAmount,
       join_date: nextJoinDate,
+      rent_start_date: nextRentStartDate,
       move_out_date: nextMoveOutDate,
       first_activated_at: nextFirstActivatedAt,
     },
@@ -424,7 +432,7 @@ export async function PATCH(
   const { data: updatedTenant, error: fetchError } = await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at",
+      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, first_activated_at, created_at, updated_at",
     )
     .eq("id", tenant.id)
     .maybeSingle();

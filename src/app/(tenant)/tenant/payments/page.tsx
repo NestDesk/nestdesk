@@ -11,7 +11,7 @@ type PaymentRow = {
   id: string;
   amount: number;
   month: string;
-  status: "pending" | "paid" | "overdue" | "disputed";
+  status: "paid" | "disputed";
   method: string | null;
   receipt_number: string | null;
   notes: string | null;
@@ -21,16 +21,12 @@ type PaymentRow = {
 
 type Summary = {
   totalPaid: number;
-  pendingAmount: number;
+  disputedAmount: number;
   total: number;
 };
 
 const STATUS_CHIP: Record<string, string> = {
   paid: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
-  pending:
-    "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
-  overdue:
-    "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300",
   disputed:
     "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300",
 };
@@ -70,7 +66,7 @@ export default function TenantPaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [summary, setSummary] = useState<Summary>({
     totalPaid: 0,
-    pendingAmount: 0,
+    disputedAmount: 0,
     total: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -85,7 +81,7 @@ export default function TenantPaymentsPage() {
           return;
         }
         setPayments((json.payments ?? []) as PaymentRow[]);
-        setSummary(json.summary ?? { totalPaid: 0, pendingAmount: 0, total: 0 });
+        setSummary(json.summary ?? { totalPaid: 0, disputedAmount: 0, total: 0 });
       } catch {
         toast.error("Network error. Please try again.");
       } finally {
@@ -131,11 +127,9 @@ export default function TenantPaymentsPage() {
               </p>
             </div>
             <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Pending / Overdue
-              </p>
-              <p className="mt-1 text-xl font-bold text-amber-700 dark:text-amber-300">
-                {formatAmount(summary.pendingAmount)}
+              <p className="text-xs text-amber-700 dark:text-amber-400">Disputed</p>
+              <p className="mt-1 text-xl font-bold text-violet-700 dark:text-violet-300">
+                {formatAmount(summary.disputedAmount)}
               </p>
             </div>
           </div>
@@ -158,8 +152,8 @@ export default function TenantPaymentsPage() {
                   key={p.id}
                   className={cn(
                     "rounded-2xl border transition-shadow hover:shadow-sm",
-                    p.status === "overdue"
-                      ? "border-rose-200/70 dark:border-rose-500/20"
+                    p.status === "disputed"
+                      ? "border-violet-200/70 dark:border-violet-500/20"
                       : "border-border/70",
                   )}
                 >

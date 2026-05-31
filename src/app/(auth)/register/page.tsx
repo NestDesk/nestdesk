@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { PrivacyPolicyLink } from "@/components/legal/PrivacyPolicyLink";
 
 const registerSchema = z
   .object({
@@ -38,6 +39,9 @@ const registerSchema = z
       .regex(/[a-z]/, "Add at least one lowercase letter.")
       .regex(/[0-9]/, "Add at least one number."),
     confirmPassword: z.string(),
+    consentGiven: z.boolean().refine((v) => v === true, {
+      message: "You must agree to the Privacy Policy to continue.",
+    }),
   })
   .refine((d) => d.password === d.confirmPassword, {
     path: ["confirmPassword"],
@@ -158,6 +162,7 @@ export default function RegisterPage() {
           fullName: data.fullName,
           email: data.email,
           password: data.password,
+          consentGiven: data.consentGiven,
         }),
       });
 
@@ -319,6 +324,27 @@ export default function RegisterPage() {
               </p>
             )}
           </div>
+
+          {/* Consent */}
+          <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+            <input
+              id="consentGiven"
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 accent-primary"
+              {...register("consentGiven")}
+            />
+            <Label
+              htmlFor="consentGiven"
+              className="text-xs text-white/60 leading-relaxed cursor-pointer"
+            >
+              I agree to NestDesk&apos;s{" "}
+              <PrivacyPolicyLink className="text-white/80" /> and consent to my
+              personal data being used for property management purposes by NestDesk.
+            </Label>
+          </div>
+          {errors.consentGiven && (
+            <p className="text-xs text-red-400">{errors.consentGiven.message}</p>
+          )}
 
           <Button
             type="submit"

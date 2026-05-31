@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, LayoutDashboard, Megaphone, User, Wrench } from "lucide-react";
+import {
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  Megaphone,
+  User,
+  Wrench,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -35,6 +43,18 @@ const NAV_ITEMS = [
     label: "Maintenance",
     hint: "Raise and track requests",
     icon: Wrench,
+  },
+  {
+    href: "/tenant/support-staff",
+    label: "Support Staff",
+    hint: "Property contact numbers",
+    icon: Users,
+  },
+  {
+    href: "/tenant/terms",
+    label: "Terms & Conditions",
+    hint: "Property rules and contacts",
+    icon: FileText,
   },
 ] as const;
 

@@ -126,6 +126,29 @@ The active product flow is:
 - Paid plan cards now use clearer property/tenant scale limits and support tiers aligned to the current product surface.
 - Reset-password submission validates strong passwords server-side and clears the recovery session after a successful change.
 
+20. Owner payment recording is now consistent across payments and tenants screens:
+
+- The Add Payment action on the owner tenants page now opens the same record-payment modal used on the payments page.
+- Both entry points now share the same billing-period defaults, form fields, payload shape, receipt-generation behavior, and /api/payments create flow.
+- The shared fixed overlay keeps the calendar popover in the same working layout as the payments page to avoid clipped or hidden date pickers.
+
+21. Owner tenants property navigation is now tab-based:
+
+- Removed property dropdown filter from the tenants management toolbar.
+- Added property tabs so owners can switch directly between properties and view tenants per property.
+- Added per-property tenant counts in the top Total card while keeping the overall total visible.
+
+22. Owner expenses module was revamped for professional financial visibility:
+
+- Expenses top cards now show onboarding-aware lifetime totals, current-month totals with date range, and recurring schedules.
+- Current-month daily trend is now rendered as an ApexCharts bar chart for quick month-in-progress visibility.
+- Property-wise totals are embedded directly into the top cards (lifetime and current-month), replacing the old secondary summary panels.
+- Expenses table is now TanStack-based with sortable columns and a three-dot action menu per row.
+- Delete action now uses a confirmation dialog before performing soft delete.
+- Filters now auto-trigger API reload without Apply button.
+- API now returns month options from property onboarding month to current month.
+- Recurring expenses are now auto-materialized by API when due date is reached, and recurring templates advance their next due date automatically.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

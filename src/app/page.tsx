@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { LegalPolicyLauncher } from "@/components/legal/LegalPolicyLauncher";
+import { PricingSection } from "@/components/layout/PricingSection";
 import {
   Building2,
   Zap,
@@ -20,7 +21,6 @@ import {
   Bell,
   FileText,
   BarChart3,
-  CheckCircle2,
   Star,
   Globe,
   ClipboardList,
@@ -132,95 +132,6 @@ const testimonials = [
     initials: "AP",
     quote:
       "The tenant review flow and payment tracking are much clearer now. I can check room occupancy and tenant status in minutes.",
-  },
-];
-
-const pricing = [
-  {
-    name: "Free",
-    price: "0",
-    period: "forever",
-    description: "Best for a single small property",
-    features: [
-      "1 property",
-      "Up to 10 tenants",
-      "Tenants, Payments, Notices, Maintenance",
-      "Basic owner support",
-    ],
-    cta: "Start Free",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
-    name: "Starter",
-    price: "699",
-    period: "month",
-    description: "For growing hostels and PGs",
-    features: [
-      "1 property",
-      "Up to 120 tenants",
-      "Everything in Free",
-      "Occupancy and Expense modules",
-      "Tenant profile and KYC review",
-    ],
-    cta: "Choose Starter",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "1,399",
-    period: "month",
-    description: "Most popular for multi-property operators",
-    features: [
-      "Up to 2 properties",
-      "Up to 150 tenants in each",
-      "Occupancy and Expense modules",
-      "Tenant profile and KYC review",
-      "Dedicated onboarding",
-      "Tenants, Payments, Notices, Maintenance",
-      "Operational review support",
-    ],
-    cta: "Choose Pro",
-    ctaHref: "/register",
-    highlighted: true,
-  },
-  {
-    name: "Business",
-    price: "2,499",
-    period: "month",
-    description: "For larger chains and operations teams",
-    features: [
-      "Up to 4 properties",
-      "Up to 180 tenants in each",
-      "Occupancy and Expense modules",
-      "Tenant profile and KYC review",
-      "Dedicated onboarding",
-      "Tenants, Payments, Notices, Maintenance",
-      "Operational review support",
-    ],
-    cta: "Choose Business",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
-    name: "Enterprise",
-    price: null,
-    period: null,
-    description: "For very large chains and custom operations",
-    features: [
-      "Unlimited properties",
-      "High-volume tenant operations",
-      "Occupancy and Expense modules",
-      "Tenant profile and KYC review",
-      "Tenants, Payments, Notices, Maintenance",
-      "Custom onboarding and migration",
-      "Dedicated success coordination",
-      "Custom rollout planning",
-    ],
-    cta: "Contact Sales",
-    ctaHref: "mailto:support@nestdesk.in",
-    highlighted: false,
   },
 ];
 
@@ -583,110 +494,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── Pricing ────────────────────────────── */}
-      <section id="pricing" className="bg-muted/30 py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-10 flex flex-col items-center text-center">
-            <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Clear plans based on your current scale
-            </h2>
-            <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              Every plan includes the core NestDesk workflows. Higher plans add
-              capacity and hands-on support for larger operations.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {pricing.map(
-              ({
-                name,
-                price,
-                period,
-                description,
-                features: planFeatures,
-                cta,
-                ctaHref,
-                highlighted,
-              }) => (
-                <div
-                  key={name}
-                  className={`relative flex flex-col rounded-2xl border p-6 ${
-                    highlighted
-                      ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
-                      : "card-hover border-border/60 bg-card/80 backdrop-blur-sm"
-                  }`}
-                >
-                  {highlighted && (
-                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold text-white ring-2 ring-background">
-                      Most Popular
-                    </span>
-                  )}
-
-                  <div className="mb-4">
-                    <h3
-                      className={`text-lg font-bold ${highlighted ? "text-white" : "text-foreground"}`}
-                    >
-                      {name}
-                    </h3>
-                    <p
-                      className={`mt-1 h-8 text-xs leading-4 ${highlighted ? "text-white/70" : "text-muted-foreground"}`}
-                    >
-                      {description}
-                    </p>
-                  </div>
-
-                  <div className="mb-6">
-                    <span
-                      className={`text-3xl font-bold leading-none tracking-tight ${highlighted ? "text-white" : "text-foreground"}`}
-                    >
-                      {price === "0" ? "Free" : price ? `Rs.${price}` : "Custom"}
-                    </span>
-                    {price && price !== "0" && period && (
-                      <span
-                        className={`ml-1 text-sm ${highlighted ? "text-white/70" : "text-muted-foreground"}`}
-                      >
-                        /{period}
-                      </span>
-                    )}
-                  </div>
-
-                  <ul className="mb-8 flex-1 space-y-2.5">
-                    {planFeatures.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
-                        <CheckCircle2
-                          className={`mt-0.5 h-4 w-4 shrink-0 ${highlighted ? "text-white/80" : "text-primary"}`}
-                        />
-                        <span
-                          className={
-                            highlighted ? "text-white/90" : "text-muted-foreground"
-                          }
-                        >
-                          {f}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link href={ctaHref}>
-                    <Button
-                      className={`w-full rounded-xl ${
-                        highlighted ? "bg-white text-primary hover:bg-white/90" : ""
-                      }`}
-                      variant={highlighted ? "secondary" : "default"}
-                    >
-                      {cta}
-                    </Button>
-                  </Link>
-                </div>
-              ),
-            )}
-          </div>
-
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Need a custom rollout for large operations? Contact support for an
-            enterprise plan tailored to your property network.
-          </p>
-        </div>
-      </section>
+      <PricingSection />
 
       {/* ── Footer ─────────────────────────────── */}
       <footer className="border-t border-border bg-background">

@@ -43,7 +43,7 @@ export interface Hostel {
   deleted_at: string | null;
 }
 
-export type PaymentStatus = "pending" | "paid" | "overdue" | "disputed";
+export type PaymentStatus = "paid" | "disputed";
 export type PaymentMethod = "cash" | "upi" | "bank_transfer" | "razorpay" | "other";
 
 export interface Payment {
@@ -58,6 +58,7 @@ export interface Payment {
   receipt_number: string | null;
   notes: string | null;
   paid_at: string | null;
+  paid_on: string; // DATE — user-visible "paid on" date, defaults to today
   recorded_by: string | null;
   created_at: string;
   updated_at: string;

@@ -27,11 +27,11 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Properties", href: "/hostels", icon: Building2 },
   { label: "Tenants", href: "/tenants", icon: Users },
-  { label: "Occupancy", href: "/occupancy", icon: BedDouble },
-  { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Expenses", href: "/expenses", icon: WalletCards },
+  { label: "Occupancy", href: "/occupancy", icon: BedDouble },
   { label: "Notices", href: "/notices", icon: Bell },
+  { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "My Profile", href: "/profile", icon: UserCircle2 },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

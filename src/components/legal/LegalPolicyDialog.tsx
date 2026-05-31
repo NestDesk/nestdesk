@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,11 @@ export function LegalPolicyDialog({
   defaultPolicy?: LegalPolicyKey;
 }) {
   const [policy, setPolicy] = useState<LegalPolicyKey>(defaultPolicy);
+
+  // Sync the active tab whenever the dialog opens with a different policy
+  useEffect(() => {
+    if (open) setPolicy(defaultPolicy);
+  }, [open, defaultPolicy]);
 
   return (
     <Dialog

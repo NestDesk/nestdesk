@@ -24,6 +24,9 @@ const registerSchema = z.object({
     .regex(/[a-z]/, "Password must contain at least one lowercase letter.")
     .regex(/[0-9]/, "Password must contain at least one number."),
   fullName: z.string().min(2, "Full name must be at least 2 characters.").max(100),
+  consentGiven: z.boolean().refine((v) => v === true, {
+    message: "You must agree to the Privacy Policy to continue.",
+  }),
 });
 
 export async function POST(request: NextRequest) {
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { email, password, fullName } = parsed.data;
+  const { email, password, fullName, consentGiven } = parsed.data;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin;
 
   // Dev mode: do not rely on email delivery; create confirmed user directly.
@@ -208,7 +211,22 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // ── 3. Build response (no session cookies yet — user must verify email) ──
+  // ── 3. Store consent record ─────────────────────────────────────────────
+  if (consentGiven && data.user.id) {
+    const admin = createAdminClient();
+    await admin.from("consent_records").insert({
+      user_id: data.user.id,
+      consent_type: "data_collection",
+      consent_given: true,
+      ip_address:
+        request.headers.get("x-forwarded-for") ||
+        request.headers.get("cf-connecting-ip") ||
+        undefined,
+      form_version: "owner_registration_v1",
+    });
+  }
+
+  // ── 4. Build response (no session cookies yet — user must verify email) ──
   const response = NextResponse.json({
     success: true,
     message:

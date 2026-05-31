@@ -118,8 +118,15 @@ The app is split into five main layers:
 11. src/app/(dashboard)/expenses/page.tsx
 
 - Owner expense management workspace
-- Supports expense creation, editing, soft delete, and quick input flows
-- Includes property-wise totals, category breakdown, monthly trend, and total expense analytics
+- Supports expense creation, editing, soft delete confirmation, and recurring schedule setup
+- Uses TanStack table with sortable columns and row-level action menu
+- Includes onboarding-aware lifetime totals, current-month range totals, recurring overview, and ApexCharts daily trend for current month
+
+12. src/app/api/expenses/route.ts
+
+- Owner expense list/create API
+- Returns hostels, onboarding-aware month options, summary analytics, recurring templates, property totals, and current-month daily trend data
+- Auto-materializes due recurring expenses and advances template next due dates on list fetch
 
 12. src/app/(dashboard)/occupancy/page.tsx
 
@@ -214,6 +221,8 @@ The app is split into five main layers:
    - Owner list shows tenant profile pictures from signed URLs
    - Clicking avatar/review opens a full tenant profile review dialog
    - Review dialog renders tenant KYC documents and supports approve-as-active action
+   - Property selection is rendered as tabs (no property dropdown), with tenant list scoped by selected property tab
+   - Top-level total summary also shows per-property tenant counts for quick property-wise visibility
 
 ### Tenant Profile and KYC Workflow
 

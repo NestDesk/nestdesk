@@ -45,13 +45,13 @@ export async function GET() {
   const totalPaid = rows
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + Number(p.amount), 0);
-  const pendingAmount = rows
-    .filter((p) => p.status === "pending" || p.status === "overdue")
+  const disputedAmount = rows
+    .filter((p) => p.status === "disputed")
     .reduce((s, p) => s + Number(p.amount), 0);
 
   return NextResponse.json({
     payments: rows,
     agreed_rent_amount: tenant.agreed_rent_amount,
-    summary: { totalPaid, pendingAmount, total: rows.length },
+    summary: { totalPaid, disputedAmount, total: rows.length },
   });
 }
