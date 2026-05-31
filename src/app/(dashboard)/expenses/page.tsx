@@ -403,16 +403,6 @@ export default function OwnerExpensesPage() {
     });
   }, [loadExpenses]);
 
-  const chartSeries = useMemo(
-    () => [
-      {
-        name: "Expenses",
-        data: dailyTotals.map((row) => Number(row.total)),
-      },
-    ],
-    [dailyTotals],
-  );
-
   const columns = useMemo(
     () => [
       columnHelper.accessor("title", {
