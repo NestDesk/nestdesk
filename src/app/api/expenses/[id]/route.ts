@@ -9,6 +9,29 @@ import {
   EXPENSE_STATUSES,
 } from "@/lib/expenses";
 
+function addMonthsISO(dateStr: string, months: number) {
+  const source = new Date(`${dateStr}T00:00:00.000Z`);
+  if (Number.isNaN(source.getTime())) return dateStr;
+
+  const sourceDay = source.getUTCDate();
+  const target = new Date(
+    Date.UTC(source.getUTCFullYear(), source.getUTCMonth() + months, 1),
+  );
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(sourceDay, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
+function monthsForFrequency(
+  frequency: (typeof EXPENSE_RECURRING_FREQUENCIES)[number],
+) {
+  if (frequency === "monthly") return 1;
+  if (frequency === "quarterly") return 3;
+  return 12;
+}
+
 async function resolveOwnerAndExpense(expenseId: string) {
   const supabase = await createClient();
   const {
@@ -140,6 +163,7 @@ export async function PATCH(
     parsed.data.recurring_frequency !== undefined
       ? parsed.data.recurring_frequency
       : expense.recurring_frequency;
+  const nextExpenseDate = parsed.data.expense_date ?? expense.expense_date;
 
   if (parsed.data.is_recurring !== undefined) {
     updates.is_recurring = parsed.data.is_recurring;
@@ -161,6 +185,19 @@ export async function PATCH(
   if (!nextRecurring) {
     updates.recurring_frequency = null;
     updates.next_due_date = null;
+  } else if (nextFrequency && parsed.data.next_due_date === undefined) {
+    const shouldDeriveNextDue =
+      !expense.next_due_date ||
+      parsed.data.expense_date !== undefined ||
+      parsed.data.recurring_frequency !== undefined ||
+      parsed.data.is_recurring !== undefined;
+
+    if (shouldDeriveNextDue) {
+      updates.next_due_date = addMonthsISO(
+        nextExpenseDate,
+        monthsForFrequency(nextFrequency),
+      );
+    }
   }
 
   const { data: updated, error } = await admin

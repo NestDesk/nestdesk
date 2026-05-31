@@ -118,8 +118,15 @@ The app is split into five main layers:
 11. src/app/(dashboard)/expenses/page.tsx
 
 - Owner expense management workspace
-- Supports expense creation, editing, soft delete, and quick input flows
-- Includes property-wise totals, category breakdown, monthly trend, and total expense analytics
+- Supports expense creation, editing, soft delete confirmation, and recurring schedule setup
+- Uses TanStack table with sortable columns and row-level action menu
+- Includes onboarding-aware lifetime totals, current-month range totals, recurring overview, and ApexCharts daily trend for current month
+
+12. src/app/api/expenses/route.ts
+
+- Owner expense list/create API
+- Returns hostels, onboarding-aware month options, summary analytics, recurring templates, property totals, and current-month daily trend data
+- Auto-materializes due recurring expenses and advances template next due dates on list fetch
 
 12. src/app/(dashboard)/occupancy/page.tsx
 
