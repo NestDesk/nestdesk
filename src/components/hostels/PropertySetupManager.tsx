@@ -246,8 +246,8 @@ export function PropertySetupManager({
   }
 
   const steps: { key: Step; label: string; num: number }[] = [
-    { key: "building-shell", label: "Building Shell", num: 1 },
-    { key: "add-rooms", label: "Add Rooms", num: 2 },
+    { key: "building-shell", label: "Building", num: 1 },
+    { key: "add-rooms", label: "Rooms", num: 2 },
     { key: "blueprint", label: "Blueprint", num: 3 },
     { key: "finalize", label: "Finalize", num: 4 },
   ];
@@ -835,25 +835,6 @@ export function PropertySetupManager({
       {/* ─── STEP 2: Add Rooms ────────────────────────────────────────────── */}
       {step === "add-rooms" && (
         <Card className="rounded-2xl border-border/70" id="rooms-section">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Add Rooms to Each Floor</CardTitle>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Select a floor tab, bulk-generate rooms, adjust occupancy types,
-                  then save.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                className="rounded-xl gap-1.5"
-                onClick={() => goToStep("blueprint")}
-              >
-                View Blueprint
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
           <CardContent>
             {floors.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border/60 py-12 text-center">
@@ -1024,14 +1005,10 @@ export function PropertySetupManager({
               to finish setup.
             </div>
           )}
+          <div>
+            <h3 className="font-semibold">Property Blueprint</h3>
+          </div>
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold">Property Blueprint</h3>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Full floor + room map. Hover any room to edit or delete. Hover a
-                floor label to rename or remove it.
-              </p>
-            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -1039,7 +1016,7 @@ export function PropertySetupManager({
                 onClick={() => goToStep("add-rooms")}
               >
                 <ChevronRight className="h-4 w-4 rotate-180" />
-                Back to Add Rooms
+                Add Rooms
               </Button>
               <Button
                 variant="outline"

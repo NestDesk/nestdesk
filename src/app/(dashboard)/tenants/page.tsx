@@ -46,6 +46,7 @@ import {
   type PaymentMethod,
 } from "@/components/payments/RecordPaymentModal";
 import { calculateRent } from "@/lib/billing";
+import { printInvoice } from "@/lib/invoice";
 import { cn } from "@/lib/utils";
 
 type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
@@ -338,156 +339,6 @@ function calculatePendingBreakdown(
   }
 
   return rows;
-}
-
-function printInvoice(payment: PaymentHistoryItem) {
-  const billingPeriod =
-    payment.billing_start && payment.billing_end
-      ? `${formatDate(payment.billing_start)} - ${formatDate(payment.billing_end)}`
-      : formatMonthLabel(payment.month);
-  const methodLabel = payment.method
-    ? METHOD_LABEL[payment.method as PaymentMethod]
-    : "—";
-  const statusLabel =
-    payment.status.charAt(0).toUpperCase() + payment.status.slice(1);
-
-  const addressText =
-    payment.hostel_billing_address?.trim() || payment.hostel_address?.trim() || "";
-  const propertyAddressParts: string[] = [];
-
-  if (addressText) {
-    const segments = addressText
-      .split(",")
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-    if (segments.length >= 2) {
-      propertyAddressParts.push(segments[0], segments.slice(1).join(", "));
-    } else {
-      const fallback = addressText;
-      const splitPosition = Math.max(
-        fallback.indexOf(" ", Math.floor(fallback.length / 2)),
-        fallback.indexOf(" ", Math.floor(fallback.length / 3)),
-      );
-      if (splitPosition > 0) {
-        propertyAddressParts.push(
-          fallback.slice(0, splitPosition).trim(),
-          fallback.slice(splitPosition + 1).trim(),
-        );
-      } else {
-        propertyAddressParts.push(fallback);
-      }
-    }
-  }
-
-  const propertyAddressHtml = propertyAddressParts.length
-    ? `<div class="property-address">${propertyAddressParts.join("<br />")}</div>`
-    : "";
-
-  const gstOrPan = payment.hostel_gst_number
-    ? { label: "GST", value: payment.hostel_gst_number }
-    : payment.hostel_pan_number
-      ? { label: "PAN", value: payment.hostel_pan_number }
-      : null;
-
-  const gstHtml = gstOrPan
-    ? `<div class="gst-row"><div class="meta-label">${gstOrPan.label}</div><div class="meta-value">${gstOrPan.value}</div></div>`
-    : "";
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invoice ${payment.receipt_number ?? ""}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; padding: 28px 28px; max-width: 640px; margin: 0 auto; background: #fff; }
-    .header { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; margin-bottom: 12px; }
-    .property { font-size: 18px; font-weight: 800; color: #111827; line-height: 1.2; }
-    .property-sub { font-size: 11px; color: #4b5563; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
-    .meta-block { text-align: right; min-width: 140px; }
-    .meta-row, .gst-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 8px; }
-    .meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin-bottom: 4px; }
-    .meta-value { font-size: 13px; font-weight: 600; color: #111827; line-height: 1.3; }
-    .meta-value.receipt { font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; letter-spacing: 0.4px; }
-    .footer { margin-top: 16px; font-size: 10px; color: #9ca3af; text-align: center; line-height: 1.5; letter-spacing: 0.2px; }
-    hr { border: none; border-top: 1px solid #e5e7eb; margin: 18px 0; }
-    .section-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin-bottom: 6px; }
-    .tenant-name { font-size: 15px; font-weight: 700; color: #111827; line-height: 1.3; }
-    .tenant-sub { font-size: 12px; color: #4b5563; margin-top: 3px; line-height: 1.4; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin-top: 4px; }
-    .detail-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; }
-    .detail-value { font-size: 13px; font-weight: 600; color: #111827; margin-top: 4px; line-height: 1.4; }
-    .status-pill { padding: 4px 12px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; background: #dcfce7; color: #166534; }
-    .status-pill.disputed { background: #f3e8ff; color: #6b21a8; }
-    .notes { margin-top: 16px; font-size: 12px; color: #475569; line-height: 1.6; }
-    @media print {
-      body { padding: 20px 20px; }
-      @page { margin: 0.5in; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="property">${payment.hostel_name}</div>
-      <div class="property-sub">${propertyAddressHtml}</div>
-    </div>
-    <div class="meta-block">
-      <div class="meta-row">
-        <div class="meta-label">Receipt / Invoice</div>
-        <div class="meta-value receipt">${payment.receipt_number ?? "—"}</div>
-      </div>
-      ${gstHtml}
-      <div class="meta-row">
-        <div class="meta-label">Date Issued</div>
-        <div class="meta-value">${formatDate(payment.paid_on)}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section-label">Billed To</div>
-  <div class="tenant-name">${payment.tenant_name}</div>
-  <div class="tenant-sub">${payment.room_number ? `Room ${payment.room_number} · ` : ""}${payment.hostel_name}</div>
-
-  <hr />
-
-  <div class="grid">
-    <div>
-      <div class="detail-label">Billing Period</div>
-      <div class="detail-value">${billingPeriod}</div>
-    </div>
-    <div>
-      <div class="detail-label">Payment Date</div>
-      <div class="detail-value">${formatDate(payment.paid_on)}</div>
-    </div>
-    <div>
-      <div class="detail-label">Payment Method</div>
-      <div class="detail-value">${methodLabel}</div>
-    </div>
-    <div>
-      <div class="detail-label">Status</div>
-      <div class="detail-value">${statusLabel}</div>
-    </div>
-    <div>
-      <div class="detail-label">Amount Paid</div>
-      <div class="detail-value">${formatAmount(Number(payment.amount))}</div>
-    </div>
-  </div>
-  ${payment.notes ? `<div class="notes">Note: ${payment.notes}</div>` : ""}
-  <div class="footer"> NestDesk.in: A Rental Property Management System</div>
-</body>
-</html>`;
-
-  const win = window.open("", "_blank");
-  if (!win) {
-    alert("Pop-up blocked — please allow pop-ups and try again.");
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => win.print(), 300);
 }
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -1232,6 +1083,33 @@ export default function OwnerTenantsPage() {
           </CardContent>
         </Card>
 
+        {/* Active Card */}
+        <Card className="rounded-xl border-border/70">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
+                <UserCheck className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Active
+                </p>
+                <p className="text-xl font-bold text-foreground">{summary.active}</p>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+              {Object.values(propertyStatusCounts).map((item) => (
+                <div key={item.name}>
+                  {item.name}:{" "}
+                  <span className="font-semibold text-foreground">
+                    {item.active}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Pending Card */}
         <Card className="rounded-xl border-border/70">
           <CardContent className="p-4">
@@ -1254,33 +1132,6 @@ export default function OwnerTenantsPage() {
                   {item.name}:{" "}
                   <span className="font-semibold text-foreground">
                     {item.pending}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Active Card */}
-        <Card className="rounded-xl border-border/70">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
-                <UserCheck className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Active
-                </p>
-                <p className="text-xl font-bold text-foreground">{summary.active}</p>
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-              {Object.values(propertyStatusCounts).map((item) => (
-                <div key={item.name}>
-                  {item.name}:{" "}
-                  <span className="font-semibold text-foreground">
-                    {item.active}
                   </span>
                 </div>
               ))}

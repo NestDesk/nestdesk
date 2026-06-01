@@ -235,7 +235,6 @@ export default function TenantProfilePage() {
           : prev,
       );
 
-      await reloadProfile();
       toast.success(`${DOC_LABELS[docType]} uploaded successfully.`);
     } catch {
       toast.error("Could not process this image. Try a clearer photo.");
@@ -253,6 +252,7 @@ export default function TenantProfilePage() {
   }
 
   const status = profile?.status ?? "pending";
+  const isAccountActive = status === "active";
   const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
   const StatusIcon = statusCfg.icon;
   const completion = profile?.profile_completion_percentage ?? 0;
@@ -264,17 +264,18 @@ export default function TenantProfilePage() {
   const initialAadhaar = normalizeAadhaarNumber(profile?.aadhar_number ?? "");
   const isAadhaarValid =
     !normalizedAadhaar || isValidAadhaarNumber(normalizedAadhaar);
-  const hasChanges =
-    Boolean(profile) &&
-    (normalizedFullName !== (profile?.full_name ?? "") ||
-      normalizedPhone !== (profile?.phone ?? "") ||
-      occupationType !== (profile?.occupation_type ?? "student") ||
-      normalizedInstitutionName !== (profile?.institution_name ?? "") ||
-      normalizedAadhaar !== initialAadhaar);
+  const hasChanges = Boolean(profile)
+    ? isAccountActive
+      ? normalizedPhone !== (profile?.phone ?? "")
+      : normalizedFullName !== (profile?.full_name ?? "") ||
+        normalizedPhone !== (profile?.phone ?? "") ||
+        occupationType !== (profile?.occupation_type ?? "student") ||
+        normalizedInstitutionName !== (profile?.institution_name ?? "") ||
+        normalizedAadhaar !== initialAadhaar
+    : false;
+
   const canSave =
     !saving &&
-    Boolean(normalizedFullName) &&
-    Boolean(normalizedInstitutionName) &&
     Boolean(normalizedPhone) &&
     /^\d{10}$/.test(normalizedPhone) &&
     isAadhaarValid &&
@@ -288,6 +289,8 @@ export default function TenantProfilePage() {
     preview: string | null;
   }) {
     const isUploading = uploadingDoc === docType;
+    const uploadDisabled = isUploading || isAccountActive;
+
     return (
       <div className="space-y-2 rounded-xl border border-border/70 p-3">
         <p className="text-xs font-medium text-foreground">{DOC_LABELS[docType]}</p>
@@ -316,18 +319,25 @@ export default function TenantProfilePage() {
             )}
           </div>
 
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-muted">
+          <label
+            className={`inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium ${
+              uploadDisabled
+                ? "cursor-not-allowed opacity-70"
+                : "cursor-pointer hover:bg-muted"
+            }`}
+            aria-disabled={uploadDisabled}
+          >
             {isUploading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Camera className="h-3.5 w-3.5" />
             )}
-            {preview ? "Replace" : "Upload"}
+            {uploadDisabled ? "Upload disabled" : preview ? "Replace" : "Upload"}
             <input
               type="file"
               accept="image/*"
               className="hidden"
-              disabled={isUploading}
+              disabled={uploadDisabled}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
@@ -462,6 +472,7 @@ export default function TenantProfilePage() {
                 placeholder="Your full name"
                 className="rounded-xl max-w-sm"
                 required
+                disabled={isAccountActive}
               />
             </div>
 
@@ -515,6 +526,7 @@ export default function TenantProfilePage() {
                 className="block h-10 w-full max-w-sm rounded-xl border border-input bg-background px-3 text-sm"
                 value={occupationType}
                 onChange={(e) => setOccupationType(e.target.value)}
+                disabled={isAccountActive}
               >
                 {OCCUPATION_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -533,6 +545,7 @@ export default function TenantProfilePage() {
                 onChange={(e) => setInstitutionName(e.target.value)}
                 placeholder="College / company / organization"
                 className="rounded-xl max-w-sm"
+                disabled={isAccountActive}
               />
             </div>
 
@@ -549,6 +562,7 @@ export default function TenantProfilePage() {
                 }
                 placeholder="12-digit Aadhaar number"
                 className="rounded-xl max-w-sm"
+                disabled={isAccountActive}
               />
               {aadharNumber && !isValidAadhaarNumber(aadharNumber) ? (
                 <p className="text-xs text-destructive">
