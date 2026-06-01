@@ -16,6 +16,18 @@ export async function GET() {
 
   const admin = createAdminClient();
 
+  type TenantPaymentRow = {
+    id: string;
+    amount: number;
+    month: string;
+    status: string;
+    method: string | null;
+    receipt_number: string | null;
+    notes: string | null;
+    paid_on: string;
+    created_at: string;
+  };
+
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select("id, full_name, agreed_rent_amount, hostel_id, room_id")
@@ -64,7 +76,7 @@ export async function GET() {
         .maybeSingle(),
     ]);
 
-  const rows = (payments ?? []).map((p: any) => ({
+  const rows = ((payments ?? []) as TenantPaymentRow[]).map((p) => ({
     ...p,
     tenant_name: tenant.full_name ?? "Tenant",
     room_number: roomData?.room_number ?? null,
