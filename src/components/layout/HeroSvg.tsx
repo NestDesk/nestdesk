@@ -2,7 +2,7 @@ export default function HeroSvg({ className }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 800 659.604"
+      viewBox="0 0 1000 659.604"
       role="img"
       aria-label="Property management illustration"
       className={className}
