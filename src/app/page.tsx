@@ -27,6 +27,8 @@ import {
   MessageSquare,
   BadgeCheck,
   User,
+  MessageCircle,
+  Megaphone,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -136,11 +138,13 @@ const testimonials = [
 ];
 
 const trustBadges = [
-  { icon: BadgeCheck, label: "Setup in under 10 minutes" },
+  { icon: BadgeCheck, label: "Property setup in 10 minutes" },
   { icon: Zap, label: "Fast rent tracking" },
   { icon: Users, label: "Owner + tenant portals" },
   { icon: Building2, label: "Live occupancy visibility" },
-  { icon: MessageSquare, label: "Maintenance workflow" },
+  { icon: MessageSquare, label: "Maintenance requests" },
+  { icon: MessageCircle, label: "WhatsApp rent reminders" },
+  { icon: Megaphone, label: "Broadcast tenant notices" },
 ];
 
 /* ─────────────────────────────────────────────
