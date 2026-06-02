@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, FileText, Loader2, Phone, UserCog } from "lucide-react";
+import { AlertTriangle, FileText, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
@@ -15,14 +15,6 @@ type TermsData = {
   } | null;
 };
 
-type StaffMember = {
-  id: string;
-  name: string;
-  phone: string;
-  designation: string;
-  hostel_id: string | null;
-};
-
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   pg: "PG",
   hostel: "Hostel",
@@ -32,17 +24,12 @@ const PROPERTY_TYPE_LABELS: Record<string, string> = {
 
 export default function TenantTermsPage() {
   const [data, setData] = useState<TermsData | null>(null);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/tenant/terms").then((r) => r.json()),
-      fetch("/api/settings/support-staff").then((r) => r.json()),
-    ])
-      .then(([termsData, staffData]) => {
+    Promise.all([fetch("/api/tenant/terms").then((r) => r.json())])
+      .then(([termsData]) => {
         setData(termsData);
-        setStaff(Array.isArray(staffData) ? staffData : []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -126,36 +113,6 @@ export default function TenantTermsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Support Staff */}
-      {staff.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">Support Contacts</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {staff.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 px-3 py-2.5"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <UserCog className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {s.name}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Phone className="h-3 w-3" />
-                    <span>{s.phone}</span>
-                    <span className="text-muted-foreground/40">·</span>
-                    <span>{s.designation}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

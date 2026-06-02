@@ -124,6 +124,8 @@ export default function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [ownerName, setOwnerName] = useState("Owner");
   const [bootstrapping, setBootstrapping] = useState(true);
+  const [pincodeLookupError, setPincodeLookupError] = useState<string | null>(null);
+  const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false);
   const bootstrappedRef = useRef(false);
 
   const ownerForm = useForm<OwnerForm>({ resolver: zodResolver(ownerSchema) });
@@ -211,6 +213,41 @@ export default function OnboardingPage() {
       setBootstrapping(false);
     });
   }, [ownerForm, router]);
+
+  async function lookupPincodeLocation(pincode: string) {
+    if (pincode.length !== 6) {
+      return;
+    }
+
+    setPincodeLookupLoading(true);
+    setPincodeLookupError(null);
+
+    try {
+      const response = await fetch(`/api/pincode/${encodeURIComponent(pincode)}`);
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(json.error ?? "Lookup failed.");
+      }
+
+      ownerForm.setValue(
+        "city",
+        String(json.city ?? ownerForm.getValues("city")).trim(),
+      );
+      ownerForm.setValue(
+        "state",
+        String(json.state ?? ownerForm.getValues("state")).trim(),
+      );
+    } catch (error) {
+      setPincodeLookupError(
+        error instanceof Error
+          ? error.message
+          : "Unable to resolve this pincode to city/state.",
+      );
+    } finally {
+      setPincodeLookupLoading(false);
+    }
+  }
 
   async function handleOwnerSubmit(data: OwnerForm) {
     writeDraft({ step: 1, ownerData: data });
@@ -312,9 +349,11 @@ export default function OnboardingPage() {
                     +91
                   </span>
                   <Input
+                    type="tel"
                     placeholder="9876543210"
                     autoComplete="tel-national"
                     inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={10}
                     className="rounded-none border-0 bg-transparent text-white placeholder:text-white/30 focus-visible:ring-0 focus-visible:ring-offset-0"
                     {...ownerForm.register("phone", {
@@ -322,6 +361,10 @@ export default function OnboardingPage() {
                         String(value ?? "")
                           .replace(/\D/g, "")
                           .slice(0, 10),
+                      onChange: (event) => {
+                        const target = event.target as HTMLInputElement;
+                        target.value = target.value.replace(/\D/g, "").slice(0, 10);
+                      },
                     })}
                   />
                 </div>
@@ -360,6 +403,39 @@ export default function OnboardingPage() {
                 />
               </Field>
 
+              <Field
+                label="Pincode"
+                error={
+                  ownerForm.formState.errors.ownerPincode?.message ||
+                  pincodeLookupError ||
+                  undefined
+                }
+              >
+                <Input
+                  placeholder="226010"
+                  maxLength={6}
+                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                  {...ownerForm.register("ownerPincode", {
+                    setValueAs: (value) =>
+                      String(value ?? "")
+                        .replace(/\D/g, "")
+                        .slice(0, 6),
+                    onChange: (event) => {
+                      const value = String(
+                        (event.target as HTMLInputElement).value ?? "",
+                      );
+                      const digits = value.replace(/\D/g, "");
+                      if (digits.length === 6) {
+                        lookupPincodeLocation(digits);
+                      }
+                    },
+                  })}
+                />
+                {pincodeLookupLoading ? (
+                  <p className="text-xs text-white/60">Loading city and state…</p>
+                ) : null}
+              </Field>
+
               <div className="grid grid-cols-2 gap-3">
                 <Field label="City" error={ownerForm.formState.errors.city?.message}>
                   <Input
@@ -379,23 +455,6 @@ export default function OnboardingPage() {
                   />
                 </Field>
               </div>
-
-              <Field
-                label="Pincode"
-                error={ownerForm.formState.errors.ownerPincode?.message}
-              >
-                <Input
-                  placeholder="226010"
-                  maxLength={6}
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
-                  {...ownerForm.register("ownerPincode", {
-                    setValueAs: (value) =>
-                      String(value ?? "")
-                        .replace(/\D/g, "")
-                        .slice(0, 6),
-                  })}
-                />
-              </Field>
 
               <Button
                 type="submit"

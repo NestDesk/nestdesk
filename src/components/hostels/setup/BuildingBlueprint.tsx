@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Pencil, Trash2, Loader2, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ type Props = {
   floors: Floor[];
   rooms: Room[];
   onSync: () => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 type EditingRoom = {
@@ -27,7 +28,13 @@ type EditingRoom = {
   status: RoomStatus;
 };
 
-export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
+export function BuildingBlueprint({
+  hostelId,
+  floors,
+  rooms,
+  onSync,
+  onDirtyChange,
+}: Props) {
   const [editingFloorId, setEditingFloorId] = useState<string | null>(null);
   const [editingFloorName, setEditingFloorName] = useState("");
   const [savingFloorId, setSavingFloorId] = useState<string | null>(null);
@@ -43,9 +50,37 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
   const [savingRoomId, setSavingRoomId] = useState<string | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [quickSavingRoomId, setQuickSavingRoomId] = useState<string | null>(null);
+  const hasDraftEdits = editingFloorId !== null || editingRoomId !== null;
+
+  useEffect(() => {
+    onDirtyChange?.(hasDraftEdits);
+    return () => onDirtyChange?.(false);
+  }, [hasDraftEdits, onDirtyChange]);
+
+  useEffect(() => {
+    if (!hasDraftEdits) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasDraftEdits]);
+
+  async function parsePayload(
+    response: Response,
+  ): Promise<{ error?: string } | null> {
+    try {
+      return (await response.json()) as { error?: string };
+    } catch {
+      return null;
+    }
+  }
 
   async function quickUpdateCapacity(room: Room, newCapacity: number) {
-    if (quickSavingRoomId) return;
+    if (quickSavingRoomId || room.capacity === newCapacity) return;
     setQuickSavingRoomId(room.id);
     try {
       const res = await fetch(`/api/hostels/${hostelId}/rooms/${room.id}`, {
@@ -59,9 +94,9 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
           status: room.status,
         }),
       });
-      const payload = await res.json();
+      const payload = await parsePayload(res);
       if (!res.ok) {
-        toast.error(payload.error ?? "Failed to update capacity.");
+        toast.error(payload?.error ?? "Failed to update capacity.");
         return;
       }
       await onSync();
@@ -82,7 +117,10 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
 
   async function saveFloorEdit(floorId: string) {
     const name = editingFloorName.trim();
-    if (!name) return;
+    if (!name) {
+      setFloorNameError("Floor name is required.");
+      return;
+    }
 
     // Duplicate check against other floors
     const isDuplicate = floors.some(
@@ -101,9 +139,9 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      const payload = await res.json();
+      const payload = await parsePayload(res);
       if (!res.ok) {
-        toast.error(payload.error ?? "Failed to update floor.");
+        toast.error(payload?.error ?? "Failed to update floor.");
         return;
       }
       setEditingFloorId(null);
@@ -117,14 +155,24 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
   }
 
   async function deleteFloor(floorId: string) {
+    if (deletingFloorId) return;
+
+    const roomCount = rooms.filter((r) => r.floor_id === floorId).length;
+    const confirmed = window.confirm(
+      roomCount > 0
+        ? `Delete this floor and ${roomCount} room${roomCount !== 1 ? "s" : ""}? This cannot be undone.`
+        : "Delete this floor? This cannot be undone.",
+    );
+    if (!confirmed) return;
+
     setDeletingFloorId(floorId);
     try {
       const res = await fetch(`/api/hostels/${hostelId}/floors/${floorId}`, {
         method: "DELETE",
       });
-      const payload = await res.json();
+      const payload = await parsePayload(res);
       if (!res.ok) {
-        toast.error(payload.error ?? "Failed to delete floor.");
+        toast.error(payload?.error ?? "Failed to delete floor.");
         return;
       }
       await onSync();
@@ -148,7 +196,7 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
   }
 
   async function saveRoomEdit(room: Room) {
-    const roomNumber = editingRoom.roomNumber.trim();
+    const roomNumber = editingRoom.roomNumber.trim().toUpperCase();
     if (!roomNumber) {
       toast.error("Enter room number.");
       return;
@@ -177,9 +225,9 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
           status: editingRoom.status,
         }),
       });
-      const payload = await res.json();
+      const payload = await parsePayload(res);
       if (!res.ok) {
-        toast.error(payload.error ?? "Failed to update room.");
+        toast.error(payload?.error ?? "Failed to update room.");
         return;
       }
       setEditingRoomId(null);
@@ -192,15 +240,22 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
     }
   }
 
-  async function deleteRoom(roomId: string) {
+  async function deleteRoom(roomId: string, roomNumber: string) {
+    if (deletingRoomId) return;
+
+    const confirmed = window.confirm(
+      `Delete room ${roomNumber}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
     setDeletingRoomId(roomId);
     try {
       const res = await fetch(`/api/hostels/${hostelId}/rooms/${roomId}`, {
         method: "DELETE",
       });
-      const payload = await res.json();
+      const payload = await parsePayload(res);
       if (!res.ok) {
-        toast.error(payload.error ?? "Failed to delete room.");
+        toast.error(payload?.error ?? "Failed to delete room.");
         return;
       }
       await onSync();
@@ -232,6 +287,13 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
 
   return (
     <div className="space-y-3">
+      {hasDraftEdits && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          You have unsaved edits in blueprint. Save or cancel them before leaving
+          this step.
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -484,7 +546,9 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
                                     type="button"
                                     className="rounded p-0.5 text-destructive hover:bg-destructive/10"
                                     disabled={deletingRoomId === room.id}
-                                    onClick={() => deleteRoom(room.id)}
+                                    onClick={() =>
+                                      deleteRoom(room.id, room.room_number)
+                                    }
                                     aria-label="Delete room"
                                   >
                                     {deletingRoomId === room.id ? (
@@ -507,7 +571,7 @@ export function BuildingBlueprint({ hostelId, floors, rooms, onSync }: Props) {
                                   onChange={(e) =>
                                     quickUpdateCapacity(
                                       room,
-                                      parseInt(e.target.value),
+                                      Number.parseInt(e.target.value, 10),
                                     )
                                   }
                                   onClick={(e) => e.stopPropagation()}

@@ -54,6 +54,8 @@ function Field({
 export default function NewPropertyPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [pincodeLookupError, setPincodeLookupError] = useState<string | null>(null);
+  const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false);
 
   const form = useForm<CreateHostelForm>({
     resolver: zodResolver(createHostelSchema),
@@ -61,6 +63,33 @@ export default function NewPropertyPage() {
       propertyType: "pg",
     },
   });
+
+  async function lookupPincodeLocation(pincode: string) {
+    if (pincode.length !== 6) {
+      return;
+    }
+
+    setPincodeLookupLoading(true);
+    setPincodeLookupError(null);
+
+    try {
+      const response = await fetch(`/api/pincode/${encodeURIComponent(pincode)}`);
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(json.error ?? "Unable to resolve this pincode.");
+      }
+
+      form.setValue("city", String(json.city ?? form.getValues("city")).trim());
+      form.setValue("state", String(json.state ?? form.getValues("state")).trim());
+    } catch (error) {
+      setPincodeLookupError(
+        error instanceof Error ? error.message : "Unable to resolve this pincode.",
+      );
+    } finally {
+      setPincodeLookupLoading(false);
+    }
+  }
 
   async function onSubmit(values: CreateHostelForm) {
     setSaving(true);
@@ -166,23 +195,46 @@ export default function NewPropertyPage() {
             </Field>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="City" error={form.formState.errors.city?.message}>
-                <Input placeholder="Mumbai" {...form.register("city")} />
-              </Field>
-              <Field label="State" error={form.formState.errors.state?.message}>
-                <Input placeholder="Maharashtra" {...form.register("state")} />
-              </Field>
-              <Field label="Pincode" error={form.formState.errors.pincode?.message}>
+              <Field
+                label="Pincode"
+                error={
+                  form.formState.errors.pincode?.message ||
+                  pincodeLookupError ||
+                  undefined
+                }
+              >
                 <Input
+                  type="tel"
                   placeholder="400001"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={6}
                   {...form.register("pincode", {
                     setValueAs: (value) =>
                       String(value ?? "")
                         .replace(/\D/g, "")
                         .slice(0, 6),
+                    onChange: (event) => {
+                      const target = event.target as HTMLInputElement;
+                      const digits = target.value.replace(/\D/g, "").slice(0, 6);
+                      target.value = digits;
+                      if (digits.length === 6) {
+                        lookupPincodeLocation(digits);
+                      }
+                    },
                   })}
                 />
+                {pincodeLookupLoading ? (
+                  <p className="text-xs text-muted-foreground">
+                    Loading city and state…
+                  </p>
+                ) : null}
+              </Field>
+              <Field label="City" error={form.formState.errors.city?.message}>
+                <Input placeholder="Mumbai" {...form.register("city")} />
+              </Field>
+              <Field label="State" error={form.formState.errors.state?.message}>
+                <Input placeholder="Maharashtra" {...form.register("state")} />
               </Field>
             </div>
 

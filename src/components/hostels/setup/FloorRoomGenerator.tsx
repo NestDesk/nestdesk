@@ -25,6 +25,34 @@ type Props = {
   existingRoomNumbers?: string[];
 };
 
+const MIN_ROOM_INDEX = 1;
+const MAX_ROOM_INDEX = 200;
+const MAX_PREFIX_LENGTH = 4;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizePrefix(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, MAX_PREFIX_LENGTH);
+}
+
+function normalizeRoomNumber(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function parseIntOrFallback(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function generateRooms(
   floorId: string,
   prefix: string,
@@ -35,10 +63,11 @@ function generateRooms(
   const rooms: DraftRoom[] = [];
   for (let i = start; i <= end; i++) {
     const num = String(i).padStart(2, "0");
+    const roomNumber = `${prefix}${num}`;
     rooms.push({
-      localId: `${floorId}-${prefix}${num}-${Math.random()}`,
+      localId: `${floorId}-${roomNumber}`,
       floorId,
-      roomNumber: `${prefix}${num}`,
+      roomNumber,
       capacity: defaultCapacity,
     });
   }
@@ -64,6 +93,19 @@ export function FloorRoomGenerator({
   const [end, setEnd] = useState(8);
   const [defaultCapacity, setDefaultCapacity] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
+
+  const normalizedPrefix = useMemo(() => normalizePrefix(prefix) || "R", [prefix]);
+
+  const clampedStart = clamp(start, MIN_ROOM_INDEX, MAX_ROOM_INDEX);
+  const clampedEnd = clamp(
+    Math.max(end, clampedStart),
+    clampedStart,
+    MAX_ROOM_INDEX,
+  );
+  const batchSize = clampedEnd - clampedStart + 1;
+  const batchStartLabel = `${normalizedPrefix}${String(clampedStart).padStart(2, "0")}`;
+  const batchEndLabel = `${normalizedPrefix}${String(clampedEnd).padStart(2, "0")}`;
 
   // O(1) lookup: which room numbers already exist (this floor + other floors)
   const existingSet = useMemo(() => {
@@ -78,12 +120,30 @@ export function FloorRoomGenerator({
     [floorRooms],
   );
 
+  const nextStartSuggestion = useMemo(() => {
+    const pattern = new RegExp(`^${escapeRegExp(normalizedPrefix)}(\\d+)$`, "i");
+    let highest = 0;
+    for (const room of floorRooms) {
+      const match = normalizeRoomNumber(room.room_number).match(pattern);
+      if (!match) continue;
+      const parsed = Number.parseInt(match[1], 10);
+      if (Number.isFinite(parsed) && parsed > highest) {
+        highest = parsed;
+      }
+    }
+    return clamp(highest + 1, MIN_ROOM_INDEX, MAX_ROOM_INDEX);
+  }, [floorRooms, normalizedPrefix]);
+
   // Live preview rooms
   const previewRooms = useMemo(() => {
-    const s = Math.max(1, start);
-    const e = Math.min(200, Math.max(s, end));
-    return generateRooms(floor.id, prefix.trim() || "R", s, e, defaultCapacity);
-  }, [floor.id, prefix, start, end, defaultCapacity]);
+    return generateRooms(
+      floor.id,
+      normalizedPrefix,
+      clampedStart,
+      clampedEnd,
+      defaultCapacity,
+    );
+  }, [floor.id, normalizedPrefix, clampedStart, clampedEnd, defaultCapacity]);
 
   function updateDraftCapacity(localId: string, capacity: number) {
     setOverrides((prev) => ({ ...prev, [localId]: capacity }));
@@ -116,10 +176,13 @@ export function FloorRoomGenerator({
   }, [allPreview, existingSet]);
 
   async function saveRooms() {
+    if (saving || locked) return;
+
     if (newRooms.length === 0) {
       toast.error(dupCount > 0 ? "All rooms already exist." : "No rooms to save.");
       return;
     }
+
     setSaving(true);
     try {
       const res = await fetch(`/api/hostels/${hostelId}/rooms/bulk`, {
@@ -133,13 +196,29 @@ export function FloorRoomGenerator({
           })),
         }),
       });
-      const payload = await res.json();
+
+      let payload: {
+        error?: string;
+        skipped?: number;
+        inserted?: number;
+      } | null = null;
+      try {
+        payload = (await res.json()) as {
+          error?: string;
+          skipped?: number;
+          inserted?: number;
+        };
+      } catch {
+        payload = null;
+      }
+
       if (!res.ok) {
-        toast.error(payload.error ?? "Failed to save rooms.");
+        toast.error(payload?.error ?? "Failed to save rooms.");
         return;
       }
-      const skipped = payload.skipped ?? 0;
-      const inserted = payload.inserted ?? 0;
+
+      const skipped = payload?.skipped ?? 0;
+      const inserted = payload?.inserted ?? 0;
       if (inserted === 0) {
         toast.info("All rooms already exist — nothing added.");
       } else {
@@ -147,8 +226,10 @@ export function FloorRoomGenerator({
           `${inserted} room${inserted !== 1 ? "s" : ""} added${skipped > 0 ? ` (${skipped} skipped)` : ""}.`,
         );
       }
+
       setOverrides({});
       setRemoved(new Set());
+      setLocked(true);
       await onSaved();
     } catch {
       toast.error("Network error while saving rooms.");
@@ -169,6 +250,11 @@ export function FloorRoomGenerator({
         </span>
         <span className="text-xs text-muted-foreground">— quick room generator</span>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Create a room batch, click Save, then use{" "}
+        <span className="font-semibold">Start Next Batch</span> to continue with the
+        next range.
+      </p>
 
       {/* Controls */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -179,10 +265,11 @@ export function FloorRoomGenerator({
           <Input
             id={`prefix-${floor.id}`}
             value={prefix}
-            onChange={(e) => setPrefix(e.target.value)}
+            onChange={(e) => setPrefix(normalizePrefix(e.target.value))}
             className="h-9 text-sm"
             placeholder="G"
-            maxLength={4}
+            maxLength={MAX_PREFIX_LENGTH}
+            disabled={saving || locked}
           />
         </div>
         <div className="space-y-1.5">
@@ -192,10 +279,22 @@ export function FloorRoomGenerator({
           <Input
             id={`start-${floor.id}`}
             type="number"
-            min={1}
+            min={MIN_ROOM_INDEX}
+            max={MAX_ROOM_INDEX}
             value={start}
-            onChange={(e) => setStart(parseInt(e.target.value, 10) || 1)}
+            onChange={(e) => {
+              const nextStart = clamp(
+                parseIntOrFallback(e.target.value, MIN_ROOM_INDEX),
+                MIN_ROOM_INDEX,
+                MAX_ROOM_INDEX,
+              );
+              setStart(nextStart);
+              setEnd((prev) =>
+                clamp(Math.max(prev, nextStart), nextStart, MAX_ROOM_INDEX),
+              );
+            }}
             className="h-9 text-sm"
+            disabled={saving || locked}
           />
         </div>
         <div className="space-y-1.5">
@@ -206,10 +305,18 @@ export function FloorRoomGenerator({
             id={`end-${floor.id}`}
             type="number"
             min={start}
-            max={200}
+            max={MAX_ROOM_INDEX}
             value={end}
-            onChange={(e) => setEnd(parseInt(e.target.value, 10) || start)}
+            onChange={(e) => {
+              const nextEnd = clamp(
+                parseIntOrFallback(e.target.value, start),
+                start,
+                MAX_ROOM_INDEX,
+              );
+              setEnd(nextEnd);
+            }}
             className="h-9 text-sm"
+            disabled={saving || locked}
           />
         </div>
         <div className="space-y-1.5">
@@ -221,6 +328,7 @@ export function FloorRoomGenerator({
                 type="button"
                 title={p.label}
                 onClick={() => setDefaultCapacity(p.value)}
+                disabled={saving || locked}
                 className={`flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
                   defaultCapacity === p.value
                     ? occupancyColor(p.value) + " ring-2 ring-offset-1"
@@ -252,6 +360,31 @@ export function FloorRoomGenerator({
             </span>
           </>
         )}
+        {locked && (
+          <>
+            <span className="text-muted-foreground/50">·</span>
+            <span className="font-medium text-primary">
+              Saved and locked. Click Start Next Batch to continue.
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+        <p className="font-semibold text-foreground">
+          Batch: {batchStartLabel} to {batchEndLabel} ({batchSize} room
+          {batchSize !== 1 ? "s" : ""})
+        </p>
+        <p className="text-muted-foreground">
+          {newRooms.length > 0
+            ? `${newRooms.length} room${newRooms.length !== 1 ? "s" : ""} will be saved now.`
+            : dupCount > 0
+              ? "No new rooms in this range. Change range or prefix to continue."
+              : "No draft rooms ready to save yet."}
+          {dupCount > 0
+            ? ` ${dupCount} duplicate room${dupCount !== 1 ? "s" : ""} will be skipped.`
+            : ""}
+        </p>
       </div>
 
       {/* Draft preview — new rooms only */}
@@ -287,6 +420,7 @@ export function FloorRoomGenerator({
                 <DraftRoomCard
                   room={room}
                   capacityOptions={capacityOptions}
+                  disabled={locked}
                   onChangeCapacity={updateDraftCapacity}
                   onRemove={(localId) =>
                     setRemoved((prev) => new Set(Array.from(prev).concat(localId)))
@@ -300,6 +434,7 @@ export function FloorRoomGenerator({
           <button
             type="button"
             onClick={() => setRemoved(new Set())}
+            disabled={saving || locked}
             className="col-span-full text-left text-xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Restore {removed.size} removed room{removed.size !== 1 ? "s" : ""}
@@ -312,7 +447,7 @@ export function FloorRoomGenerator({
         <Button
           className="rounded-xl gap-2"
           onClick={saveRooms}
-          disabled={saving || newRooms.length === 0}
+          disabled={saving || locked || newRooms.length === 0}
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -324,12 +459,38 @@ export function FloorRoomGenerator({
         <button
           type="button"
           onClick={() => {
+            if (locked) {
+              const rangeSize = clamp(
+                end - start + 1,
+                MIN_ROOM_INDEX,
+                MAX_ROOM_INDEX,
+              );
+              const nextStart = nextStartSuggestion;
+              const nextEnd = clamp(
+                nextStart + rangeSize - 1,
+                nextStart,
+                MAX_ROOM_INDEX,
+              );
+              setStart(nextStart);
+              setEnd(nextEnd);
+
+              if (nextStart === MAX_ROOM_INDEX && nextEnd === MAX_ROOM_INDEX) {
+                toast.info(
+                  "Reached the room number limit for this prefix. Change prefix or range.",
+                );
+              }
+            }
+
             setOverrides({});
             setRemoved(new Set());
+            setLocked(false);
           }}
-          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          disabled={saving}
+          className={`text-xs underline-offset-2 hover:underline ${
+            locked ? "font-semibold text-primary" : "text-muted-foreground"
+          }`}
         >
-          Reset preview
+          {locked ? "Start Next Batch" : "Reset Draft"}
         </button>
       </div>
     </div>

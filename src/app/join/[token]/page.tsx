@@ -27,7 +27,7 @@ export default async function TenantJoinPage({ params }: Props) {
   const admin = createAdminClient();
   const { data: hostel, error } = await admin
     .from("hostels")
-    .select("id, name, property_type, city, state, is_active")
+    .select("id, name, property_type, address, city, state, is_active")
     .eq("tenant_join_token", token)
     .maybeSingle();
 
@@ -62,7 +62,7 @@ export default async function TenantJoinPage({ params }: Props) {
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
             <span>
-              {hostel.city}, {hostel.state}
+              {hostel.address}, {hostel.city}, {hostel.state}
             </span>
           </div>
 

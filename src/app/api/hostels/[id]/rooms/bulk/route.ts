@@ -17,6 +17,10 @@ const bulkRoomsSchema = z.object({
   rooms: z.array(bulkRoomItem).min(1).max(200),
 });
 
+function normalizeRoomNumber(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
+}
+
 async function resolveOwnerAndHostel(hostelId: string) {
   const supabase = await createClient();
   const {
@@ -97,8 +101,26 @@ export async function POST(
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
 
+  const normalizedRooms = parsedBody.data.rooms.map((room) => ({
+    ...room,
+    roomNumber: normalizeRoomNumber(room.roomNumber),
+  }));
+
+  if (normalizedRooms.some((room) => room.roomNumber.length === 0)) {
+    return NextResponse.json({ error: "Room number is required." }, { status: 400 });
+  }
+
+  const seenPayloadNumbers = new Set<string>();
+  const dedupedRooms: typeof normalizedRooms = [];
+  for (const room of normalizedRooms) {
+    const key = room.roomNumber.toLowerCase();
+    if (seenPayloadNumbers.has(key)) continue;
+    seenPayloadNumbers.add(key);
+    dedupedRooms.push(room);
+  }
+
   // Verify all referenced floor IDs belong to this hostel
-  const floorIds = Array.from(new Set(parsedBody.data.rooms.map((r) => r.floorId)));
+  const floorIds = Array.from(new Set(dedupedRooms.map((r) => r.floorId)));
   const floorsResult = await resolved.admin
     .from("floors")
     .select("id")
@@ -111,9 +133,7 @@ export async function POST(
   }
 
   const validFloorIds = new Set(floorsResult.data?.map((f) => f.id) ?? []);
-  const invalidFloor = parsedBody.data.rooms.find(
-    (r) => !validFloorIds.has(r.floorId),
-  );
+  const invalidFloor = dedupedRooms.find((r) => !validFloorIds.has(r.floorId));
   if (invalidFloor) {
     return NextResponse.json(
       { error: `Floor not found for room ${invalidFloor.roomNumber}.` },
@@ -122,12 +142,10 @@ export async function POST(
   }
 
   // Check for existing room numbers in this hostel (skip duplicates, don't fail)
-  const roomNumbers = parsedBody.data.rooms.map((r) => r.roomNumber.trim());
   const existingResult = await resolved.admin
     .from("rooms")
     .select("room_number")
     .eq("hostel_id", hostelId)
-    .in("room_number", roomNumbers)
     .is("deleted_at", null);
 
   if (existingResult.error) {
@@ -138,15 +156,17 @@ export async function POST(
   }
 
   const existingNumbers = new Set(
-    existingResult.data?.map((r) => r.room_number) ?? [],
+    (existingResult.data ?? []).map((room) =>
+      normalizeRoomNumber(room.room_number).toLowerCase(),
+    ),
   );
 
-  const toInsert = parsedBody.data.rooms
-    .filter((r) => !existingNumbers.has(r.roomNumber.trim()))
+  const toInsert = dedupedRooms
+    .filter((room) => !existingNumbers.has(room.roomNumber.toLowerCase()))
     .map((r) => ({
       hostel_id: hostelId,
       floor_id: r.floorId,
-      room_number: r.roomNumber.trim(),
+      room_number: r.roomNumber,
       capacity: r.capacity,
       rent_amount: 0,
       status: "vacant" as const,

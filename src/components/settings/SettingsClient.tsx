@@ -82,10 +82,6 @@ function getDefaultTerms(hostelName: string): string {
   return `TERMS AND CONDITIONS FOR TENANTS
 Property: ${hostelName}
 
-⚠️ NOTICE: These are sample/default terms. The property owner has not yet customized these. Please contact the owner for the official terms.
-
----
-
 1. TENANCY AGREEMENT
 By accepting accommodation at this property, the tenant agrees to abide by all rules and regulations set forth in this document.
 
@@ -114,10 +110,10 @@ By accepting accommodation at this property, the tenant agrees to abide by all r
 - Failure to provide adequate notice may result in forfeiture of the security deposit.
 
 7. PROHIBITED ACTIVITIES
-- Smoking, consumption of alcohol, or any illegal activities are strictly prohibited on the premises.
+- Ragging, Smoking, consumption of alcohol, or any illegal activities are strictly prohibited on the premises.
 - Sub-letting or transferring occupancy to another person is not allowed.
 - Pets are not allowed unless explicitly permitted by the owner.
-
+  
 8. MAINTENANCE
 - Routine maintenance requests must be raised through the NestDesk platform.
 - Tenants must report any damage or malfunction immediately to avoid further deterioration.

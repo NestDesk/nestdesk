@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
-import { BedDouble, Building2, ChevronDown, Phone, User } from "lucide-react";
+import { BedDouble, Building2, ChevronDown, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type RoomStatus = "vacant" | "occupied" | "maintenance" | "inactive";
 type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
@@ -54,41 +55,6 @@ export type OccupancyProperty = {
   floors: OccupancyFloor[];
 };
 
-function formatCurrency(value: number | null): string {
-  if (!value || value <= 0) {
-    return "-";
-  }
-
-  return `Rs. ${new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 0,
-  }).format(value)}`;
-}
-
-function formatDate(value: string | null): string {
-  if (!value) {
-    return "-";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "-";
-  }
-
-  return parsed.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function roomTypeLabel(capacity: number): string {
-  if (capacity === 1) return "Single";
-  if (capacity === 2) return "Double";
-  if (capacity === 3) return "Triple";
-  if (capacity === 4) return "Quad";
-  return `${capacity}-bed`;
-}
-
 function getRoomOccupancyState(
   status: RoomStatus,
   occupiedCount: number,
@@ -101,41 +67,126 @@ function getRoomOccupancyState(
   return "occupied_partial";
 }
 
-function occupancyStateLabel(state: RoomOccupancyState): string {
-  if (state === "occupied_full") return "Occupied Full";
-  if (state === "occupied_partial") return "Occupied Partial";
-  if (state === "vacant") return "Vacant";
-  if (state === "inactive") return "Inactive";
-  return "Maintenance";
-}
+const STATE_STYLES = {
+  occupied_full: {
+    card: "border-emerald-500/50 dark:border-emerald-500/30",
+    header: "bg-emerald-500/10",
+    dot: "bg-emerald-500",
+    bedFill: "bg-emerald-500/10 border border-emerald-500/30",
+    bedIcon: "text-emerald-600 dark:text-emerald-400",
+  },
+  occupied_partial: {
+    card: "border-blue-500/50 dark:border-blue-500/30",
+    header: "bg-blue-500/10",
+    dot: "bg-blue-500",
+    bedFill: "bg-primary/10 border border-primary/25",
+    bedIcon: "text-primary",
+  },
+  vacant: {
+    card: "border-border/70",
+    header: "bg-muted/40",
+    dot: "bg-slate-400 dark:bg-slate-500",
+    bedFill: "bg-primary/10 border border-primary/25",
+    bedIcon: "text-primary",
+  },
+  maintenance: {
+    card: "border-amber-500/50 dark:border-amber-500/30",
+    header: "bg-amber-500/10",
+    dot: "bg-amber-500",
+    bedFill: "bg-amber-500/10 border border-amber-500/30",
+    bedIcon: "text-amber-600 dark:text-amber-400",
+  },
+  inactive: {
+    card: "border-border/40",
+    header: "bg-muted/20",
+    dot: "bg-zinc-400 dark:bg-zinc-600",
+    bedFill: "bg-muted/30 border border-border/40",
+    bedIcon: "text-muted-foreground/40",
+  },
+} as const;
 
-function occupancyStateBadgeClass(state: RoomOccupancyState): string {
-  if (state === "occupied_full") {
-    return "border-emerald-300/80 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  }
-  if (state === "occupied_partial") {
-    return "border-blue-300/80 bg-blue-500/15 text-blue-700 dark:text-blue-300";
-  }
-  if (state === "vacant") {
-    return "border-cyan-300/80 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300";
-  }
-  if (state === "inactive") {
-    return "border-zinc-300/80 bg-zinc-500/15 text-zinc-700 dark:text-zinc-300";
-  }
-  return "border-amber-300/80 bg-amber-500/15 text-amber-700 dark:text-amber-300";
-}
+function RoomCard({ room }: { room: OccupancyRoom }) {
+  const state = getRoomOccupancyState(
+    room.status,
+    room.occupiedCount,
+    room.capacity,
+  );
+  const styles = STATE_STYLES[state];
+  const activeTenants = room.assignedTenants.filter((t) => t.status === "active");
 
-function tenantStatusBadgeClass(status: TenantStatus): string {
-  if (status === "active") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-700";
-  }
-  if (status === "pending") {
-    return "border-amber-300 bg-amber-50 text-amber-700";
-  }
-  if (status === "moved_out") {
-    return "border-slate-300 bg-slate-50 text-slate-700";
-  }
-  return "border-rose-300 bg-rose-50 text-rose-700";
+  return (
+    <div
+      className={cn(
+        "relative w-[180px] shrink-0 overflow-hidden rounded-xl border-2 bg-card shadow-sm",
+        "transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.35)]",
+        styles.card,
+        state === "inactive" && "opacity-55",
+      )}
+    >
+      {/* Room header */}
+      <div
+        className={cn(
+          "flex items-center justify-between border-b border-border/40 px-2.5 py-2",
+          styles.header,
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className={cn("h-2 w-2 shrink-0 rounded-full", styles.dot)} />
+          <span className="truncate text-[13px] font-bold leading-none text-foreground">
+            {room.roomNumber}
+          </span>
+        </div>
+        <span className="shrink-0 pl-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+          {room.occupiedCount}/{room.capacity}
+        </span>
+      </div>
+
+      {/* Beds */}
+      <div className="space-y-1 p-2">
+        {Array.from({ length: room.capacity }).map((_, idx) => {
+          const tenant = activeTenants[idx];
+          const isOccupied = !!tenant;
+
+          return (
+            <div
+              key={`${room.id}-bed-${idx}`}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-2 py-[5px]",
+                isOccupied
+                  ? styles.bedFill
+                  : "border border-dashed border-border/40",
+              )}
+            >
+              <BedDouble
+                className={cn(
+                  "h-3 w-3 shrink-0",
+                  isOccupied ? styles.bedIcon : "text-muted-foreground/25",
+                )}
+              />
+              {isOccupied ? (
+                <span className="truncate text-[11px] font-medium leading-none text-foreground">
+                  {tenant.full_name}
+                </span>
+              ) : (
+                <span className="select-none text-[11px] leading-none text-muted-foreground/30">
+                  ——
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        {state === "maintenance" && (
+          <div className="mt-1 flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-1">
+            <Wrench className="h-2.5 w-2.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+              Maintenance
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function PropertyOccupancyAccordion({
@@ -154,246 +205,150 @@ export function PropertyOccupancyAccordion({
   }, [properties]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {properties.map((property) => {
         const isExpanded = expandedById[property.id] ?? false;
+        const occupancyPct =
+          property.totalBeds > 0
+            ? Math.round((property.occupiedBeds / property.totalBeds) * 100)
+            : 0;
 
         return (
           <Card
             key={property.id}
-            className="relative overflow-hidden rounded-2xl border-border/70 bg-gradient-to-br from-background via-background to-blue-500/5 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.55)]"
+            className="relative overflow-hidden rounded-2xl border-border/70 bg-gradient-to-br from-background via-background to-primary/[0.04] shadow-[0_12px_32px_-20px_rgba(15,23,42,0.4)]"
           >
-            <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-blue-500/10 blur-3xl" />
-            <div className="px-6 py-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <CardTitle className="truncate text-lg">{property.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/8 blur-3xl" />
+
+            {/* Property header — clickable */}
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              onClick={() =>
+                setExpandedById((prev) => ({
+                  ...prev,
+                  [property.id]: !isExpanded,
+                }))
+              }
+              className="relative w-full px-5 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="truncate text-base font-bold">
+                    {property.name}
+                  </CardTitle>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {[property.city, property.state].filter(Boolean).join(", ") ||
                       "Location not set"}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="gap-1.5 border-slate-300/70 bg-white/70 dark:bg-background/50"
-                  >
-                    <Building2 className="h-3 w-3" />
-                    {property.totalRooms} rooms
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="gap-1.5 border-blue-300/70 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                  >
-                    <BedDouble className="h-3 w-3" />
-                    {property.occupiedBeds}/{property.totalBeds} beds occupied
-                  </Badge>
-                  <Badge variant={property.isActive ? "default" : "secondary"}>
-                    {property.isActive ? "Active property" : "Inactive property"}
-                  </Badge>
-                  <button
-                    type="button"
-                    aria-label={isExpanded ? "Collapse property" : "Expand property"}
-                    onClick={() =>
-                      setExpandedById((prev) => ({
-                        ...prev,
-                        [property.id]: !isExpanded,
-                      }))
-                    }
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-transform hover:bg-muted/70"
-                  >
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="hidden items-center gap-1.5 sm:flex">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 border-border/60 text-xs"
+                    >
+                      <Building2 className="h-3 w-3" />
+                      {property.totalRooms}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="gap-1 border-primary/30 bg-primary/8 text-xs text-primary dark:text-blue-300"
+                    >
+                      <BedDouble className="h-3 w-3" />
+                      {property.occupiedBeds}/{property.totalBeds}
+                    </Badge>
+                    <Badge
+                      variant={property.isActive ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {property.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition hover:bg-muted/70">
                     <ChevronDown
-                      className={`h-4 w-4 transition-transform ${
-                        isExpanded ? "rotate-180" : ""
-                      }`}
+                      className={cn(
+                        "h-4 w-4 transition-transform duration-200",
+                        isExpanded && "rotate-180",
+                      )}
                     />
-                  </button>
+                  </div>
                 </div>
               </div>
-              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-700/40">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 shadow-[0_4px_16px_rgba(59,130,246,0.5)]"
-                  style={{
-                    width: `${Math.min(
-                      property.totalBeds > 0
-                        ? Math.round(
-                            (property.occupiedBeds / property.totalBeds) * 100,
-                          )
-                        : 0,
-                      100,
-                    )}%`,
-                  }}
-                />
+
+              {/* Occupancy progress */}
+              <div className="mt-3 flex items-center gap-2.5">
+                <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/50">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-indigo-500 shadow-[0_2px_6px_rgba(99,102,241,0.4)]"
+                    style={{ width: `${Math.min(occupancyPct, 100)}%` }}
+                  />
+                </div>
+                <span className="shrink-0 text-xs font-bold tabular-nums text-foreground">
+                  {occupancyPct}%
+                </span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {property.vacantBeds} vacant
+                </span>
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {property.vacantBeds} vacant bed
-                {property.vacantBeds === 1 ? "" : "s"} available
-              </p>
-            </div>
+            </button>
 
+            {/* Floor + room grid */}
             {isExpanded && (
-              <CardContent className="space-y-4 border-t border-border/60 pb-5 pt-4">
+              <div className="space-y-5 border-t border-border/50 px-5 pb-5 pt-4">
                 {property.floors.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+                  <p className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
                     No floors configured yet for this property.
-                  </div>
+                  </p>
                 ) : (
-                  property.floors.map((floor) => {
-                    return (
-                      <section key={floor.id} className="space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-foreground">
-                            {floor.name}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {floor.rooms.length} room
-                            {floor.rooms.length === 1 ? "" : "s"}
-                          </p>
+                  property.floors.map((floor) => (
+                    <section key={floor.id} className="space-y-2.5">
+                      {/* Floor label */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                          {floor.name}
+                        </span>
+                        <div className="h-px flex-1 bg-border/50" />
+                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                          {floor.rooms.length} room
+                          {floor.rooms.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+
+                      {floor.rooms.length === 0 ? (
+                        <p className="rounded-lg border border-dashed border-border/50 p-3 text-xs text-muted-foreground">
+                          No rooms on this floor yet.
+                        </p>
+                      ) : (
+                        <div className="flex gap-2.5 overflow-x-auto pb-1.5 pt-1.5">
+                          {floor.rooms.map((room) => (
+                            <RoomCard key={room.id} room={room} />
+                          ))}
                         </div>
-
-                        {floor.rooms.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-                            No rooms on this floor yet.
-                          </div>
-                        ) : (
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            {floor.rooms.map((room) => {
-                              const occupancyState = getRoomOccupancyState(
-                                room.status,
-                                room.occupiedCount,
-                                room.capacity,
-                              );
-
-                              return (
-                                <div
-                                  key={room.id}
-                                  className="group/room relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-white via-slate-50 to-blue-50/60 p-3 shadow-[0_16px_28px_-22px_rgba(15,23,42,0.95)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_34px_-20px_rgba(15,23,42,0.9)] dark:from-background dark:via-slate-900/60 dark:to-slate-950"
-                                >
-                                  <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
-                                  <div className="relative flex items-start justify-between gap-2">
-                                    <div>
-                                      <p className="text-sm font-semibold text-foreground">
-                                        Room {room.roomNumber}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {roomTypeLabel(room.capacity)} | Capacity{" "}
-                                        {room.capacity}
-                                      </p>
-                                    </div>
-                                    <Badge
-                                      variant="outline"
-                                      className={occupancyStateBadgeClass(
-                                        occupancyState,
-                                      )}
-                                    >
-                                      {occupancyStateLabel(occupancyState)}
-                                    </Badge>
-                                  </div>
-
-                                  <div className="relative mt-2 rounded-xl border border-slate-300/40 bg-white/70 p-2 dark:border-slate-700/50 dark:bg-slate-900/40">
-                                    <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                                      <span>Bed Occupancy</span>
-                                      <span>
-                                        {room.occupiedCount}/{room.capacity}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {Array.from({ length: room.capacity }).map(
-                                        (_, bedIdx) => {
-                                          const occupied =
-                                            bedIdx < room.occupiedCount;
-                                          return (
-                                            <span
-                                              key={`${room.id}-bed-${bedIdx}`}
-                                              className={`inline-flex h-6 w-6 items-center justify-center rounded-md border text-[11px] font-semibold ${
-                                                occupied
-                                                  ? "border-blue-400/60 bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                                                  : "border-slate-300/70 bg-slate-200/60 text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-400"
-                                              }`}
-                                            >
-                                              <BedDouble className="h-3.5 w-3.5" />
-                                            </span>
-                                          );
-                                        },
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                                    <Badge variant="outline">
-                                      {room.occupiedCount}/{room.capacity} occupied
-                                    </Badge>
-                                    <Badge variant="outline">
-                                      {room.availableCount} available
-                                    </Badge>
-                                    <Badge variant="outline">
-                                      Rent {formatCurrency(room.rentAmount)}
-                                    </Badge>
-                                  </div>
-
-                                  <div className="mt-3 space-y-2">
-                                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                      Allocated Tenants
-                                    </p>
-
-                                    {room.assignedTenants.length === 0 ? (
-                                      <div className="rounded-lg border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
-                                        No tenant allocated
-                                      </div>
-                                    ) : (
-                                      room.assignedTenants.map((tenant) => (
-                                        <div
-                                          key={tenant.id}
-                                          className="rounded-lg border border-border/70 bg-background p-2"
-                                        >
-                                          <div className="flex items-start justify-between gap-2">
-                                            <div className="min-w-0">
-                                              <p className="truncate text-sm font-medium text-foreground">
-                                                {tenant.full_name}
-                                              </p>
-                                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                                                <span className="inline-flex items-center gap-1">
-                                                  <User className="h-3 w-3" />
-                                                  Joined{" "}
-                                                  {formatDate(tenant.join_date)}
-                                                </span>
-                                                {tenant.phone && (
-                                                  <span className="inline-flex items-center gap-1">
-                                                    <Phone className="h-3 w-3" />
-                                                    {tenant.phone}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                                Agreed Rent:{" "}
-                                                {formatCurrency(
-                                                  tenant.agreed_rent_amount,
-                                                )}
-                                              </p>
-                                            </div>
-                                            <Badge
-                                              variant="outline"
-                                              className={tenantStatusBadgeClass(
-                                                tenant.status,
-                                              )}
-                                            >
-                                              {tenant.status.replace("_", " ")}
-                                            </Badge>
-                                          </div>
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </section>
-                    );
-                  })
+                      )}
+                    </section>
+                  ))
                 )}
-              </CardContent>
+
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/40 pt-3">
+                  {[
+                    { dot: "bg-emerald-500", label: "Full" },
+                    { dot: "bg-blue-500", label: "Partial" },
+                    { dot: "bg-slate-400 dark:bg-slate-500", label: "Vacant" },
+                    { dot: "bg-amber-500", label: "Maintenance" },
+                    { dot: "bg-zinc-400 dark:bg-zinc-600", label: "Inactive" },
+                  ].map(({ dot, label }) => (
+                    <span key={label} className="flex items-center gap-1.5">
+                      <span className={cn("h-2 w-2 rounded-full", dot)} />
+                      <span className="text-[11px] text-muted-foreground">
+                        {label}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </Card>
         );

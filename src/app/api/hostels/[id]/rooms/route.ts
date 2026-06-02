@@ -15,8 +15,8 @@ const createRoomSchema = z.object({
   status: z.enum(["vacant", "occupied", "maintenance", "inactive"]),
 });
 
-function normalizeText(value: string): string {
-  return value.trim();
+function normalizeRoomNumber(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 async function resolveOwnerAndHostel(hostelId: string) {
@@ -130,6 +130,11 @@ export async function POST(
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
 
+  const normalizedRoomNumber = normalizeRoomNumber(parsedBody.data.roomNumber);
+  if (!normalizedRoomNumber) {
+    return NextResponse.json({ error: "Room number is required." }, { status: 400 });
+  }
+
   const floorResult = await resolved.admin
     .from("floors")
     .select("id")
@@ -149,12 +154,35 @@ export async function POST(
     );
   }
 
+  const existingRoomsResult = await resolved.admin
+    .from("rooms")
+    .select("id, room_number")
+    .eq("hostel_id", parsedParams.data.id)
+    .is("deleted_at", null);
+
+  if (existingRoomsResult.error) {
+    return NextResponse.json(
+      { error: existingRoomsResult.error.message },
+      { status: 500 },
+    );
+  }
+
+  const duplicate = (existingRoomsResult.data ?? []).some(
+    (room) => normalizeRoomNumber(room.room_number) === normalizedRoomNumber,
+  );
+  if (duplicate) {
+    return NextResponse.json(
+      { error: "Room number already exists in this property." },
+      { status: 409 },
+    );
+  }
+
   const insertResult = await resolved.admin
     .from("rooms")
     .insert({
       hostel_id: parsedParams.data.id,
       floor_id: parsedBody.data.floorId,
-      room_number: normalizeText(parsedBody.data.roomNumber),
+      room_number: normalizedRoomNumber,
       capacity: parsedBody.data.capacity,
       rent_amount: parsedBody.data.rentAmount,
       status: parsedBody.data.status,

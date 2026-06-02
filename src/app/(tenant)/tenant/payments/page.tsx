@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { CreditCard, IndianRupee, Loader2, Receipt } from "lucide-react";
+import { CreditCard, Download, IndianRupee, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { printInvoice } from "@/lib/invoice";
 import { cn } from "@/lib/utils";
 
 type PaymentRow = {
+  hostel_name: string;
+  tenant_name: string | null;
+  room_number: string | null;
   id: string;
   amount: number;
   month: string;
@@ -15,8 +19,12 @@ type PaymentRow = {
   method: string | null;
   receipt_number: string | null;
   notes: string | null;
-  paid_at: string | null;
+  paid_on: string;
   created_at: string;
+  hostel_billing_address?: string | null;
+  hostel_address?: string | null;
+  hostel_gst_number?: string | null;
+  hostel_pan_number?: string | null;
 };
 
 type Summary = {
@@ -186,9 +194,9 @@ export default function TenantPaymentsPage() {
                               </span>
                             )}
                           </p>
-                          {p.paid_at && (
+                          {p.paid_on && (
                             <p className="text-xs text-muted-foreground">
-                              Paid on {formatDate(p.paid_at)}
+                              Paid on {formatDate(p.paid_on)}
                             </p>
                           )}
                           {p.notes && (
@@ -201,10 +209,20 @@ export default function TenantPaymentsPage() {
 
                       {p.receipt_number && (
                         <div className="shrink-0 text-right">
-                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Receipt className="h-3 w-3" />
-                            {p.receipt_number}
-                          </span>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <Receipt className="h-3 w-3" />
+                              {p.receipt_number}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => printInvoice(p)}
+                              className="inline-flex items-center gap-1 rounded-full border border-input bg-background px-2 py-1 text-[11px] text-muted-foreground transition hover:border-primary hover:text-foreground"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

@@ -71,6 +71,7 @@ type DraftRoomCardProps = {
   onChangeCapacity: (localId: string, capacity: number) => void;
   onRemove: (localId: string) => void;
   capacityOptions: number[];
+  disabled?: boolean;
 };
 
 export function DraftRoomCard({
@@ -78,12 +79,15 @@ export function DraftRoomCard({
   onChangeCapacity,
   onRemove,
   capacityOptions,
+  disabled = false,
 }: DraftRoomCardProps) {
   const colorClass = occupancyColor(room.capacity);
 
   return (
     <div
-      className={`group relative flex min-w-[112px] flex-col gap-1 rounded-xl border p-3 cursor-default select-none ${colorClass}`}
+      className={`group relative flex min-w-[112px] flex-col gap-1 rounded-xl border p-3 ${
+        disabled ? "cursor-not-allowed opacity-70" : "cursor-default"
+      } ${colorClass}`}
     >
       <div className="flex items-start justify-between gap-1">
         <span className="font-bold text-sm leading-tight">{room.roomNumber}</span>
@@ -92,6 +96,7 @@ export function DraftRoomCard({
           className="h-4 w-4 rounded-full text-[10px] leading-none opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
           onClick={() => onRemove(room.localId)}
           aria-label="Remove room"
+          disabled={disabled}
         >
           ✕
         </button>
@@ -105,6 +110,7 @@ export function DraftRoomCard({
         value={room.capacity}
         onChange={(e) => onChangeCapacity(room.localId, parseInt(e.target.value))}
         onClick={(e) => e.stopPropagation()}
+        disabled={disabled}
         className="mt-1 w-full rounded-lg border border-current/30 bg-transparent px-1.5 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-current/40"
       >
         {capacityOptions.map((cap) => (

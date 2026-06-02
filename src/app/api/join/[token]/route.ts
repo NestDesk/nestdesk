@@ -22,7 +22,7 @@ export async function GET(
 
   const { data, error } = await admin
     .from("hostels")
-    .select("id, name, property_type, city, state, is_active")
+    .select("id, name, property_type, address, city, state, is_active")
     .eq("tenant_join_token", token)
     .maybeSingle();
 
@@ -46,6 +46,7 @@ export async function GET(
       id: data.id,
       name: data.name,
       property_type: data.property_type,
+      address: data.address,
       city: data.city,
       state: data.state,
     },
