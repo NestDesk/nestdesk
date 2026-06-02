@@ -27,6 +27,8 @@ import {
   MessageSquare,
   BadgeCheck,
   User,
+  MessageCircle,
+  Megaphone,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -136,11 +138,13 @@ const testimonials = [
 ];
 
 const trustBadges = [
-  { icon: BadgeCheck, label: "Setup in under 10 minutes" },
+  { icon: BadgeCheck, label: "Property setup in 10 minutes" },
   { icon: Zap, label: "Fast rent tracking" },
   { icon: Users, label: "Owner + tenant portals" },
   { icon: Building2, label: "Live occupancy visibility" },
-  { icon: MessageSquare, label: "Maintenance workflow" },
+  { icon: MessageSquare, label: "Maintenance requests" },
+  { icon: MessageCircle, label: "WhatsApp rent reminders" },
+  { icon: Megaphone, label: "Broadcast tenant notices" },
 ];
 
 /* ─────────────────────────────────────────────
@@ -520,7 +524,7 @@ export default async function LandingPage() {
             {/* Footer nav */}
             <div className="grid gap-10 sm:grid-cols-2 sm:items-start">
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-foreground">Product</h4>
+                {/* <h4 className="text-sm font-semibold text-foreground">Product</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {["About", "Contact Us", "Careers"].map((item) => (
                     <li key={item}>
@@ -532,7 +536,7 @@ export default async function LandingPage() {
                       </Link>
                     </li>
                   ))}
-                </ul>
+                </ul> */}
               </div>
 
               <div className="space-y-3">
