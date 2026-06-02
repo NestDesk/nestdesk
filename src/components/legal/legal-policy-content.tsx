@@ -89,7 +89,7 @@ const POLICY_CONTENT: Record<LegalPolicyKey, PolicySection[]> = {
       ],
       bullets: [
         "Supabase: authentication, database, storage, and application infrastructure.",
-        "Razorpay: subscription billing, payments, and payment status verification.",
+        "Razorpay: subscription billing, payment processing, transaction status, and payment verification.",
         "MSG91 or similar messaging providers: OTP, SMS, and WhatsApp delivery where enabled.",
         "Resend or similar email providers: account emails, notifications, and confirmations.",
         "Cloud storage or CDN providers: secure file delivery and document storage.",
@@ -184,6 +184,8 @@ const POLICY_CONTENT: Record<LegalPolicyKey, PolicySection[]> = {
         "Subscription fees, plan changes, invoices, and receipts are processed according to the billing terms shown in the product, the applicable order form, or the checkout page.",
       ],
       bullets: [
+        "Payments are processed through Razorpay and are subject to Razorpay's terms, settlement timelines, and applicable payment gateway rules.",
+        "By using the service, you authorize us to share billing and transaction details with Razorpay to process payments and verify settlement.",
         "Fees are generally non-refundable except where the Refund Policy says otherwise or where non-waivable law requires a refund.",
         "You are responsible for paying taxes and charges shown at checkout, if applicable.",
         "We may suspend or limit access for failed payments, charge disputes, or abuse of billing systems.",
@@ -292,55 +294,59 @@ const POLICY_CONTENT: Record<LegalPolicyKey, PolicySection[]> = {
     {
       title: "1. Subscription billing",
       body: [
-        "NestDesk is normally billed as a subscription-based SaaS service. Fees, billing cycles, and taxes are shown at the time of purchase or upgrade.",
+        "NestDesk is a subscription-based SaaS service. Fees, billing cycles, applicable taxes, and any trial terms are shown at the time of purchase, upgrade, or renewal.",
       ],
     },
     {
       title: "2. Refund eligibility",
       body: [
-        "Unless a mandatory law says otherwise, refunds are limited and may be offered only in specific situations described here.",
+        "Refunds are limited, and subscription fees are generally non-refundable after the applicable billing period begins unless required by law or expressly approved by us.",
       ],
       bullets: [
-        "If you cancel within 3 calendar days of a new paid subscription purchase, you may qualify for an automated refund where technically available.",
-        "After the initial 3-day window, subscription fees are generally non-refundable for the current billing period.",
-        "Plan upgrades, renewal cycles, taxes already remitted, and usage during the active period are typically non-refundable.",
-        "If a payment was charged in error due to a system fault, we will review the issue and may refund or credit the amount as appropriate.",
+        "If you cancel within 3 calendar days of a new paid subscription purchase, you may qualify for an automated refund where technically available and consistent with payment processor rules.",
+        "After the initial 3-day window, we generally do not refund the current paid period, but we may provide a prorated credit or refund in exceptional cases at our discretion.",
+        "Upgrades, renewal charges, taxes, and fees already remitted are typically non-refundable once processed.",
+        "If a payment was charged in error due to a system fault, duplicate transaction, or other verified billing error, we will review it and may refund or credit the amount as appropriate.",
       ],
     },
     {
       title: "3. Cancellation effects",
       body: [
-        "Cancelling a subscription stops future renewals. Access may continue until the end of the current paid term or grace period, unless we state otherwise in the product or law requires a different outcome.",
+        "Cancelling a subscription stops future renewals. Access may continue until the end of the current paid term or any grace period specified in the product, unless otherwise required by law.",
       ],
     },
     {
-      title: "4. Failed payments and retries",
+      title: "4. Processor and payment terms",
+      body: [
+        "Payments are processed through Razorpay and are subject to Razorpay's terms, settlement timelines, and applicable payment gateway rules.",
+      ],
+      bullets: [
+        "Approved refunds are returned to the original payment method through Razorpay and may take 7-14 business days or longer depending on the processor and bank.",
+        "Any refund is subject to verification and may be delayed by payment processor review, bank policies, or regulatory requirements.",
+      ],
+    },
+    {
+      title: "5. Failed payments and retries",
       body: [
         "Failed payment retries, reminders, grace periods, and access restrictions are handled according to the plan rules shown in the product and your billing status.",
       ],
     },
     {
-      title: "5. Charge disputes",
+      title: "6. Charge disputes",
       body: [
-        "If you believe a payment was processed incorrectly, contact support promptly with the invoice or transaction details so we can investigate before initiating a payment dispute.",
+        "If you believe a payment was processed incorrectly, contact support promptly with the invoice or transaction details so we can investigate before initiating a payment dispute with the processor.",
       ],
     },
     {
-      title: "6. How refunds are issued",
+      title: "7. Denied refunds",
       body: [
-        "Approved refunds are generally issued back to the original payment method or through the same payment processor used for the transaction, subject to processor timelines.",
-      ],
-    },
-    {
-      title: "7. No refund for prohibited or abusive use",
-      body: [
-        "We may deny refunds where the account was suspended for fraud, abuse, policy violation, chargeback abuse, or unlawful use of the platform.",
+        "We may deny refunds where the account was suspended or terminated for fraud, abuse, policy violation, chargeback abuse, non-payment, or unlawful use of the platform.",
       ],
     },
     {
       title: "8. Changes",
       body: [
-        "We may update this Refund Policy from time to time, and any updated version will apply to future purchases unless the law requires otherwise.",
+        "We may update this Refund Policy from time to time. Continued use of the service after a change means you accept the revised policy, subject to applicable law.",
       ],
     },
   ],
