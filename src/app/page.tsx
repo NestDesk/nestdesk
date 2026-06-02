@@ -520,7 +520,7 @@ export default async function LandingPage() {
             {/* Footer nav */}
             <div className="grid gap-10 sm:grid-cols-2 sm:items-start">
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-foreground">Product</h4>
+                {/* <h4 className="text-sm font-semibold text-foreground">Product</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {["About", "Contact Us", "Careers"].map((item) => (
                     <li key={item}>
@@ -532,7 +532,7 @@ export default async function LandingPage() {
                       </Link>
                     </li>
                   ))}
-                </ul>
+                </ul> */}
               </div>
 
               <div className="space-y-3">

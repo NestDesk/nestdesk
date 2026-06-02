@@ -60,7 +60,7 @@ const pricingPlans = [
     description: "Most popular for multi-property operators",
     features: [
       "Up to 3 properties",
-      "Up to 120 tenants in each",
+      "Up to 75 tenants in each",
       "Occupancy and Expense modules",
       "Tenant profile and Identity document upload",
       "Dedicated onboarding",
@@ -77,8 +77,8 @@ const pricingPlans = [
     period: "month",
     description: "For larger chains and operations teams",
     features: [
-      "Up to 8 properties",
-      "Up to 150 tenants in each",
+      "Up to 6 properties",
+      "Up to 100 tenants in each",
       "Occupancy and Expense modules",
       "Tenant profile and Identity document upload",
       "Dedicated onboarding",
@@ -232,7 +232,7 @@ export function PricingSection() {
                         {/* Struck-through doubled price */}
                         <div className="mb-1.5">
                           <span
-                            className={`text-lg font-semibold decoration-2 line-through decoration-red-400 ${highlighted ? "text-white/70" : "text-foreground/60"}`}
+                            className={`text-lg font-semibold decoration-1 line-through decoration-red-400 ${highlighted ? "text-white/70" : "text-foreground/60"}`}
                           >
                             Rs.{strikePrice ? formatINR(strikePrice) : ""}
                           </span>
