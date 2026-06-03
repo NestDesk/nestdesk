@@ -29,6 +29,8 @@ import {
   User,
   MessageCircle,
   Megaphone,
+  MapPin,
+  Phone,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -524,19 +526,24 @@ export default async function LandingPage() {
             {/* Footer nav */}
             <div className="grid gap-10 sm:grid-cols-2 sm:items-start">
               <div className="space-y-3">
-                {/* <h4 className="text-sm font-semibold text-foreground">Product</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  {["About", "Contact Us", "Careers"].map((item) => (
-                    <li key={item}>
-                      <Link
-                        href="#"
-                        className="transition-colors hover:text-foreground"
-                      >
-                        {item}
-                      </Link>
-                    </li>
-                  ))}
-                </ul> */}
+                <h4 className="text-sm font-semibold text-foreground">Contact</h4>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="mt-1 h-10 w-10 text-primary" />
+                    <p>
+                      3/45 Vikrant Khand, Gomtinagar, Lucknow, Uttar Pradesh, India
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-primary" />
+                    <Link
+                      href="tel:+917081335246"
+                      className="transition-colors hover:text-foreground"
+                    >
+                      +91 70813 35246
+                    </Link>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-3">

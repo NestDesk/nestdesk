@@ -8,6 +8,8 @@ NestDesk currently uses a simple two-file development database workflow:
 
 ## Migration Files
 
+Theme and auth UI refinements (auth layout + login visual cleanup + theme selector placement) introduced no database schema changes.
+
 1. Reset script: supabase/migrations/000_dev_drop_all.sql
 2. Full schema bootstrap: supabase/migrations/001_init_simple.sql
 3. Tenant join token enhancement: supabase/migrations/002_tenant_join_token.sql

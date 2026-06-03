@@ -16,31 +16,34 @@ The active product flow is:
 
 ## Recent Updates
 
-1. Tenant workspace visuals were upgraded with a branded portal shell.
-2. Tenant navigation now has active-state highlighting and clearer section cues.
-3. Tenant dashboard UI was refreshed with a professional hero panel, quick actions, and improved status/property hierarchy.
-4. Maintenance workflow is now bi-directional:
+1. Auth shell and login screen theming were simplified for reliable light/dark readability.
+2. Theme selector was added to the auth top navbar so users can switch theme directly on login/register flows.
+
+3. Tenant workspace visuals were upgraded with a branded portal shell.
+4. Tenant navigation now has active-state highlighting and clearer section cues.
+5. Tenant dashboard UI was refreshed with a professional hero panel, quick actions, and improved status/property hierarchy.
+6. Maintenance workflow is now bi-directional:
    - Tenant-raised requests appear in owner dashboard as notification count.
    - Owners can open a dedicated Maintenance area, add comments, and change status.
    - Tenant maintenance view now shows owner comments and status changes.
-5. Tenant maintenance requests are now editable and deletable from tenant portal.
-6. Owner maintenance dashboard request count now correctly includes open requests by fixing owner-hostel lookup filters.
-7. Tenant maintenance edit/delete is now restricted to open status only; owner actions remain unrestricted.
-8. Owner portal now includes a complete Tenants management module:
-   - Owner can list all tenants across properties.
-   - Owner can filter/search by status, property, and tenant details.
-   - Owner can update tenant profile info, status, join/move-out dates, room assignment, and agreed rent amount.
-   - Room occupancy state is synchronized when tenant status or room assignment changes.
-9. Notices module is now fully implemented:
-   - Owner can create notices (draft or published) for any of their properties.
-   - Owner can edit notice title and body.
-   - Owner can publish or unpublish notices with a single toggle.
-   - Owner can soft-delete notices.
-   - Owner notices page supports search, property filter, and status filter (published / draft).
-   - Published notices are immediately visible to all active tenants of the property.
-   - Tenant notices page is refactored to use the /api/tenant/notices API (only active tenants see notices).
-   - notices table now has is_published and published_at columns (migration 006).
-10. Payments module is now fully implemented:
+7. Tenant maintenance requests are now editable and deletable from tenant portal.
+8. Owner maintenance dashboard request count now correctly includes open requests by fixing owner-hostel lookup filters.
+9. Tenant maintenance edit/delete is now restricted to open status only; owner actions remain unrestricted.
+10. Owner portal now includes a complete Tenants management module:
+    - Owner can list all tenants across properties.
+    - Owner can filter/search by status, property, and tenant details.
+    - Owner can update tenant profile info, status, join/move-out dates, room assignment, and agreed rent amount.
+    - Room occupancy state is synchronized when tenant status or room assignment changes.
+11. Notices module is now fully implemented:
+    - Owner can create notices (draft or published) for any of their properties.
+    - Owner can edit notice title and body.
+    - Owner can publish or unpublish notices with a single toggle.
+    - Owner can soft-delete notices.
+    - Owner notices page supports search, property filter, and status filter (published / draft).
+    - Published notices are immediately visible to all active tenants of the property.
+    - Tenant notices page is refactored to use the /api/tenant/notices API (only active tenants see notices).
+    - notices table now has is_published and published_at columns (migration 006).
+12. Payments module is now fully implemented:
 
 - Owner can record received payments for active tenants with amount, month, method, status, and notes.
 - A receipt number (ND-YYYYMM-XXXXXX) is auto-generated when a payment is recorded or updated as paid.
@@ -149,6 +152,13 @@ The active product flow is:
 - API now returns month options from property onboarding month to current month.
 - Recurring expenses are now auto-materialized by API when due date is reached, and recurring templates advance their next due date automatically.
 
+23. Auth registration and session flows were standardized:
+
+- New centralized auth module now handles registration, login, logout, callback exchange, cookie propagation, and post-login redirect resolution.
+- Owner and tenant registration now create confirmed accounts immediately and start a session without email verification.
+- Tenant registration now cleans up newly-created auth users when tenant profile insert fails to avoid orphan auth identities.
+- Registration returns a clear duplicate-email message when the email already exists.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management
@@ -156,8 +166,8 @@ The active product flow is:
 Implemented:
 
 1. Email/password registration with strong password validation.
-2. Production-ready email verification callback flow through Supabase.
-3. Dev-mode shortcut registration with confirmed users to avoid email delivery blockers.
+2. Email/password registration without mandatory verification, with immediate post-signup session creation.
+3. Centralized auth helper module in src/lib/auth.ts for registration, login, logout, callback exchange, and role-based redirect resolution.
 4. Login API with Supabase cookie session handling.
 5. Login rate limiting backed by the login_activity table.
 6. Logout API that clears Supabase session cookies.

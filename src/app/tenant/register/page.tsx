@@ -306,12 +306,14 @@ function TenantRegisterPageContent() {
         return;
       }
 
-      if (json.requiresEmailVerification) {
-        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
-      } else {
-        toast.success("Account created. Welcome!");
-        router.push(json.redirectTo ?? "/tenant/profile");
+      if (json.redirectTo) {
+        toast.success(json.message ?? "Registration successful. Continuing...");
+        router.push(json.redirectTo);
+        return;
       }
+
+      toast.success("Registration successful. Continuing...");
+      router.push("/tenant/profile");
     } catch {
       toast.error("Network error. Please try again.");
     }

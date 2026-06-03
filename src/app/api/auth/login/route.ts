@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
 import { checkLoginRateLimit, logLoginAttempt } from "@/lib/rate-limiter";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  applySupabaseCookies,
+  loginWithEmailPassword,
+  resolveUserRedirectPath,
+} from "@/lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -58,33 +60,17 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 3. Sign in via Supabase (server-side — sets httpOnly cookies) ────────
-  const { url, anonKey } = validateSupabaseEnv();
-  const cookiesToSet: Array<{
-    name: string;
-    value: string;
-    options: Record<string, unknown>;
-  }> = [];
+  let data: Awaited<ReturnType<typeof loginWithEmailPassword>>["data"];
+  let error: Awaited<ReturnType<typeof loginWithEmailPassword>>["error"];
+  let cookiesToSet: Awaited<
+    ReturnType<typeof loginWithEmailPassword>
+  >["cookiesToSet"];
 
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookies) {
-        cookiesToSet.push(...cookies);
-      },
-    },
-  });
-
-  let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["data"];
-  let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["error"];
   try {
-    const result = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const result = await loginWithEmailPassword(request, email, password);
     data = result.data;
     error = result.error;
+    cookiesToSet = result.cookiesToSet;
   } catch {
     return NextResponse.json(
       {
@@ -116,35 +102,11 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 5. Determine redirect based on user role ──────────────────────────────
-  const admin = createAdminClient();
-  const { data: owner } = await admin
-    .from("owners")
-    .select("onboarding_completed")
-    .eq("user_id", data.user.id)
-    .maybeSingle();
-
-  let redirectTo: string;
-  if (owner) {
-    redirectTo = owner.onboarding_completed ? "/dashboard" : "/onboarding";
-  } else {
-    // Check if this user is a registered tenant
-    const { data: tenant } = await admin
-      .from("tenants")
-      .select("id")
-      .eq("auth_user_id", data.user.id)
-      .maybeSingle();
-    redirectTo = tenant ? "/tenant/dashboard" : "/onboarding";
-  }
+  const redirectTo = await resolveUserRedirectPath(data.user.id);
 
   // ── 6. Build response and attach session cookies ─────────────────────────
   const response = NextResponse.json({ success: true, redirectTo });
-  cookiesToSet.forEach(({ name, value, options }) => {
-    response.cookies.set(
-      name,
-      value,
-      options as Parameters<typeof response.cookies.set>[2],
-    );
-  });
+  applySupabaseCookies(response, cookiesToSet);
 
   return response;
 }

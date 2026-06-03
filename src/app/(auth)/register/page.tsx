@@ -195,13 +195,14 @@ export default function RegisterPage() {
         return;
       }
 
-      if (json.requiresEmailVerification === false) {
-        toast.success(json.message ?? "Account created. You can sign in now.");
-        router.push("/login");
+      if (json.redirectTo) {
+        toast.success(json.message ?? "Registration successful. Continuing...");
+        router.push(json.redirectTo);
         return;
       }
 
-      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      toast.success(json.message ?? "Registration successful. Continuing...");
+      router.push("/onboarding");
     } catch {
       toast.error("Network error. Please try again.");
     }

@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
 const AUTH_ONLY_PATHS = [
   "/login",
   "/register",
+  "/verify-email",
   "/forgot-password",
   "/tenant/register",
 ];

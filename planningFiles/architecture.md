@@ -36,6 +36,7 @@ The app is split into five main layers:
 
 2. src/app/(auth)/layout.tsx
    - Shared auth visual shell
+   - Includes top navbar theme selector for light/dark/system switching
 
 3. src/app/(auth)/login/page.tsx
    - Login form
@@ -320,15 +321,17 @@ Main files:
 2. src/app/api/auth/login/route.ts
 3. src/app/api/auth/logout/route.ts
 4. src/app/auth/callback/route.ts
-5. src/lib/rate-limiter.ts
+5. src/lib/auth.ts
+6. src/lib/rate-limiter.ts
 
 Behavior:
 
 1. Registration validates inputs with Zod.
-2. Production flow relies on Supabase verification email.
-3. Development flow can create confirmed users directly.
+2. Owner and tenant registration both create confirmed accounts immediately with email/password.
+3. Shared auth helpers centralize sign-up, sign-in, sign-out, callback exchange, cookie propagation, and role-based redirect resolution.
 4. Login writes login_activity rows and enforces a 5-failures-in-15-minutes rule.
-5. Successful login redirects based on onboarding completion.
+5. Successful login redirects based on owner onboarding state or tenant role.
+6. Duplicate email registration attempts return clear conflict responses for owner and tenant signup APIs.
 
 ### Owner Onboarding
 
@@ -423,6 +426,8 @@ Behavior:
 
 4. src/lib/supabase/env-check.ts
    - Early validation for required env vars
+5. src/lib/auth.ts
+   - Shared route-level auth helpers for registration, login, logout, callback exchange, and redirect decisions
 
 ### Common Access Pattern
 
