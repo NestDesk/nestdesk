@@ -100,7 +100,7 @@ export function Sidebar({
                   collapsed && !mobile && "justify-center px-2",
                   pathname === href
                     ? "bg-gradient-to-r from-primary/80 to-blue-500/70 text-white shadow-md shadow-primary/20"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />

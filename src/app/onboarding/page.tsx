@@ -303,15 +303,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background px-4 pb-8">
       <TopBar title="Onboarding" />
 
-      <div className="relative z-10 mx-auto w-full max-w-lg">
-        {/* Brand */}
-        <div className="mb-8 flex items-center justify-center gap-2.5 pt-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Building2 className="h-4 w-4" />
-          </div>
-          <span className="text-lg font-bold text-foreground">NestDesk</span>
-        </div>
-
+      <div className="relative z-10 mt-2 mx-auto w-full max-w-lg">
         <StepIndicator current={step} />
 
         {/* ── Step 1: Owner details ───────────────────────────────────────── */}
@@ -443,6 +435,7 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <Field label="City" error={ownerForm.formState.errors.city?.message}>
                   <Input
+                    disabled={true}
                     placeholder="Lucknow"
                     className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                     {...ownerForm.register("city")}
@@ -453,6 +446,7 @@ export default function OnboardingPage() {
                   error={ownerForm.formState.errors.state?.message}
                 >
                   <Input
+                    disabled={true}
                     placeholder="Uttar Pradesh"
                     className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                     {...ownerForm.register("state")}

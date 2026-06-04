@@ -5,14 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import {
-  Building2,
-  Loader2,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
+import { Loader2, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -94,7 +87,7 @@ function PasswordStrength({ password }: { password: string }) {
             key={i}
             className={cn(
               "h-1 flex-1 rounded-full transition-all duration-300",
-              i < passed ? STRENGTH_COLORS[passed] : "bg-white/10",
+              i < passed ? STRENGTH_COLORS[passed] : "bg-muted/30",
             )}
           />
         ))}
@@ -104,7 +97,7 @@ function PasswordStrength({ password }: { password: string }) {
           className={cn(
             "text-xs font-medium",
             passed <= 2
-              ? "text-red-400"
+              ? "text-red-600"
               : passed === 3
                 ? "text-amber-400"
                 : passed === 4
@@ -125,9 +118,11 @@ function PasswordStrength({ password }: { password: string }) {
               {ok ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
               ) : (
-                <XCircle className="h-3.5 w-3.5 text-white/30" />
+                <XCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
               )}
-              <span className={ok ? "text-white/60" : "text-white/30"}>
+              <span
+                className={ok ? "text-muted-foreground" : "text-muted-foreground/70"}
+              >
                 {rule.label}
               </span>
             </li>
@@ -153,7 +148,15 @@ export default function RegisterPage() {
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
+  });
+
+  const allPasswordRulesMet = STRENGTH_RULES.every((rule) =>
+    rule.test(passwordValue),
+  );
 
   // Keep strength indicator in sync without re-rendering the whole form
   useEffect(() => {
@@ -213,23 +216,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full rounded-3xl border border-white/10 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl dark:bg-white/5">
-      <CardHeader className="space-y-4 pb-4 pt-8">
-        <div className="flex justify-center">
-          <div className="glow-ring flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400">
-            <Building2 className="h-7 w-7 text-white drop-shadow" />
-          </div>
-        </div>
+    <Card className="w-full rounded-3xl border border-border bg-card shadow-2xl shadow-black/10 dark:shadow-black/30">
+      <CardHeader className="space-y-4 pb-4 pt-4">
         <div className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Create your account
           </CardTitle>
-          <CardDescription className="text-white/60">
+          <CardDescription className="text-muted-foreground">
             Manage your property with NestDesk
           </CardDescription>
-          <p className="mt-2 text-sm text-white/70">
+          <p className="mt-2 text-sm text-muted-foreground">
             Selected plan:{" "}
-            <span className="font-semibold text-white">
+            <span className="font-semibold text-foreground">
               {formatPlanLabel(selectedPlan)}
             </span>
           </p>
@@ -240,7 +238,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Full name */}
           <div className="space-y-1.5">
-            <Label htmlFor="fullName" className="text-white/80">
+            <Label htmlFor="fullName" className="text-foreground">
               Full name
             </Label>
             <Input
@@ -248,17 +246,19 @@ export default function RegisterPage() {
               type="text"
               placeholder="Owner Name"
               autoComplete="name"
-              className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+              className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               {...register("fullName")}
             />
             {errors.fullName && (
-              <p className="text-xs text-red-400">{errors.fullName.message}</p>
+              <p className="text-xs text-red-700 dark:text-red-300">
+                {errors.fullName.message}
+              </p>
             )}
           </div>
 
           {/* Email */}
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-white/80">
+            <Label htmlFor="email" className="text-foreground">
               Email
             </Label>
             <Input
@@ -266,17 +266,19 @@ export default function RegisterPage() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
-              className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+              className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-xs text-red-400">{errors.email.message}</p>
+              <p className="text-xs text-red-700 dark:text-red-300">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
           {/* Password + strength */}
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-white/80">
+            <Label htmlFor="password" className="text-foreground">
               Password
             </Label>
             <div className="relative">
@@ -285,13 +287,13 @@ export default function RegisterPage() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Min 8 chars, mixed case + number"
                 autoComplete="new-password"
-                className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                className="rounded-xl border-border bg-background pr-10 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
                 {...register("password")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((p) => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -302,7 +304,9 @@ export default function RegisterPage() {
               </button>
             </div>
             {errors.password ? (
-              <p className="text-xs text-red-400">{errors.password.message}</p>
+              <p className="text-xs text-red-700 dark:text-red-300">
+                {errors.password.message}
+              </p>
             ) : (
               <PasswordStrength password={passwordValue} />
             )}
@@ -310,7 +314,7 @@ export default function RegisterPage() {
 
           {/* Confirm password */}
           <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword" className="text-white/80">
+            <Label htmlFor="confirmPassword" className="text-foreground">
               Confirm password
             </Label>
             <div className="relative">
@@ -319,13 +323,13 @@ export default function RegisterPage() {
                 type={showConfirm ? "text" : "password"}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                className="rounded-xl border-border bg-background pr-10 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
                 {...register("confirmPassword")}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm((p) => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label={showConfirm ? "Hide password" : "Show password"}
               >
                 {showConfirm ? (
@@ -336,37 +340,39 @@ export default function RegisterPage() {
               </button>
             </div>
             {errors.confirmPassword && (
-              <p className="text-xs text-red-400">
+              <p className="text-xs text-red-700 dark:text-red-300">
                 {errors.confirmPassword.message}
               </p>
             )}
           </div>
 
           {/* Consent */}
-          <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-background/80 p-3">
             <input
               id="consentGiven"
               type="checkbox"
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 accent-primary"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
               {...register("consentGiven")}
             />
             <Label
               htmlFor="consentGiven"
-              className="text-xs text-white/60 leading-relaxed cursor-pointer"
+              className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
             >
               I agree to NestDesk&apos;s{" "}
-              <PrivacyPolicyLink className="text-white/80" /> and consent to my
+              <PrivacyPolicyLink className="text-primary" /> and consent to my
               personal data being used for property management purposes by NestDesk.
             </Label>
           </div>
           {errors.consentGiven && (
-            <p className="text-xs text-red-400">{errors.consentGiven.message}</p>
+            <p className="text-xs text-red-700 dark:text-red-300">
+              {errors.consentGiven.message}
+            </p>
           )}
 
           <Button
             type="submit"
             className="mt-2 w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:brightness-110"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !allPasswordRulesMet}
           >
             {isSubmitting ? (
               <>
@@ -378,11 +384,11 @@ export default function RegisterPage() {
           </Button>
 
           {submitErrorDetails.length > 0 && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5">
-              <p className="mb-1 text-xs font-semibold text-red-300">
+            <div className="rounded-xl border border-red-500/30 bg-red-50 dark:bg-red-500/10 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-red-700 dark:text-red-300">
                 Registration details:
               </p>
-              <ul className="space-y-1 text-xs text-red-200">
+              <ul className="space-y-1 text-xs text-red-700 dark:text-red-200">
                 {submitErrorDetails.map((detail) => (
                   <li key={detail}>{detail}</li>
                 ))}
@@ -391,11 +397,11 @@ export default function RegisterPage() {
           )}
         </form>
 
-        <p className="mt-6 text-center text-xs text-white/40">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Already have an account?{" "}
           <Link
             href="/login"
-            className="font-medium text-white/70 underline underline-offset-2 hover:text-white"
+            className="font-medium text-primary underline underline-offset-2 hover:text-foreground"
           >
             Sign in
           </Link>
