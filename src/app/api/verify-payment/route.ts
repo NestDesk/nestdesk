@@ -26,6 +26,24 @@ const verifySchema = z.object({
   ]),
 });
 
+type RazorpayPaymentDetails = {
+  order_id: string;
+  currency: string;
+  amount: number;
+  status: string;
+};
+
+function isRazorpayPaymentDetails(value: unknown): value is RazorpayPaymentDetails {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).order_id === "string" &&
+    typeof (value as Record<string, unknown>).currency === "string" &&
+    typeof (value as Record<string, unknown>).amount === "number" &&
+    typeof (value as Record<string, unknown>).status === "string"
+  );
+}
+
 async function fetchRazorpayPaymentDetails(paymentId: string) {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -171,7 +189,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let paymentDetails: any | null = null;
+  let paymentDetails: unknown = null;
 
   try {
     paymentDetails = await fetchRazorpayPaymentDetails(
@@ -190,7 +208,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (
-    !paymentDetails ||
+    !isRazorpayPaymentDetails(paymentDetails) ||
     paymentDetails.order_id !== parsed.data.razorpay_order_id ||
     paymentDetails.currency !== RAZORPAY_CURRENCY ||
     paymentDetails.amount !== paymentOrder.amount_paise ||

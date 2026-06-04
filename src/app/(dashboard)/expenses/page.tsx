@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatDateInIndia, toIndianDateString } from "@/lib/date";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABEL,

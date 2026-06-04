@@ -16,6 +16,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateInIndia } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
 

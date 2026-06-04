@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -134,6 +134,14 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageBody />
+    </Suspense>
+  );
+}
+
+function RegisterPageBody() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedPlan = normalizeOwnerPlan(searchParams.get("plan") ?? "free");

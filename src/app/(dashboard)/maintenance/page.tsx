@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatDateInIndia } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 type OwnerComment = {
@@ -342,7 +343,6 @@ export default function OwnerMaintenancePage() {
                                       month: "short",
                                       year: "numeric",
                                     })}
-                                    )}
                                   </p>
                                 </div>
                               </div>

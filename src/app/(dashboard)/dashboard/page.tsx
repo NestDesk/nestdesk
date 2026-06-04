@@ -10,6 +10,7 @@ import {
   MapPin,
   AlertCircle,
   Wrench,
+  Phone,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -48,6 +49,7 @@ export default async function DashboardPage() {
   let setupRequired = false;
   let setupProperty: { id: string; name: string } | null = null;
   let hasProperties = false;
+  let isPhoneVerified = false;
   let activeCount = 0;
   let inactiveCount = 0;
   let openMaintenanceCount = 0;
@@ -81,12 +83,13 @@ export default async function DashboardPage() {
   if (user) {
     const { data: owner } = await admin
       .from("owners")
-      .select("id, plan")
+      .select("id, plan, phone_verified")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .maybeSingle<{ id: string; plan: string; phone_verified: boolean }>();
 
     if (owner) {
       currentPlan = normalizeOwnerPlan(owner.plan);
+      isPhoneVerified = owner.phone_verified;
 
       const { data: currentSubscription } = await admin
         .from("subscriptions")
@@ -378,35 +381,124 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* ── Setup required / inactive banner ─────────────────────────── */}
-      {!hasProperties && (
-        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
-                <Building2 className="h-6 w-6 text-primary" />
+      {/* ── Top dashboard prompts ─────────────────────────── */}
+      <div className="space-y-2">
+        {!hasProperties && (
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold leading-tight text-foreground">
+                    Welcome to NestDesk — add your first property
+                  </h3>
+                  <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                    Add your first property to start managing rooms, tenants, and
+                    rent collection.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">
-                  Welcome to NestDesk — add your first property
-                </h3>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Your owner profile is ready. Add your first property to start
-                  managing rooms, tenants, and rent collection.
+              <div className="shrink-0">
+                <Button asChild className="rounded-lg px-2 py-0.5 text-[10px]">
+                  <Link href="/hostels/new">
+                    Add Property
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isPhoneVerified && (
+          <div className="rounded-2xl border border-amber-300/40 bg-amber-50 p-2 dark:bg-amber-950/10">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15">
+                  <Phone className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold leading-tight text-foreground">
+                    Verify your phone number
+                  </h3>
+                  <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                    Verify your phone on profile to activate properties and receive
+                    tenant updates.
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0">
+                <Button asChild className="rounded-lg px-2 py-0.5 text-[10px]">
+                  <Link href="/profile">
+                    Verify Phone
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Card className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/15">
+                <Building2 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  Subscription Overview
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  Plan, status, and renewal details
                 </p>
               </div>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:ml-3">
+              <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-2 py-1 dark:bg-slate-950/60">
+                <span className="uppercase tracking-[0.08em] text-[10px]">Plan</span>
+                <span className="font-semibold text-foreground">
+                  {formatPlanLabel(currentPlan)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-2 py-1 dark:bg-slate-950/60">
+                <span className="uppercase tracking-[0.08em] text-[10px]">
+                  Status
+                </span>
+                <span className="font-semibold uppercase text-foreground">
+                  {subscriptionStatus}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-2 py-1 dark:bg-slate-950/60">
+                <span className="uppercase tracking-[0.08em] text-[10px]">
+                  Valid Till
+                </span>
+                <span className="font-semibold text-foreground">
+                  {subscriptionEndsAt
+                    ? formatDateInIndia(subscriptionEndsAt, {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "-"}
+                </span>
+              </div>
+            </div>
+
             <div className="shrink-0">
-              <Button asChild className="rounded-xl gap-2">
-                <Link href="/hostels/new">
-                  Add Property
-                  <ArrowRight className="h-4 w-4" />
+              <Button asChild className="rounded-lg pl-4 pr-2 py-0.5 text-[10px]">
+                <Link href="/subscriptions">
+                  Manage
+                  <ArrowRight className="h-3.5 w-3.5 ml-2" />
                 </Link>
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        </Card>
+      </div>
 
       {hasProperties && setupRequired && setupProperty && (
         <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-6">
@@ -535,43 +627,6 @@ export default async function DashboardPage() {
           ),
         )}
       </div>
-
-      <Card className="rounded-2xl border-border/70">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Subscription Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <p className="text-xs text-muted-foreground">Current Plan</p>
-            <p className="text-lg font-semibold text-foreground">
-              {formatPlanLabel(currentPlan)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Status</p>
-            <p className="text-sm font-medium uppercase text-foreground">
-              {subscriptionStatus}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Valid Till</p>
-            <p className="text-sm font-medium text-foreground">
-              {subscriptionEndsAt
-                ? formatDateInIndia(subscriptionEndsAt, {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "-"}
-            </p>
-          </div>
-          <div className="sm:col-span-3">
-            <Button asChild variant="outline" size="sm" className="rounded-xl">
-              <Link href="/subscriptions">Manage Subscriptions</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {hasProperties && (
         <div className="grid gap-4 md:grid-cols-2">

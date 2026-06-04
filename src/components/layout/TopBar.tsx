@@ -186,7 +186,7 @@ export function TopBar({
                 {user?.email || "Signed in"}
               </p>
               <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-primary">
-                {formatPlanLabel(subscription.plan)} plan · {subscription.status}
+                {formatPlanLabel(subscription.plan)} plan
               </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

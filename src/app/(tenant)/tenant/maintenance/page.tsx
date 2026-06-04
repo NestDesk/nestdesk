@@ -521,7 +521,6 @@ export default function TenantMaintenancePage() {
                                   month: "short",
                                   year: "numeric",
                                 })}
-                                )}
                               </p>
                             </div>
                           </div>

@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeSubscriptionEndDate, normalizeOwnerPlan } from "@/lib/subscriptions";
 
+type RazorpayWebhookPayload = {
+  event?: string;
+  payload?: {
+    payment?: {
+      entity?: Record<string, unknown>;
+    };
+  };
+};
+
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
@@ -18,29 +27,6 @@ function verifyRazorpayWebhookSignature(
     .digest("hex");
 
   return expectedSignature === razorpaySignature;
-}
-
-async function fetchRazorpayPaymentDetails(paymentId: string) {
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-    throw new Error("Razorpay credentials are not configured.");
-  }
-
-  const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Basic ${Buffer.from(
-        `${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`,
-      ).toString("base64")}`,
-    },
-    cache: "no-store",
-  });
-
-  const responseBody = await response.text().catch(() => "");
-  try {
-    return responseBody ? JSON.parse(responseBody) : null;
-  } catch {
-    return null;
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -75,15 +61,15 @@ export async function POST(request: NextRequest) {
   }
 
   const text = new TextDecoder().decode(rawBody);
-  let payload: unknown;
+  let payload: RazorpayWebhookPayload;
   try {
     payload = JSON.parse(text);
   } catch {
     return NextResponse.json({ error: "Invalid webhook payload." }, { status: 400 });
   }
 
-  const event = (payload as any)?.event;
-  const paymentEntity = (payload as any)?.payload?.payment?.entity;
+  const event = payload.event;
+  const paymentEntity = payload.payload?.payment?.entity;
 
   if (event !== "payment.captured" || !paymentEntity) {
     return NextResponse.json(
