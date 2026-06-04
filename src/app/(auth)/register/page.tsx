@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { normalizeOwnerPlan, formatPlanLabel } from "@/lib/subscriptions";
 import { PrivacyPolicyLink } from "@/components/legal/PrivacyPolicyLink";
 
 const registerSchema = z
@@ -139,6 +140,9 @@ function PasswordStrength({ password }: { password: string }) {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedPlan = normalizeOwnerPlan(searchParams.get("plan") ?? "free");
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
@@ -223,6 +227,12 @@ export default function RegisterPage() {
           <CardDescription className="text-white/60">
             Manage your property with NestDesk
           </CardDescription>
+          <p className="mt-2 text-sm text-white/70">
+            Selected plan:{" "}
+            <span className="font-semibold text-white">
+              {formatPlanLabel(selectedPlan)}
+            </span>
+          </p>
         </div>
       </CardHeader>
 

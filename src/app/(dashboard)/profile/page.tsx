@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatDateInIndia } from "@/lib/date";
 import { OwnerProfileCard } from "@/components/profile/OwnerProfileCard";
 
 type OwnerProfile = {
@@ -22,10 +23,7 @@ type OwnerProfile = {
 };
 
 function formatDate(value: string | null) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleDateString("en-IN", {
+  return formatDateInIndia(value, {
     day: "2-digit",
     month: "short",
     year: "numeric",

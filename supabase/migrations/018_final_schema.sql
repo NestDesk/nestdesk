@@ -1,57 +1,62 @@
 -- ============================================================
--- NestDesk - Production Bootstrap Script
--- Purpose: Drop and fully recreate all tables, indexes, functions,
---          triggers, and policies in one shot. Safe to re-run —
---          existing data will be wiped on each execution.
+-- NestDesk - Consolidated final schema
+-- Purpose: ensure all required tables, columns, indexes, RLS, and storage policies
+-- are present for the current development schema.
+-- Safe to re-run in dev: uses IF NOT EXISTS / IF NOT EXISTS patterns.
 -- ============================================================
 
 BEGIN;
 
--- ============================================================
--- TEARDOWN — drop everything in reverse dependency order
--- ============================================================
-
--- Event trigger
-DROP EVENT TRIGGER IF EXISTS trg_auto_enable_rls_new_tables;
-
--- Dependent tables first
-DROP TABLE IF EXISTS public.invoices                    CASCADE;
-DROP TABLE IF EXISTS public.maintenance_request_comments CASCADE;
-DROP TABLE IF EXISTS public.expenses                   CASCADE;
-DROP TABLE IF EXISTS public.property_billing           CASCADE;
-DROP TABLE IF EXISTS public.property_terms             CASCADE;
-DROP TABLE IF EXISTS public.support_staff              CASCADE;
-DROP TABLE IF EXISTS public.owner_billing              CASCADE;
-DROP TABLE IF EXISTS public.phone_otp_challenges       CASCADE;
-DROP TABLE IF EXISTS public.data_deletion_requests     CASCADE;
-DROP TABLE IF EXISTS public.consent_records            CASCADE;
-DROP TABLE IF EXISTS public.audit_logs                 CASCADE;
-DROP TABLE IF EXISTS public.login_activity             CASCADE;
-DROP TABLE IF EXISTS public.invite_codes               CASCADE;
-DROP TABLE IF EXISTS public.subscriptions              CASCADE;
-DROP TABLE IF EXISTS public.maintenance_requests       CASCADE;
-DROP TABLE IF EXISTS public.notices                    CASCADE;
-DROP TABLE IF EXISTS public.payments                   CASCADE;
-DROP TABLE IF EXISTS public.tenants                    CASCADE;
-DROP TABLE IF EXISTS public.rooms                      CASCADE;
-DROP TABLE IF EXISTS public.floors                     CASCADE;
-DROP TABLE IF EXISTS public.hostels                    CASCADE;
-DROP TABLE IF EXISTS public.owners                     CASCADE;
-
--- Helper functions
-DROP FUNCTION IF EXISTS public.current_owner_id()      CASCADE;
-DROP FUNCTION IF EXISTS public.set_updated_at()        CASCADE;
-DROP FUNCTION IF EXISTS public.auto_enable_rls_on_new_tables() CASCADE;
-
--- ============================================================
--- SETUP
--- ============================================================
+-- Ensure the migration session evaluates timestamps in India local time.
+SET TIME ZONE 'Asia/Kolkata';
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================
--- OWNERS
+-- FUNCTIONS
 -- ============================================================
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.auto_enable_rls_on_new_tables()
+RETURNS event_trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  cmd RECORD;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+  LOOP
+    IF cmd.object_type = 'table'
+      AND cmd.schema_name IS NOT NULL
+      AND cmd.schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+    THEN
+      EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY;', cmd.objid::regclass);
+    END IF;
+  END LOOP;
+END;
+$$;
+
+DROP EVENT TRIGGER IF EXISTS trg_auto_enable_rls_new_tables;
+CREATE EVENT TRIGGER trg_auto_enable_rls_new_tables
+ON ddl_command_end
+WHEN TAG IN ('CREATE TABLE')
+EXECUTE FUNCTION public.auto_enable_rls_on_new_tables();
+
+-- ============================================================
+-- CORE TABLES
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS public.owners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -75,12 +80,22 @@ CREATE TABLE IF NOT EXISTS public.owners (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_user_id_unique
+CREATE INDEX IF NOT EXISTS idx_owners_user_id_unique
   ON public.owners(user_id);
 
--- ============================================================
--- HOSTELS
--- ============================================================
+CREATE OR REPLACE FUNCTION public.current_owner_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT id
+  FROM public.owners
+  WHERE user_id = auth.uid()
+  LIMIT 1;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.hostels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE RESTRICT,
@@ -103,7 +118,7 @@ CREATE TABLE IF NOT EXISTS public.hostels (
 CREATE INDEX IF NOT EXISTS idx_hostels_owner_id
   ON public.hostels(owner_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_hostels_tenant_join_token
+CREATE INDEX IF NOT EXISTS idx_hostels_tenant_join_token
   ON public.hostels(tenant_join_token)
   WHERE tenant_join_token IS NOT NULL;
 
@@ -111,9 +126,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_hostels_property_code
   ON public.hostels(property_code)
   WHERE property_code IS NOT NULL;
 
--- ============================================================
--- FLOORS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.floors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE CASCADE,
@@ -126,9 +138,6 @@ CREATE TABLE IF NOT EXISTS public.floors (
 CREATE INDEX IF NOT EXISTS idx_floors_hostel_id
   ON public.floors(hostel_id);
 
--- ============================================================
--- ROOMS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.rooms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   floor_id UUID NOT NULL REFERENCES public.floors(id) ON DELETE CASCADE,
@@ -153,9 +162,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_rooms_hostel_room_number_unique
   ON public.rooms(hostel_id, room_number)
   WHERE deleted_at IS NULL;
 
--- ============================================================
--- TENANTS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.tenants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   auth_user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -175,13 +181,13 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   occupation_type TEXT,
   institution_name TEXT,
   join_date DATE,
-  move_out_date DATE,
   rent_start_date DATE,
-  agreed_rent_amount NUMERIC(10,2),
-  gender TEXT,
   first_activated_at TIMESTAMPTZ,
+  move_out_date DATE,
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'active', 'moved_out', 'rejected')),
+  agreed_rent_amount NUMERIC(10,2),
+  gender TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
@@ -201,9 +207,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_aadhar_number_unique
   WHERE aadhar_number IS NOT NULL
     AND deleted_at IS NULL;
 
--- ============================================================
--- PAYMENTS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
@@ -239,9 +242,6 @@ CREATE INDEX IF NOT EXISTS idx_payments_hostel_month
 CREATE INDEX IF NOT EXISTS idx_payments_paid_on
   ON public.payments(paid_on);
 
--- ============================================================
--- NOTICES
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.notices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE CASCADE,
@@ -262,9 +262,6 @@ CREATE INDEX IF NOT EXISTS idx_notices_hostel_published
   ON public.notices(hostel_id, is_published)
   WHERE deleted_at IS NULL;
 
--- ============================================================
--- MAINTENANCE REQUESTS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.maintenance_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE RESTRICT,
@@ -297,9 +294,6 @@ CREATE INDEX IF NOT EXISTS idx_maintenance_request_comments_request_id
 CREATE INDEX IF NOT EXISTS idx_maintenance_request_comments_owner_id
   ON public.maintenance_request_comments(owner_id, created_at DESC);
 
--- ============================================================
--- SUBSCRIPTIONS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
@@ -316,9 +310,6 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 CREATE INDEX IF NOT EXISTS idx_subscriptions_owner_id
   ON public.subscriptions(owner_id);
 
--- ============================================================
--- INVITE CODES
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.invite_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
@@ -336,9 +327,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_invite_codes_code_unique
 CREATE INDEX IF NOT EXISTS idx_invite_codes_owner_id
   ON public.invite_codes(owner_id);
 
--- ============================================================
--- LOGIN ACTIVITY
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.login_activity (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -359,9 +347,6 @@ CREATE INDEX IF NOT EXISTS idx_login_activity_ip_created
 CREATE INDEX IF NOT EXISTS idx_login_activity_success_created
   ON public.login_activity(success, created_at DESC);
 
--- ============================================================
--- AUDIT LOGS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES public.owners(id) ON DELETE SET NULL,
@@ -382,9 +367,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created
 CREATE INDEX IF NOT EXISTS idx_audit_logs_owner_created
   ON public.audit_logs(owner_id, created_at DESC);
 
--- ============================================================
--- CONSENT RECORDS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.consent_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -399,9 +381,6 @@ CREATE TABLE IF NOT EXISTS public.consent_records (
 CREATE INDEX IF NOT EXISTS idx_consent_records_user_type
   ON public.consent_records(user_id, consent_type, created_at DESC);
 
--- ============================================================
--- DATA DELETION REQUESTS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.data_deletion_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requested_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -417,9 +396,6 @@ CREATE TABLE IF NOT EXISTS public.data_deletion_requests (
 CREATE INDEX IF NOT EXISTS idx_data_deletion_requests_requested_by
   ON public.data_deletion_requests(requested_by, created_at DESC);
 
--- ============================================================
--- PHONE OTP CHALLENGES
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.phone_otp_challenges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone_e164 TEXT NOT NULL,
@@ -437,9 +413,6 @@ CREATE INDEX IF NOT EXISTS idx_phone_otp_lookup
 CREATE INDEX IF NOT EXISTS idx_phone_otp_expires
   ON public.phone_otp_challenges(expires_at);
 
--- ============================================================
--- EXPENSES
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
@@ -509,9 +482,6 @@ CREATE INDEX IF NOT EXISTS idx_expenses_owner_status
   ON public.expenses(owner_id, status)
   WHERE deleted_at IS NULL;
 
--- ============================================================
--- SETTINGS EXTENSIONS
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.owner_billing (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL UNIQUE REFERENCES public.owners(id) ON DELETE CASCADE,
@@ -523,7 +493,8 @@ CREATE TABLE IF NOT EXISTS public.owner_billing (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_owner_billing_owner_id ON public.owner_billing(owner_id);
+CREATE INDEX IF NOT EXISTS idx_owner_billing_owner_id
+  ON public.owner_billing(owner_id);
 
 CREATE TABLE IF NOT EXISTS public.property_terms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -533,7 +504,8 @@ CREATE TABLE IF NOT EXISTS public.property_terms (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_property_terms_hostel_id ON public.property_terms(hostel_id);
+CREATE INDEX IF NOT EXISTS idx_property_terms_hostel_id
+  ON public.property_terms(hostel_id);
 
 CREATE TABLE IF NOT EXISTS public.support_staff (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -546,8 +518,11 @@ CREATE TABLE IF NOT EXISTS public.support_staff (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_support_staff_owner_id ON public.support_staff(owner_id);
-CREATE INDEX IF NOT EXISTS idx_support_staff_hostel_id ON public.support_staff(hostel_id);
+CREATE INDEX IF NOT EXISTS idx_support_staff_owner_id
+  ON public.support_staff(owner_id);
+
+CREATE INDEX IF NOT EXISTS idx_support_staff_hostel_id
+  ON public.support_staff(hostel_id);
 
 CREATE TABLE IF NOT EXISTS public.property_billing (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -560,11 +535,9 @@ CREATE TABLE IF NOT EXISTS public.property_billing (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_property_billing_hostel_id ON public.property_billing(hostel_id);
+CREATE INDEX IF NOT EXISTS idx_property_billing_hostel_id
+  ON public.property_billing(hostel_id);
 
--- ============================================================
--- INVOICES
--- ============================================================
 CREATE TABLE IF NOT EXISTS public.invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
@@ -609,39 +582,183 @@ CREATE INDEX IF NOT EXISTS idx_invoices_payment_id
   ON public.invoices (payment_id)
   WHERE payment_id IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS public.payment_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL CHECK (plan IN ('free','micro','test','starter','pro','business','enterprise')),
+  status TEXT NOT NULL DEFAULT 'created'
+    CHECK (status IN ('created','paid','failed','cancelled')),
+  amount_paise INT NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'INR' CHECK (currency = 'INR'),
+  receipt TEXT NOT NULL,
+  razorpay_order_id TEXT NOT NULL UNIQUE,
+  razorpay_payment_id TEXT,
+  razorpay_signature TEXT,
+  notes JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_owner_id
+  ON public.payment_orders(owner_id);
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_status
+  ON public.payment_orders(status);
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_razorpay_order_id
+  ON public.payment_orders(razorpay_order_id);
+
 -- ============================================================
--- AUTO ENABLE RLS FOR NEW TABLES
+-- SCHEMA ALTERATIONS FOR LATER MIGRATIONS
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.auto_enable_rls_on_new_tables()
-RETURNS event_trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  cmd RECORD;
+
+ALTER TABLE public.hostels
+  ADD COLUMN IF NOT EXISTS tenant_join_token TEXT,
+  ADD COLUMN IF NOT EXISTS property_code TEXT;
+
+ALTER TABLE public.tenants
+  ADD COLUMN IF NOT EXISTS agreed_rent_amount NUMERIC(10,2),
+  ADD COLUMN IF NOT EXISTS occupation_type TEXT,
+  ADD COLUMN IF NOT EXISTS institution_name TEXT,
+  ADD COLUMN IF NOT EXISTS aadhar_number TEXT,
+  ADD COLUMN IF NOT EXISTS profile_photo_path TEXT,
+  ADD COLUMN IF NOT EXISTS aadhar_front_path TEXT,
+  ADD COLUMN IF NOT EXISTS aadhar_back_path TEXT,
+  ADD COLUMN IF NOT EXISTS alternate_id_path TEXT,
+  ADD COLUMN IF NOT EXISTS first_activated_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS gender TEXT,
+  ADD COLUMN IF NOT EXISTS rent_start_date DATE;
+
+ALTER TABLE public.notices
+  ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS paid_on DATE NOT NULL DEFAULT CURRENT_DATE,
+  ADD COLUMN IF NOT EXISTS billing_start DATE,
+  ADD COLUMN IF NOT EXISTS billing_end DATE;
+
+ALTER TABLE public.maintenance_requests
+  DROP CONSTRAINT IF EXISTS maintenance_requests_status_check;
+
+ALTER TABLE public.maintenance_requests
+  ADD CONSTRAINT maintenance_requests_status_check
+  CHECK (status IN (
+    'open',
+    'in_progress',
+    'rejected',
+    'completed',
+    'resolved',
+    'closed'
+  ));
+
+ALTER TABLE public.owners
+  DROP CONSTRAINT IF EXISTS owners_plan_check;
+ALTER TABLE public.owners
+  ADD CONSTRAINT owners_plan_check
+    CHECK (plan IN ('free', 'micro', 'test', 'starter', 'pro', 'business', 'enterprise'));
+
+ALTER TABLE public.payment_orders
+  DROP CONSTRAINT IF EXISTS payment_orders_plan_check;
+ALTER TABLE public.payment_orders
+  ADD CONSTRAINT payment_orders_plan_check
+    CHECK (plan IN ('free', 'micro', 'test', 'starter', 'pro', 'business', 'enterprise'));
+
+ALTER TABLE public.tenants
+  DROP CONSTRAINT IF EXISTS tenants_gender_check;
+ALTER TABLE public.tenants
+  ADD CONSTRAINT tenants_gender_check
+    CHECK (gender IN ('male', 'female', 'rather_not_say') OR gender IS NULL);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_aadhar_number_unique
+  ON public.tenants(aadhar_number)
+  WHERE aadhar_number IS NOT NULL
+    AND deleted_at IS NULL;
+
+-- ============================================================
+-- STORAGE BUCKET + POLICIES
+-- ============================================================
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('tenant-documents', 'tenant-documents', false)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
 BEGIN
-  FOR cmd IN
-    SELECT *
-    FROM pg_event_trigger_ddl_commands()
-  LOOP
-    IF cmd.object_type = 'table'
-      AND cmd.schema_name IS NOT NULL
-      AND cmd.schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-    THEN
-      EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY;', cmd.objid::regclass);
-    END IF;
-  END LOOP;
-END;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'tenant_docs_select_own'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "tenant_docs_select_own"
+      ON storage.objects FOR SELECT TO authenticated
+      USING (
+        bucket_id = 'tenant-documents'
+        AND split_part(name, '/', 1) = auth.uid()::text
+      )
+    $policy$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'tenant_docs_insert_own'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "tenant_docs_insert_own"
+      ON storage.objects FOR INSERT TO authenticated
+      WITH CHECK (
+        bucket_id = 'tenant-documents'
+        AND split_part(name, '/', 1) = auth.uid()::text
+      )
+    $policy$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'tenant_docs_update_own'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "tenant_docs_update_own"
+      ON storage.objects FOR UPDATE TO authenticated
+      USING (
+        bucket_id = 'tenant-documents'
+        AND split_part(name, '/', 1) = auth.uid()::text
+      )
+      WITH CHECK (
+        bucket_id = 'tenant-documents'
+        AND split_part(name, '/', 1) = auth.uid()::text
+      )
+    $policy$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'tenant_docs_delete_own'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "tenant_docs_delete_own"
+      ON storage.objects FOR DELETE TO authenticated
+      USING (
+        bucket_id = 'tenant-documents'
+        AND split_part(name, '/', 1) = auth.uid()::text
+      )
+    $policy$;
+  END IF;
+END
 $$;
 
-DROP EVENT TRIGGER IF EXISTS trg_auto_enable_rls_new_tables;
-CREATE EVENT TRIGGER trg_auto_enable_rls_new_tables
-ON ddl_command_end
-WHEN TAG IN ('CREATE TABLE')
-EXECUTE FUNCTION public.auto_enable_rls_on_new_tables();
+-- ============================================================
+-- ROW LEVEL SECURITY SETUP
+-- ============================================================
 
--- ============================================================
--- ENABLE RLS ON EXISTING TABLES
--- ============================================================
 ALTER TABLE public.owners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hostels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.floors ENABLE ROW LEVEL SECURITY;
@@ -664,26 +781,9 @@ ALTER TABLE public.property_terms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_staff ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.property_billing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_orders ENABLE ROW LEVEL SECURITY;
 
--- ============================================================
--- CURRENT OWNER HELPERS
--- ============================================================
-CREATE OR REPLACE FUNCTION public.current_owner_id()
-RETURNS UUID
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = public
-AS $$
-  SELECT id
-  FROM public.owners
-  WHERE user_id = auth.uid()
-  LIMIT 1;
-$$;
-
--- ============================================================
--- RLS POLICIES
--- ============================================================
+-- owners
 DROP POLICY IF EXISTS owners_select_own ON public.owners;
 CREATE POLICY owners_select_own ON public.owners
   FOR SELECT USING (user_id = auth.uid());
@@ -697,6 +797,7 @@ CREATE POLICY owners_update_own ON public.owners
   FOR UPDATE USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+-- hostels
 DROP POLICY IF EXISTS hostels_select_own ON public.hostels;
 CREATE POLICY hostels_select_own ON public.hostels
   FOR SELECT USING (owner_id = public.current_owner_id());
@@ -714,6 +815,7 @@ DROP POLICY IF EXISTS hostels_delete_own ON public.hostels;
 CREATE POLICY hostels_delete_own ON public.hostels
   FOR DELETE USING (owner_id = public.current_owner_id());
 
+-- floors
 DROP POLICY IF EXISTS floors_select_own ON public.floors;
 CREATE POLICY floors_select_own ON public.floors
   FOR SELECT USING (
@@ -735,6 +837,7 @@ CREATE POLICY floors_update_own ON public.floors
     hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
   );
 
+-- rooms
 DROP POLICY IF EXISTS rooms_select_own ON public.rooms;
 CREATE POLICY rooms_select_own ON public.rooms
   FOR SELECT USING (
@@ -756,6 +859,7 @@ CREATE POLICY rooms_update_own ON public.rooms
     hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
   );
 
+-- tenants
 DROP POLICY IF EXISTS tenants_select_scope ON public.tenants;
 CREATE POLICY tenants_select_scope ON public.tenants
   FOR SELECT USING (
@@ -771,6 +875,7 @@ CREATE POLICY tenants_update_own ON public.tenants
   FOR UPDATE USING (owner_id = public.current_owner_id())
   WITH CHECK (owner_id = public.current_owner_id());
 
+-- payments
 DROP POLICY IF EXISTS payments_select_scope ON public.payments;
 CREATE POLICY payments_select_scope ON public.payments
   FOR SELECT USING (
@@ -793,6 +898,7 @@ CREATE POLICY payments_update_own ON public.payments
     hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
   );
 
+-- notices
 DROP POLICY IF EXISTS notices_select_scope ON public.notices;
 CREATE POLICY notices_select_scope ON public.notices
   FOR SELECT USING (
@@ -811,6 +917,7 @@ CREATE POLICY notices_update_own ON public.notices
   FOR UPDATE USING (owner_id = public.current_owner_id())
   WITH CHECK (owner_id = public.current_owner_id());
 
+-- maintenance_requests
 DROP POLICY IF EXISTS maintenance_select_scope ON public.maintenance_requests;
 CREATE POLICY maintenance_select_scope ON public.maintenance_requests
   FOR SELECT USING (
@@ -834,6 +941,59 @@ CREATE POLICY maintenance_update_own ON public.maintenance_requests
     hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
   );
 
+-- maintenance_request_comments
+DROP POLICY IF EXISTS maintenance_request_comments_select_own ON public.maintenance_request_comments;
+CREATE POLICY maintenance_request_comments_select_own ON public.maintenance_request_comments
+  FOR SELECT USING (
+    maintenance_request_id IN (
+      SELECT id FROM public.maintenance_requests WHERE hostel_id IN (
+        SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id()
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS maintenance_request_comments_insert_own ON public.maintenance_request_comments;
+CREATE POLICY maintenance_request_comments_insert_own ON public.maintenance_request_comments
+  FOR INSERT WITH CHECK (
+    owner_id = public.current_owner_id()
+    AND maintenance_request_id IN (
+      SELECT id FROM public.maintenance_requests WHERE hostel_id IN (
+        SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id()
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS maintenance_request_comments_update_own ON public.maintenance_request_comments;
+CREATE POLICY maintenance_request_comments_update_own ON public.maintenance_request_comments
+  FOR UPDATE USING (
+    owner_id = public.current_owner_id()
+    AND maintenance_request_id IN (
+      SELECT id FROM public.maintenance_requests WHERE hostel_id IN (
+        SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id()
+      )
+    )
+  )
+  WITH CHECK (
+    owner_id = public.current_owner_id()
+    AND maintenance_request_id IN (
+      SELECT id FROM public.maintenance_requests WHERE hostel_id IN (
+        SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id()
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS maintenance_request_comments_delete_own ON public.maintenance_request_comments;
+CREATE POLICY maintenance_request_comments_delete_own ON public.maintenance_request_comments
+  FOR DELETE USING (
+    owner_id = public.current_owner_id()
+    AND maintenance_request_id IN (
+      SELECT id FROM public.maintenance_requests WHERE hostel_id IN (
+        SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id()
+      )
+    )
+  );
+
+-- subscriptions
 DROP POLICY IF EXISTS subscriptions_select_own ON public.subscriptions;
 CREATE POLICY subscriptions_select_own ON public.subscriptions
   FOR SELECT USING (owner_id = public.current_owner_id());
@@ -842,6 +1002,7 @@ DROP POLICY IF EXISTS subscriptions_insert_own ON public.subscriptions;
 CREATE POLICY subscriptions_insert_own ON public.subscriptions
   FOR INSERT WITH CHECK (owner_id = public.current_owner_id());
 
+-- invite_codes
 DROP POLICY IF EXISTS invite_codes_select_own ON public.invite_codes;
 CREATE POLICY invite_codes_select_own ON public.invite_codes
   FOR SELECT USING (owner_id = public.current_owner_id());
@@ -850,14 +1011,17 @@ DROP POLICY IF EXISTS invite_codes_insert_own ON public.invite_codes;
 CREATE POLICY invite_codes_insert_own ON public.invite_codes
   FOR INSERT WITH CHECK (owner_id = public.current_owner_id());
 
+-- login_activity
 DROP POLICY IF EXISTS login_activity_select_own ON public.login_activity;
 CREATE POLICY login_activity_select_own ON public.login_activity
   FOR SELECT USING (user_id = auth.uid());
 
+-- audit_logs
 DROP POLICY IF EXISTS audit_logs_select_own ON public.audit_logs;
 CREATE POLICY audit_logs_select_own ON public.audit_logs
   FOR SELECT USING (owner_id = public.current_owner_id());
 
+-- consent_records
 DROP POLICY IF EXISTS consent_records_select_own ON public.consent_records;
 CREATE POLICY consent_records_select_own ON public.consent_records
   FOR SELECT USING (user_id = auth.uid());
@@ -866,6 +1030,7 @@ DROP POLICY IF EXISTS consent_records_insert_own ON public.consent_records;
 CREATE POLICY consent_records_insert_own ON public.consent_records
   FOR INSERT WITH CHECK (user_id = auth.uid());
 
+-- data_deletion_requests
 DROP POLICY IF EXISTS data_deletion_requests_select_own ON public.data_deletion_requests;
 CREATE POLICY data_deletion_requests_select_own ON public.data_deletion_requests
   FOR SELECT USING (requested_by = auth.uid());
@@ -874,10 +1039,12 @@ DROP POLICY IF EXISTS data_deletion_requests_insert_own ON public.data_deletion_
 CREATE POLICY data_deletion_requests_insert_own ON public.data_deletion_requests
   FOR INSERT WITH CHECK (requested_by = auth.uid());
 
+-- phone_otp_challenges
 DROP POLICY IF EXISTS phone_otp_challenges_no_access ON public.phone_otp_challenges;
 CREATE POLICY phone_otp_challenges_no_access ON public.phone_otp_challenges
   FOR ALL USING (false) WITH CHECK (false);
 
+-- expenses
 DROP POLICY IF EXISTS expenses_select_own ON public.expenses;
 CREATE POLICY expenses_select_own ON public.expenses
   FOR SELECT USING (owner_id = public.current_owner_id());
@@ -895,6 +1062,79 @@ DROP POLICY IF EXISTS expenses_delete_own ON public.expenses;
 CREATE POLICY expenses_delete_own ON public.expenses
   FOR DELETE USING (owner_id = public.current_owner_id());
 
+-- owner_billing
+DROP POLICY IF EXISTS owner_billing_select_own ON public.owner_billing;
+CREATE POLICY owner_billing_select_own ON public.owner_billing
+  FOR SELECT USING (owner_id = public.current_owner_id());
+
+DROP POLICY IF EXISTS owner_billing_insert_own ON public.owner_billing;
+CREATE POLICY owner_billing_insert_own ON public.owner_billing
+  FOR INSERT WITH CHECK (owner_id = public.current_owner_id());
+
+DROP POLICY IF EXISTS owner_billing_update_own ON public.owner_billing;
+CREATE POLICY owner_billing_update_own ON public.owner_billing
+  FOR UPDATE USING (owner_id = public.current_owner_id())
+  WITH CHECK (owner_id = public.current_owner_id());
+
+-- property_terms
+DROP POLICY IF EXISTS property_terms_select_own ON public.property_terms;
+CREATE POLICY property_terms_select_own ON public.property_terms
+  FOR SELECT USING (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  );
+
+DROP POLICY IF EXISTS property_terms_insert_own ON public.property_terms;
+CREATE POLICY property_terms_insert_own ON public.property_terms
+  FOR INSERT WITH CHECK (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  );
+
+DROP POLICY IF EXISTS property_terms_update_own ON public.property_terms;
+CREATE POLICY property_terms_update_own ON public.property_terms
+  FOR UPDATE USING (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  )
+  WITH CHECK (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  );
+
+-- support_staff
+DROP POLICY IF EXISTS support_staff_select_own ON public.support_staff;
+CREATE POLICY support_staff_select_own ON public.support_staff
+  FOR SELECT USING (owner_id = public.current_owner_id());
+
+DROP POLICY IF EXISTS support_staff_insert_own ON public.support_staff;
+CREATE POLICY support_staff_insert_own ON public.support_staff
+  FOR INSERT WITH CHECK (owner_id = public.current_owner_id());
+
+DROP POLICY IF EXISTS support_staff_update_own ON public.support_staff;
+CREATE POLICY support_staff_update_own ON public.support_staff
+  FOR UPDATE USING (owner_id = public.current_owner_id())
+  WITH CHECK (owner_id = public.current_owner_id());
+
+-- property_billing
+DROP POLICY IF EXISTS property_billing_select_own ON public.property_billing;
+CREATE POLICY property_billing_select_own ON public.property_billing
+  FOR SELECT USING (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  );
+
+DROP POLICY IF EXISTS property_billing_insert_own ON public.property_billing;
+CREATE POLICY property_billing_insert_own ON public.property_billing
+  FOR INSERT WITH CHECK (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  );
+
+DROP POLICY IF EXISTS property_billing_update_own ON public.property_billing;
+CREATE POLICY property_billing_update_own ON public.property_billing
+  FOR UPDATE USING (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  )
+  WITH CHECK (
+    hostel_id IN (SELECT id FROM public.hostels WHERE owner_id = public.current_owner_id())
+  );
+
+-- invoices
 DROP POLICY IF EXISTS invoices_owner_all ON public.invoices;
 CREATE POLICY invoices_owner_all ON public.invoices
   FOR ALL
@@ -928,18 +1168,23 @@ CREATE POLICY invoices_tenant_select ON public.invoices
     )
   );
 
+-- payment_orders
+DROP POLICY IF EXISTS payment_orders_select_own ON public.payment_orders;
+CREATE POLICY payment_orders_select_own ON public.payment_orders
+  FOR SELECT USING (owner_id = public.current_owner_id());
+
+DROP POLICY IF EXISTS payment_orders_insert_own ON public.payment_orders;
+CREATE POLICY payment_orders_insert_own ON public.payment_orders
+  FOR INSERT WITH CHECK (owner_id = public.current_owner_id());
+
+DROP POLICY IF EXISTS payment_orders_update_own ON public.payment_orders;
+CREATE POLICY payment_orders_update_own ON public.payment_orders
+  FOR UPDATE USING (owner_id = public.current_owner_id())
+  WITH CHECK (owner_id = public.current_owner_id());
+
 -- ============================================================
--- TRIGGERS
+-- UPDATED_AT TRIGGERS
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$;
 
 DROP TRIGGER IF EXISTS trg_owners_updated_at ON public.owners;
 CREATE TRIGGER trg_owners_updated_at
@@ -996,10 +1241,29 @@ CREATE TRIGGER trg_expenses_updated_at
   BEFORE UPDATE ON public.expenses
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS set_invoices_updated_at ON public.invoices;
-CREATE TRIGGER set_invoices_updated_at
+DROP TRIGGER IF EXISTS trg_owner_billing_updated_at ON public.owner_billing;
+CREATE TRIGGER trg_owner_billing_updated_at
+  BEFORE UPDATE ON public.owner_billing
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_property_terms_updated_at ON public.property_terms;
+CREATE TRIGGER trg_property_terms_updated_at
+  BEFORE UPDATE ON public.property_terms
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_support_staff_updated_at ON public.support_staff;
+CREATE TRIGGER trg_support_staff_updated_at
+  BEFORE UPDATE ON public.support_staff
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_property_billing_updated_at ON public.property_billing;
+CREATE TRIGGER trg_property_billing_updated_at
+  BEFORE UPDATE ON public.property_billing
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_invoices_updated_at ON public.invoices;
+CREATE TRIGGER trg_invoices_updated_at
   BEFORE UPDATE ON public.invoices
-  FOR EACH ROW
-  EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 COMMIT;

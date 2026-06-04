@@ -270,10 +270,11 @@ export default function OwnerMaintenancePage() {
                           </span>
                           <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                             <CalendarDays className="h-3 w-3 shrink-0 text-muted-foreground/60" />
-                            {new Date(request.created_at).toLocaleDateString(
-                              "en-IN",
-                              { day: "numeric", month: "short", year: "numeric" },
-                            )}
+                            {formatDateInIndia(request.created_at, {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </span>
                           {request.owner_comments.length > 0 ? (
                             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -336,13 +337,11 @@ export default function OwnerMaintenancePage() {
                                     {comment.comment}
                                   </p>
                                   <p className="mt-1 text-[10px] text-muted-foreground">
-                                    {new Date(comment.created_at).toLocaleDateString(
-                                      "en-IN",
-                                      {
-                                        day: "numeric",
-                                        month: "short",
-                                        year: "numeric",
-                                      },
+                                    {formatDateInIndia(comment.created_at, {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
                                     )}
                                   </p>
                                 </div>
@@ -421,7 +420,7 @@ export default function OwnerMaintenancePage() {
                           <CheckCircle2 className="h-3 w-3" />
                         )}
                         Last updated{" "}
-                        {new Date(request.updated_at).toLocaleDateString("en-IN", {
+                        {formatDateInIndia(request.updated_at, {
                           day: "numeric",
                           month: "short",
                           year: "numeric",

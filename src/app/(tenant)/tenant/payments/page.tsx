@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditCard, Download, IndianRupee, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateInIndia } from "@/lib/date";
 import { printInvoice } from "@/lib/invoice";
 import { cn } from "@/lib/utils";
 
@@ -56,14 +57,14 @@ function formatAmount(n: number) {
 }
 
 function formatMonth(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     month: "long",
     year: "numeric",
   });
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     day: "numeric",
     month: "short",
     year: "numeric",

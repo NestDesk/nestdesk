@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.owners (
   email TEXT,
   phone TEXT,
   plan TEXT NOT NULL DEFAULT 'free'
-    CHECK (plan IN ('free', 'starter', 'pro', 'business', 'enterprise')),
+    CHECK (plan IN ('free', 'micro', 'test', 'starter', 'pro', 'business', 'enterprise')),
   plan_expires_at TIMESTAMPTZ,
   phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
   phone_verified_at TIMESTAMPTZ,

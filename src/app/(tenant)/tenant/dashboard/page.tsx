@@ -92,7 +92,7 @@ export default async function TenantDashboardPage() {
     .filter(Boolean)
     .join(", ");
   const memberSince = tenant.join_date
-    ? new Date(tenant.join_date).toLocaleDateString("en-IN", {
+    ? formatDateInIndia(tenant.join_date, {
         day: "2-digit",
         month: "short",
         year: "numeric",

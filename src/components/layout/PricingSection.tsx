@@ -7,23 +7,42 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Tag } from "lucide-react";
 
 const pricingPlans = [
   {
+    planId: "free",
     name: "Free",
     monthlyPrice: "0",
     period: "forever",
     description: "Best for a single small property",
     features: [
       "1 property",
-      "Up to 10 tenants",
-      "Tenants, Payments, Notices, Maintenance",
-      "Basic Document Upload",
+      "Up to 15 tenants",
+      "Tenants and Payments",
+      "Tenant Document Upload",
     ],
     cta: "Start Free",
     ctaHref: "/register",
     highlighted: false,
   },
   {
+    planId: "test",
+    name: "Test",
+    monthlyPrice: "10",
+    period: "month",
+    description: "For a quick ₹10 end-to-end checkout verification.",
+    features: [
+      "1 property",
+      "Up to 10 tenants",
+      "Tenants, Payments, Notices, Maintenance",
+      "Payment flow testing",
+      "Minimal test subscription",
+    ],
+    cta: "Try Test Plan",
+    ctaHref: "/register",
+    highlighted: false,
+  },
+  {
+    planId: "micro",
     name: "Micro",
-    monthlyPrice: "399",
+    monthlyPrice: "499",
     period: "month",
     description: "For growing hostels and PGs",
     features: [
@@ -35,11 +54,12 @@ const pricingPlans = [
     ],
     cta: "Choose Micro",
     ctaHref: "/register",
-    highlighted: false,
+    highlighted: true,
   },
   {
+    planId: "starter",
     name: "Starter",
-    monthlyPrice: "599",
+    monthlyPrice: "699",
     period: "month",
     description: "For established hostels and PGs",
     features: [
@@ -51,11 +71,12 @@ const pricingPlans = [
     ],
     cta: "Choose Starter",
     ctaHref: "/register",
-    highlighted: true,
+    highlighted: false,
   },
   {
+    planId: "pro",
     name: "Pro",
-    monthlyPrice: "999",
+    monthlyPrice: "1099",
     period: "month",
     description: "Most popular for multi-property operators",
     features: [
@@ -72,8 +93,9 @@ const pricingPlans = [
     highlighted: false,
   },
   {
+    planId: "business",
     name: "Business",
-    monthlyPrice: "1999",
+    monthlyPrice: "2099",
     period: "month",
     description: "For larger chains and operations teams",
     features: [
@@ -218,10 +240,11 @@ export function PricingSection() {
 
           <div
             ref={carouselRef}
-            className="flex gap-6 overflow-x-auto pb-4 pr-4 snap-x snap-mandatory scroll-smooth"
+            className="flex gap-6 overflow-x-auto pb-4 pr-4 pt-4 snap-x snap-mandatory scroll-smooth"
           >
             {pricingPlans.map(
               ({
+                planId,
                 name,
                 monthlyPrice,
                 period,
@@ -348,7 +371,7 @@ export function PricingSection() {
                       ))}
                     </ul>
 
-                    <Link href={ctaHref}>
+                    <Link href={`${ctaHref}?plan=${planId}`}>
                       <Button
                         className={`w-full rounded-xl ${
                           highlighted

@@ -1,6 +1,7 @@
 export type OwnerPlan =
   | "free"
   | "micro"
+  | "test"
   | "starter"
   | "pro"
   | "business"
@@ -41,6 +42,17 @@ const PLAN_CONFIG: Record<OwnerPlan, PlanConfig> = {
     billingCycle: "monthly",
     maxProperties: 1,
     maxTenants: 50,
+    support: "Email",
+  },
+  test: {
+    id: "test",
+    name: "Test",
+    description: "₹10 test subscription for end-to-end checkout verification.",
+    amountPaise: 1000,
+    currency: "INR",
+    billingCycle: "monthly",
+    maxProperties: 1,
+    maxTenants: 10,
     support: "Email",
   },
   starter: {
@@ -110,6 +122,7 @@ export function normalizeOwnerPlan(plan: string | null | undefined): OwnerPlan {
   if (
     plan === "free" ||
     plan === "micro" ||
+    plan === "test" ||
     plan === "starter" ||
     plan === "pro" ||
     plan === "business" ||

@@ -135,7 +135,15 @@ export async function POST(request: NextRequest) {
 
     // Add date range to notes for reference
     const endDateObj = new Date(end_date);
-    const dateRange = `[Monthly: ${new Date(start_date).toLocaleDateString("en-IN")} to ${endDateObj.toLocaleDateString("en-IN")}]`;
+    const dateRange = `[Monthly: ${formatDateInIndia(start_date, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })} to ${formatDateInIndia(endDateObj, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })}]`;
     paymentNotes = paymentNotes ? `${dateRange} ${paymentNotes}` : dateRange;
   } else if (recording_mode === "datewise" && record_date) {
     // For date-wise, use the record date
@@ -143,7 +151,11 @@ export async function POST(request: NextRequest) {
     monthField = `${recordDateObj.getFullYear()}-${String(recordDateObj.getMonth() + 1).padStart(2, "0")}-01`;
 
     // Add record date to notes for reference
-    const dateString = `[Recorded: ${recordDateObj.toLocaleDateString("en-IN")}]`;
+    const dateString = `[Recorded: ${formatDateInIndia(recordDateObj, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })}]`;
     paymentNotes = paymentNotes ? `${dateString} ${paymentNotes}` : dateString;
   } else if (tenant.join_date) {
     // Default to tenant join date's month

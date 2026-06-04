@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, FileText, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { formatDateInIndia } from "@/lib/date";
 
 type TermsData = {
   hostel_name: string;
@@ -45,7 +46,7 @@ export default function TenantTermsPage() {
   const content = data?.terms?.content ?? null;
   const isDefault = data?.terms?.is_default ?? true;
   const updatedAt = data?.terms?.updated_at
-    ? new Date(data.terms.updated_at).toLocaleDateString("en-IN", {
+    ? formatDateInIndia(data.terms.updated_at, {
         day: "2-digit",
         month: "short",
         year: "numeric",

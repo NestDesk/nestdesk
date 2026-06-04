@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateInIndia } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -445,7 +446,7 @@ export default function TenantMaintenancePage() {
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                               <CalendarDays className="h-3 w-3" />
-                              {new Date(r.created_at).toLocaleDateString("en-IN", {
+                              {formatDateInIndia(r.created_at, {
                                 day: "numeric",
                                 month: "short",
                                 year: "numeric",
@@ -515,13 +516,11 @@ export default function TenantMaintenancePage() {
                                 {comment.comment}
                               </p>
                               <p className="mt-1 text-[10px] text-muted-foreground">
-                                {new Date(comment.created_at).toLocaleDateString(
-                                  "en-IN",
-                                  {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  },
+                                {formatDateInIndia(comment.created_at, {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
                                 )}
                               </p>
                             </div>

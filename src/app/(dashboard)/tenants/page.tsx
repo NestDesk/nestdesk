@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatDateInIndia } from "@/lib/date";
 import {
   Building2,
   CalendarDays,
@@ -214,10 +215,7 @@ function normalizeRentInput(value: string) {
 }
 
 function formatDate(date: string | null) {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleDateString("en-IN", {
+  return formatDateInIndia(date, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -249,7 +247,7 @@ function formatAmount(n: number) {
 function formatMonthLabel(monthStr: string) {
   const [year, month] = monthStr.split("-").map(Number);
   if (!year || !month) return monthStr;
-  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+  return formatDateInIndia(new Date(year, month - 1, 1), {
     month: "short",
     year: "numeric",
   });
@@ -322,7 +320,7 @@ function calculatePendingBreakdown(
     );
 
     rows.push({
-      monthLabel: periodStart.toLocaleDateString("en-IN", {
+      monthLabel: formatDateInIndia(periodStart, {
         month: "short",
         year: "numeric",
       }),

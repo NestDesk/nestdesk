@@ -52,6 +52,7 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { formatDateInIndia, toIndianDateString } from "@/lib/date";
 import { printInvoice } from "@/lib/invoice";
 
 type PaymentRow = {
@@ -123,18 +124,16 @@ function formatBillingPeriod(dateStr: string) {
   const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
   const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
   const fmt = (d: Date) =>
-    d
-      .toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-      .replace(/ /g, "-");
+    formatDateInIndia(d, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).replace(/ /g, "-");
   return `${fmt(startDate)} - ${fmt(endDate)}`;
 }
 
 function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -166,16 +165,11 @@ function formatPropertyAddress(payment: PaymentRow) {
 }
 
 function todayISO() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate(),
-  ).padStart(2, "0")}`;
+  return toIndianDateString();
 }
 
 function toLocalISO(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
+  return toIndianDateString(date);
 }
 
 function getMonthEndDate(dateStr: string) {

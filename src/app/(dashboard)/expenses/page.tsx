@@ -163,14 +163,11 @@ function formatAmount(value: number) {
 }
 
 function toInputDate(value: Date = new Date()) {
-  const y = value.getFullYear();
-  const m = String(value.getMonth() + 1).padStart(2, "0");
-  const d = String(value.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toIndianDateString(value);
 }
 
 function formatDate(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-IN", {
+  return formatDateInIndia(`${dateStr}T00:00:00`, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -200,8 +197,10 @@ export default function OwnerExpensesPage() {
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
     // Default to current month (local dates to avoid timezone shifts)
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const start = new Date(toIndianDateString(now));
+    const end = new Date(
+      toIndianDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    );
     const fmt = (v: Date) => {
       const y = v.getFullYear();
       const m = String(v.getMonth() + 1).padStart(2, "0");

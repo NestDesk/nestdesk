@@ -9,12 +9,48 @@ import {
 } from "@/lib/subscriptions";
 import { verifyRazorpayPaymentSignature } from "@/lib/subscriptions-signature";
 
+const RAZORPAY_CURRENCY = "INR" as const;
+
 const verifySchema = z.object({
   razorpay_payment_id: z.string().min(1),
   razorpay_order_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
-  plan: z.enum(["free", "micro", "starter", "pro", "business", "enterprise"]),
+  plan: z.enum([
+    "free",
+    "micro",
+    "test",
+    "starter",
+    "pro",
+    "business",
+    "enterprise",
+  ]),
 });
+
+async function fetchRazorpayPaymentDetails(paymentId: string) {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    throw new Error("Razorpay credentials are not configured.");
+  }
+
+  const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+    },
+    cache: "no-store",
+  });
+
+  const responseBody = await response.text().catch(() => "");
+  if (!response.ok) {
+    throw new Error(
+      `Razorpay payment fetch failed: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return responseBody ? JSON.parse(responseBody) : null;
+}
 
 async function getOwnerContext() {
   const supabase = await createClient();
@@ -135,6 +171,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let paymentDetails: any | null = null;
+
+  try {
+    paymentDetails = await fetchRazorpayPaymentDetails(
+      parsed.data.razorpay_payment_id,
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch Razorpay payment details.",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (
+    !paymentDetails ||
+    paymentDetails.order_id !== parsed.data.razorpay_order_id ||
+    paymentDetails.currency !== RAZORPAY_CURRENCY ||
+    paymentDetails.amount !== paymentOrder.amount_paise ||
+    paymentDetails.status !== "captured"
+  ) {
+    return NextResponse.json(
+      { error: "Razorpay payment record failed validation." },
+      { status: 400 },
+    );
+  }
+
   const paymentOrderUpdate = await ownerCtx.admin
     .from("payment_orders")
     .update({
@@ -143,7 +210,8 @@ export async function POST(request: NextRequest) {
       razorpay_signature: parsed.data.razorpay_signature,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", paymentOrder.id);
+    .eq("id", paymentOrder.id)
+    .eq("status", "created");
 
   if (paymentOrderUpdate.error) {
     return NextResponse.json(

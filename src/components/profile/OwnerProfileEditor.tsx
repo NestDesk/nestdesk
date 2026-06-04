@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { formatDateInIndia } from "@/lib/date";
 
 type OwnerProfileEditorProps = {
   initial: {
@@ -199,7 +200,7 @@ export function OwnerProfileEditor({
   }
 
   const verificationDate = displayValues.phoneVerifiedAt
-    ? new Date(displayValues.phoneVerifiedAt).toLocaleDateString("en-IN", {
+    ? formatDateInIndia(displayValues.phoneVerifiedAt, {
         day: "2-digit",
         month: "short",
         year: "numeric",

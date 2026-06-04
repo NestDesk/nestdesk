@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS public.payment_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
-  plan TEXT NOT NULL CHECK (plan IN ('free','micro','starter','pro','business','enterprise')),
+  plan TEXT NOT NULL CHECK (plan IN ('free','micro','test','starter','pro','business','enterprise')),
   status TEXT NOT NULL DEFAULT 'created'
     CHECK (status IN ('created','paid','failed','cancelled')),
   amount_paise INT NOT NULL,

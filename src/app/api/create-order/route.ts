@@ -15,7 +15,7 @@ const RAZORPAY_CURRENCY = "INR" as const;
 const createOrderSchema = z.object({
   receipt: z.string().max(80).optional(),
   plan: z
-    .enum(["free", "micro", "starter", "pro", "business", "enterprise"])
+    .enum(["free", "micro", "test", "starter", "pro", "business", "enterprise"])
     .optional(),
 });
 

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatDateInIndia } from "@/lib/date";
 import { formatPlanLabel, normalizeOwnerPlan } from "@/lib/subscriptions";
 
 type OccupancySummary = {
@@ -556,7 +557,7 @@ export default async function DashboardPage() {
             <p className="text-xs text-muted-foreground">Valid Till</p>
             <p className="text-sm font-medium text-foreground">
               {subscriptionEndsAt
-                ? new Date(subscriptionEndsAt).toLocaleDateString("en-IN", {
+                ? formatDateInIndia(subscriptionEndsAt, {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",

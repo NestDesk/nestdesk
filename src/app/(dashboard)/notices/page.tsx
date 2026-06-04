@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatDateInIndia } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 type NoticeRow = {
@@ -59,7 +60,7 @@ const EMPTY_DRAFT: NoticeDraft = {
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
+  return formatDateInIndia(iso, {
     day: "numeric",
     month: "short",
     year: "numeric",

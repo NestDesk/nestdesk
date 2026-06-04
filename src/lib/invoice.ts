@@ -20,6 +20,8 @@ export type InvoicePayment = {
   notes?: string | null;
 };
 
+import { formatDateInIndia } from "@/lib/date";
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -29,7 +31,7 @@ function formatCurrency(value: number) {
 }
 
 export function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -47,13 +49,11 @@ export function formatBillingPeriod(payment: InvoicePayment) {
   const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
   const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
   const fmt = (d: Date) =>
-    d
-      .toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-      .replace(/ /g, "-");
+    formatDateInIndia(d, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).replace(/ /g, "-");
   return `${fmt(startDate)} - ${fmt(endDate)}`;
 }
 

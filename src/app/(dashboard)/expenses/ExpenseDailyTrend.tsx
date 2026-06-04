@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import { formatDateInIndia } from "@/lib/date";
 import { useIsMobile } from "../../../hooks/use-mobile";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -116,8 +117,7 @@ export default function ExpenseDailyTrend({
           // show full date in tooltip
           formatter: (val: string) => {
             try {
-              const d = new Date(val + "T00:00:00");
-              return d.toLocaleDateString("en-IN", {
+              return formatDateInIndia(`${val}T00:00:00`, {
                 day: "numeric",
                 month: "short",
                 year: "numeric",
