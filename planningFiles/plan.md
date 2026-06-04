@@ -159,6 +159,14 @@ The active product flow is:
 - Tenant registration now cleans up newly-created auth users when tenant profile insert fails to avoid orphan auth identities.
 - Registration returns a clear duplicate-email message when the email already exists.
 
+24. Owner phone verification is now implemented end-to-end with MSG91 WhatsApp OTP:
+
+- Added owner-scoped OTP APIs at /api/owner/phone-otp/request and /api/owner/phone-otp/verify.
+- Profile screen now supports WhatsApp OTP send and verify actions with verified/not-verified status visibility.
+- Updating phone number in owner profile now auto-resets phone_verified and phone_verified_at.
+- Dashboard sidebar now shows an exclamation warning on My Profile when phone is unverified, with hover tooltip.
+- Property activation is now blocked until phone verification is complete, enforced in API and reflected in activation UI state.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

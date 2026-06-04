@@ -88,7 +88,7 @@ This is important because the application code depends on owners.user_id in:
 9. maintenance_request_comments
    - Stores hashed OTP challenges.
    - Used by phone OTP request/verify endpoints and OTP service helpers.
-   - Present even though OTP is not required in the active owner flow.
+   - Active owner profile flow uses this table for phone verification challenges.
 10. expenses
 
 - Stores owner-scoped property running expenses across utility, staffing, maintenance, compliance, and operational categories.
@@ -168,6 +168,13 @@ High-level policy model:
 3. Floor APIs read and mutate floors.
 4. Room APIs read and mutate rooms.
 5. Bulk room API inserts rooms in batches and skips duplicates.
+6. Property activation requires owners.phone_verified = true in addition to floor/room readiness.
+
+### Owner Phone Verification
+
+1. POST /api/owner/phone-otp/request creates OTP challenges in phone_otp_challenges for purpose verify-owner-phone.
+2. POST /api/owner/phone-otp/verify validates OTP and marks owners.phone_verified true with owners.phone_verified_at timestamp.
+3. PATCH /api/owner/profile resets owners.phone_verified false and owners.phone_verified_at null when phone number changes.
 
 ### Expenses
 
@@ -187,5 +194,5 @@ This should be treated as a follow-up item. Either add deleted_at to hostels and
 ## Notes for Future Work
 
 1. Payment, notices, subscription, consent, and deletion-request modules can build directly on the existing schema.
-2. If phone verification is re-enabled, the existing phone_otp_challenges table and OTP service can be reused.
+2. Phone verification is active through existing phone_otp_challenges infrastructure and owner profile APIs.
 3. Storage bucket policies and document storage flows are not yet defined in migrations and should be added separately when document upload work starts.

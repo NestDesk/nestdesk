@@ -9,6 +9,8 @@ type OwnerProfile = {
   id: string;
   full_name: string | null;
   phone: string | null;
+  phone_verified: boolean;
+  phone_verified_at: string | null;
   address_line1: string | null;
   address_line2: string | null;
   landmark: string | null;
@@ -59,7 +61,7 @@ export default async function OwnerProfilePage() {
   const { data: owner } = await admin
     .from("owners")
     .select(
-      "id, full_name, phone, address_line1, address_line2, landmark, city, state, pincode, onboarding_completed, created_at",
+      "id, full_name, phone, phone_verified, phone_verified_at, address_line1, address_line2, landmark, city, state, pincode, onboarding_completed, created_at",
     )
     .eq("user_id", user.id)
     .maybeSingle<OwnerProfile>();
@@ -119,6 +121,8 @@ export default async function OwnerProfilePage() {
           displayValues={{
             email: user.email ?? null,
             onboardingCompleted: owner?.onboarding_completed ?? false,
+            phoneVerified: owner?.phone_verified ?? false,
+            phoneVerifiedAt: owner?.phone_verified_at ?? null,
             addressText,
           }}
         />

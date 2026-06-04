@@ -44,6 +44,20 @@ type FloorOrRoomRow = {
 export default async function PropertiesPage() {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: owner } = user
+    ? await supabase
+        .from("owners")
+        .select("phone_verified")
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const isPhoneVerified = owner?.phone_verified ?? false;
+
   const { data: hostels, error } = await supabase
     .from("hostels")
     .select(
@@ -272,7 +286,11 @@ export default async function PropertiesPage() {
                           <p className="text-xs text-foreground/80">
                             Floor plan complete. You can activate this property now.
                           </p>
-                          <ActivatePropertyButton hostelId={property.id} />
+                          <ActivatePropertyButton
+                            hostelId={property.id}
+                            disabled={!isPhoneVerified}
+                            disabledReason="Phone number not verified. Verify from My Profile to activate property."
+                          />
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">

@@ -20,6 +20,8 @@ type OwnerProfileCardProps = {
   displayValues: {
     email: string | null;
     onboardingCompleted: boolean;
+    phoneVerified: boolean;
+    phoneVerifiedAt: string | null;
     addressText: string;
   };
 };

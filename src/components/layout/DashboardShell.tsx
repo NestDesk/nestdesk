@@ -8,18 +8,24 @@ import { IdleTimeoutEnforcer } from "@/components/auth/IdleTimeoutEnforcer";
 interface DashboardShellProps {
   children: React.ReactNode;
   title?: string;
+  isPhoneVerified: boolean;
 }
 
-export function DashboardShell({ children, title }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  title,
+  isPhoneVerified,
+}: DashboardShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <IdleTimeoutEnforcer />
-      <Sidebar collapsed={isSidebarCollapsed} />
+      <Sidebar collapsed={isSidebarCollapsed} isPhoneVerified={isPhoneVerified} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar
           title={title}
+          isPhoneVerified={isPhoneVerified}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         />

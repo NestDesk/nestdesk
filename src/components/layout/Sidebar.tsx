@@ -14,6 +14,7 @@ import {
   Wrench,
   UserCircle2,
   Settings,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,12 +41,14 @@ interface SidebarProps {
   collapsed?: boolean;
   mobile?: boolean;
   onNavigate?: () => void;
+  isPhoneVerified: boolean;
 }
 
 export function Sidebar({
   collapsed = false,
   mobile = false,
   onNavigate,
+  isPhoneVerified,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -84,6 +87,7 @@ export function Sidebar({
       <TooltipProvider delayDuration={100}>
         <nav className="flex-1 space-y-0.5 p-3">
           {navItems.map(({ label, href, icon: Icon }) => {
+            const showUnverifiedWarning = label === "My Profile" && !isPhoneVerified;
             const navLink = (
               <Link
                 key={href}
@@ -98,7 +102,21 @@ export function Sidebar({
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {(!collapsed || mobile) && label}
+                {(!collapsed || mobile) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    {label}
+                    {showUnverifiedWarning ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          Phone number not verified
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                  </span>
+                )}
               </Link>
             );
 

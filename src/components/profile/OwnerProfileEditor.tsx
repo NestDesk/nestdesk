@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Phone, MapPin } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, Phone, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ type OwnerProfileEditorProps = {
   displayValues: {
     email: string | null;
     onboardingCompleted: boolean;
+    phoneVerified: boolean;
+    phoneVerifiedAt: string | null;
     addressText: string;
   };
   editing: boolean;
@@ -43,6 +45,10 @@ export function OwnerProfileEditor({
 }: OwnerProfileEditorProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [form, setForm] = useState<FormState>(initial);
 
   const hasChanges = useMemo(() => {
@@ -101,6 +107,10 @@ export function OwnerProfileEditor({
       }
 
       toast.success("Profile updated successfully.");
+      if (form.phone !== initial.phone) {
+        setOtpSent(false);
+        setOtpCode("");
+      }
       setEditing(false);
       router.refresh();
     } catch {
@@ -109,6 +119,92 @@ export function OwnerProfileEditor({
       setSaving(false);
     }
   }
+
+  async function handleSendOtp() {
+    if (!/^\d{10}$/.test(form.phone)) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    if (editing && form.phone !== initial.phone) {
+      toast.error("Save profile first, then verify the updated phone number.");
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/owner/phone-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: form.phone }),
+      });
+
+      const json = (await response.json()) as {
+        error?: string;
+        devOtpHint?: string;
+      };
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send OTP.");
+        return;
+      }
+
+      setOtpSent(true);
+      if (json.devOtpHint) {
+        toast.success(`OTP sent. DEV OTP: ${json.devOtpHint}`);
+      } else {
+        toast.success("OTP sent to your WhatsApp number.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpSent) {
+      toast.error("Request OTP first.");
+      return;
+    }
+
+    if (!/^\d{4,8}$/.test(otpCode)) {
+      toast.error("Enter a valid OTP code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await fetch("/api/owner/phone-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: form.phone, otpCode }),
+      });
+
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        toast.error(json.error ?? "OTP verification failed.");
+        return;
+      }
+
+      toast.success("Phone number verified successfully.");
+      setOtpCode("");
+      setOtpSent(false);
+      router.refresh();
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
+  const verificationDate = displayValues.phoneVerifiedAt
+    ? new Date(displayValues.phoneVerifiedAt).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : null;
 
   if (!editing) {
     return (
@@ -143,6 +239,73 @@ export function OwnerProfileEditor({
             <Phone className="h-3.5 w-3.5" /> Phone
           </p>
           <p className="text-sm font-medium text-foreground">{initial.phone}</p>
+
+          <Badge variant={displayValues.phoneVerified ? "default" : "secondary"}>
+            {displayValues.phoneVerified
+              ? verificationDate
+                ? `Verified on ${verificationDate}`
+                : "Verified"
+              : "Not Verified"}
+          </Badge>
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <p className="text-xs text-muted-foreground">
+            Verify your WhatsApp phone number to activate any property.
+          </p>
+          {!displayValues.phoneVerified ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSendOtp}
+                  disabled={sendingOtp}
+                  className="w-full sm:w-auto"
+                >
+                  {sendingOtp ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending
+                    </>
+                  ) : (
+                    "Send OTP"
+                  )}
+                </Button>
+
+                <Input
+                  value={otpCode}
+                  onChange={(e) =>
+                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))
+                  }
+                  placeholder="Enter OTP"
+                  disabled={!otpSent || verifyingOtp}
+                  className="h-9"
+                />
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleVerifyOtp}
+                  disabled={!otpSent || verifyingOtp}
+                  className="w-full sm:w-auto"
+                >
+                  {verifyingOtp ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />{" "}
+                      Verifying
+                    </>
+                  ) : (
+                    "Verify OTP"
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Phone number verified
+            </div>
+          )}
         </div>
 
         <div className="space-y-1 sm:col-span-2">

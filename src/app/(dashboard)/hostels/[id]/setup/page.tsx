@@ -43,6 +43,20 @@ export default async function PropertySetupPage({ params }: Props) {
   const floors = floorsResult.data ?? [];
   const rooms = roomsResult.data ?? [];
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: owner } = user
+    ? await supabase
+        .from("owners")
+        .select("phone_verified")
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const isPhoneVerified = owner?.phone_verified ?? false;
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -75,6 +89,7 @@ export default async function PropertySetupPage({ params }: Props) {
       <PropertySetupManager
         hostelId={property.id}
         propertyName={property.name}
+        isPhoneVerified={isPhoneVerified}
         isActive={property.is_active}
         tenantJoinToken={property.tenant_join_token}
         propertyCode={property.property_code}

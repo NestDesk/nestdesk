@@ -140,6 +140,17 @@ The app is split into five main layers:
 - Owner account profile workspace
 - Displays owner details, contact information, onboarding status, and property snapshot counts
 - Includes inline edit action for owner full name, phone, and address details
+- Includes WhatsApp OTP phone verification controls and verification status
+
+14. src/app/api/owner/phone-otp/request/route.ts
+
+- Owner-authenticated API to request WhatsApp OTP for phone verification
+- Uses OTP service and MSG91 provider integration
+
+15. src/app/api/owner/phone-otp/verify/route.ts
+
+- Owner-authenticated API to verify OTP challenge
+- Marks owners.phone_verified true and records phone_verified_at timestamp
 
 ## Layout and UI Shell Components
 
@@ -161,10 +172,12 @@ The app is split into five main layers:
 2. src/components/layout/Sidebar.tsx
    - Desktop and mobile navigation source for dashboard areas
    - Includes owner modules for properties, tenants, occupancy, maintenance, payments, expenses, notices, profile, and settings
+   - Shows profile warning indicator when owner phone is not verified
 
 3. src/components/profile/OwnerProfileEditor.tsx
    - Client-side owner profile edit form with validation and save/cancel actions
    - Calls owner profile API and refreshes server-rendered profile data after successful save
+   - Sends and verifies WhatsApp OTP from profile context for phone verification
 
 4. src/components/layout/TopBar.tsx
    - Theme toggle, profile menu, logout action, and mobile nav trigger
@@ -362,7 +375,8 @@ Behavior:
 1. Properties are owner-scoped.
 2. App flow creates new properties as inactive.
 3. Activation is blocked until floors and rooms exist.
-4. Property creation and activation write audit log entries.
+4. Activation is blocked until owner phone is verified.
+5. Property creation and activation write audit log entries.
 
 ### Floor and Room Setup
 
@@ -409,7 +423,8 @@ Behavior:
 
 1. OTP challenge request and verification APIs are implemented.
 2. OTPs are stored as hashed challenges in the database.
-3. The active owner flow does not currently require OTP completion.
+3. Owner profile now uses OTP completion to verify phone numbers.
+4. MSG91 is used for WhatsApp OTP delivery when enabled.
 
 ## Supabase Integration Pattern
 
