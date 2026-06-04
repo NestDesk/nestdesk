@@ -1,11 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
-import { LogOut, PanelLeft, PanelRight } from "lucide-react";
+import {
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  PanelLeft,
+  PanelRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileNav } from "./MobileNav";
+import {
+  formatPlanLabel,
+  normalizeOwnerPlan,
+  type OwnerPlan,
+  type SubscriptionStatus,
+} from "@/lib/subscriptions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +35,11 @@ type TopBarUser = {
   avatarUrl: string | null;
 };
 
+type SubscriptionSnapshot = {
+  plan: OwnerPlan;
+  status: SubscriptionStatus | "free";
+};
+
 interface TopBarProps {
   title?: string;
   isPhoneVerified?: boolean;
@@ -35,7 +53,12 @@ export function TopBar({
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: TopBarProps) {
+  const router = useRouter();
   const [user, setUser] = useState<TopBarUser | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionSnapshot>({
+    plan: "free",
+    status: "free",
+  });
   const [loggingOut, setLoggingOut] = useState(false);
   const userLoadedRef = useRef(false);
 
@@ -47,9 +70,14 @@ export function TopBar({
 
     async function loadUser() {
       const supabase = createBrowserClient();
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
+      const [{ data: authData }, subscriptionRes] = await Promise.all([
+        supabase.auth.getUser(),
+        fetch("/api/owner/subscription/current", { cache: "no-store" }).catch(
+          () => null,
+        ),
+      ]);
+
+      const authUser = authData.user;
 
       if (!authUser) {
         setUser(null);
@@ -69,6 +97,17 @@ export function TopBar({
         email: authUser.email ?? "",
         avatarUrl,
       });
+
+      if (subscriptionRes?.ok) {
+        const payload = (await subscriptionRes.json().catch(() => null)) as {
+          plan?: string;
+          subscription?: { status?: SubscriptionStatus } | null;
+        } | null;
+        setSubscription({
+          plan: normalizeOwnerPlan(payload?.plan),
+          status: payload?.subscription?.status ?? "free",
+        });
+      }
     }
 
     loadUser().catch(() => {
@@ -146,7 +185,25 @@ export function TopBar({
               <p className="truncate text-xs font-normal text-muted-foreground">
                 {user?.email || "Signed in"}
               </p>
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-primary">
+                {formatPlanLabel(subscription.plan)} plan · {subscription.status}
+              </p>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/profile")}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              My Account
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/subscriptions")}
+            >
+              <CreditCard className="h-4 w-4" />
+              Subscriptions
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}

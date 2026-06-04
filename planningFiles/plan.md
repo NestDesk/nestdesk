@@ -167,6 +167,16 @@ The active product flow is:
 - Dashboard sidebar now shows an exclamation warning on My Profile when phone is unverified, with hover tooltip.
 - Property activation is now blocked until phone verification is complete, enforced in API and reflected in activation UI state.
 
+25. Owner subscriptions and Razorpay checkout are now implemented:
+
+- Added owner Subscriptions and Usage page under dashboard navigation.
+- Added Razorpay Standard Checkout flow for paid plan purchase.
+- Added POST /api/create-order to create Razorpay orders with owner context and amount guardrails.
+- Added POST /api/verify-payment to validate HMAC signature and activate plans only on successful verification.
+- Successful verification now writes to subscriptions and updates owners.plan.
+- Added GET /api/owner/subscription/current for owner plan visibility in topbar and dashboard.
+- Topbar avatar menu now shows current plan and includes quick links to My Account and Subscriptions.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

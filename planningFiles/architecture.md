@@ -142,6 +142,28 @@ The app is split into five main layers:
 - Includes inline edit action for owner full name, phone, and address details
 - Includes WhatsApp OTP phone verification controls and verification status
 
+14. src/app/(dashboard)/subscriptions/page.tsx
+
+- Owner subscriptions and usage workspace
+- Renders plan catalog and current plan summary
+- Initiates Razorpay Standard Checkout for paid plans
+
+15. src/app/api/create-order/route.ts
+
+- Owner-authenticated API to create Razorpay orders
+- Validates minimum amount and handles provider auth/provider failures
+
+16. src/app/api/verify-payment/route.ts
+
+- Owner-authenticated API to verify Razorpay payment signature
+- Activates subscription only on valid HMAC signature match
+- Updates owners.plan and writes subscription audit trail
+
+17. src/app/api/owner/subscription/current/route.ts
+
+- Owner-authenticated API to fetch current plan and latest subscription snapshot
+- Used by topbar avatar menu and subscriptions/dashboard surfaces
+
 14. src/app/api/owner/phone-otp/request/route.ts
 
 - Owner-authenticated API to request WhatsApp OTP for phone verification

@@ -107,10 +107,9 @@ This is important because the application code depends on owners.user_id in:
 1. payments
 2. notices
 3. maintenance_requests
-4. subscriptions
-5. invite_codes
-6. consent_records
-7. data_deletion_requests
+4. invite_codes
+5. consent_records
+6. data_deletion_requests
 
 These tables are already part of the bootstrap, but the corresponding screens and route flows are still pending.
 
@@ -120,6 +119,15 @@ Maintenance is now partially wired:
 2. Owners can view tenant-raised requests, update status, and add comments.
 3. Tenant maintenance timelines now include owner comments.
 4. Tenants can edit and soft-delete their own maintenance requests (deleted_at based).
+
+Subscriptions are now wired for owner payments:
+
+1. Owners can open Subscriptions and Usage from dashboard navigation.
+2. Plan purchase uses Razorpay Standard Checkout.
+3. POST /api/create-order creates Razorpay order objects with owner-scoped metadata.
+4. POST /api/verify-payment validates HMAC signature and only activates plan on a valid signature.
+5. Successful verification writes a new subscriptions row and updates owners.plan.
+6. The latest plan/status is exposed through GET /api/owner/subscription/current for owner UI surfaces.
 
 ## Important Constraints and Design Choices
 

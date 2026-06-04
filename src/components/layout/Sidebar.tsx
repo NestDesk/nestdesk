@@ -13,6 +13,7 @@ import {
   Bell,
   Wrench,
   UserCircle2,
+  Rocket,
   Settings,
   AlertCircle,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const navItems = [
   { label: "Notices", href: "/notices", icon: Bell },
   { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "My Profile", href: "/profile", icon: UserCircle2 },
+  { label: "Subscriptions & Usage", href: "/subscriptions", icon: Rocket },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

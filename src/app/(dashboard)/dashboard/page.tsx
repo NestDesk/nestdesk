@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatPlanLabel, normalizeOwnerPlan } from "@/lib/subscriptions";
 
 type OccupancySummary = {
   totalRooms: number;
@@ -54,6 +55,9 @@ export default async function DashboardPage() {
   let totalTenantsCount = 0;
   let newTenantsThisMonth = 0;
   let thisMonthRevenueExpected = 0;
+  let currentPlan = "free";
+  let subscriptionStatus = "free";
+  let subscriptionEndsAt: string | null = null;
   const occupancySummary: OccupancySummary = {
     totalRooms: 0,
     occupiedRooms: 0,
@@ -76,11 +80,26 @@ export default async function DashboardPage() {
   if (user) {
     const { data: owner } = await admin
       .from("owners")
-      .select("id")
+      .select("id, plan")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (owner) {
+      currentPlan = normalizeOwnerPlan(owner.plan);
+
+      const { data: currentSubscription } = await admin
+        .from("subscriptions")
+        .select("status, ends_at")
+        .eq("owner_id", owner.id)
+        .order("starts_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (currentSubscription) {
+        subscriptionStatus = currentSubscription.status;
+        subscriptionEndsAt = currentSubscription.ends_at;
+      }
+
       const { data: hostels, error: hostelsError } = await admin
         .from("hostels")
         .select("id, name, is_active")
@@ -515,6 +534,43 @@ export default async function DashboardPage() {
           ),
         )}
       </div>
+
+      <Card className="rounded-2xl border-border/70">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Subscription Overview</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Current Plan</p>
+            <p className="text-lg font-semibold text-foreground">
+              {formatPlanLabel(currentPlan)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Status</p>
+            <p className="text-sm font-medium uppercase text-foreground">
+              {subscriptionStatus}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Valid Till</p>
+            <p className="text-sm font-medium text-foreground">
+              {subscriptionEndsAt
+                ? new Date(subscriptionEndsAt).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "-"}
+            </p>
+          </div>
+          <div className="sm:col-span-3">
+            <Button asChild variant="outline" size="sm" className="rounded-xl">
+              <Link href="/subscriptions">Manage Subscriptions</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {hasProperties && (
         <div className="grid gap-4 md:grid-cols-2">
