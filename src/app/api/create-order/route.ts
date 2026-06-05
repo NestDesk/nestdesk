@@ -14,9 +14,7 @@ const RAZORPAY_CURRENCY = "INR" as const;
 
 const createOrderSchema = z.object({
   receipt: z.string().max(80).optional(),
-  plan: z
-    .enum(["free", "micro", "test", "starter", "pro", "business", "enterprise"])
-    .optional(),
+  plan: z.enum(["free", "micro", "starter", "pro", "institution"]).optional(),
 });
 
 async function getOwnerContext() {
@@ -81,6 +79,13 @@ export async function POST(request: NextRequest) {
   if (requestedPlan === "free") {
     return NextResponse.json(
       { error: "Free plan does not require an online payment order." },
+      { status: 400 },
+    );
+  }
+
+  if (requestedPlan === "institution") {
+    return NextResponse.json(
+      { error: "Institution plan is custom. Please contact the sales team." },
       { status: 400 },
     );
   }

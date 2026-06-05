@@ -129,10 +129,12 @@ Subscriptions are now wired for owner payments:
 5. Successful verification writes a new subscriptions row and updates owners.plan.
 6. The latest plan/status is exposed through GET /api/owner/subscription/current for owner UI surfaces.
 
+The legacy test and business plan values are normalized away in the app layer, and the institution plan is treated as a sales-assisted custom option.
+
 ## Important Constraints and Design Choices
 
 1. All primary keys use UUID with gen_random_uuid().
-2. owners.plan is constrained to free, starter, pro, business, enterprise.
+2. owners.plan is constrained to free, micro, starter, pro, institution.
 3. hostels.property_type is constrained to pg, hostel, coliving, rental.
 4. rooms.status is constrained to vacant, occupied, maintenance, inactive.
 5. rooms enforce unique room_number per hostel where deleted_at is null.

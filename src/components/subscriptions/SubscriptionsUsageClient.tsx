@@ -218,36 +218,80 @@ export function SubscriptionsUsageClient({
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-2xl font-bold text-foreground">
-                  {formatRupeesFromPaise(plan.amountPaise)}
-                  <span className="ml-1 text-sm font-medium text-muted-foreground">
-                    / {plan.billingCycle === "yearly" ? "year" : "month"}
-                  </span>
-                </p>
+                {plan.isCustom ? (
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-foreground">
+                      Custom pricing
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Sales-assisted onboarding and rollout planning.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">
+                    {formatRupeesFromPaise(plan.amountPaise)}
+                    <span className="ml-1 text-sm font-medium text-muted-foreground">
+                      / {plan.billingCycle === "yearly" ? "year" : "month"}
+                    </span>
+                  </p>
+                )}
 
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <p className="inline-flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    Up to {plan.maxProperties} properties
-                  </p>
-                  <p className="inline-flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    Up to {plan.maxTenants} tenants
-                  </p>
-                  <p className="inline-flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    {plan.support} support
-                  </p>
+                  {plan.isCustom ? (
+                    <>
+                      <p className="inline-flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        Custom property and tenant limits
+                      </p>
+                      <p className="inline-flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        Tailored onboarding and deployment
+                      </p>
+                      <p className="inline-flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        Sales-assisted setup
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="inline-flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        Up to {plan.maxProperties} properties
+                      </p>
+                      <p className="inline-flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        Up to {plan.maxTenants} tenants
+                      </p>
+                      <p className="inline-flex items-center gap-2">
+                        <Check className="h-4 w-4 text-emerald-500" />
+                        {plan.support} support
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <Button
                   type="button"
                   className="w-full gap-2"
-                  variant={isCurrent ? "outline" : "default"}
+                  variant={
+                    isCurrent ? "outline" : plan.isCustom ? "secondary" : "default"
+                  }
                   disabled={isCurrent || isProcessing}
-                  onClick={() => openCheckout(plan.id)}
+                  onClick={() => {
+                    if (plan.isCustom) {
+                      window.location.href = "tel:+917081335246";
+                      return;
+                    }
+
+                    openCheckout(plan.id);
+                  }}
                 >
-                  {isProcessing ? (
+                  {plan.isCustom ? (
+                    <>
+                      <CreditCard className="h-4 w-4" />
+                      Contact Sales Team
+                    </>
+                  ) : isProcessing ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Processing...

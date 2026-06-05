@@ -41,7 +41,13 @@ export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) 
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 px-0 pb-6 pt-0">
+      <SheetContent
+        side="left"
+        className="w-72 px-0 pb-6 pt-0"
+        sheetTitle="Landing page navigation"
+        sheetDescription="Open the landing page menu to navigate to features, pricing, and other sections"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <Link
@@ -68,14 +74,14 @@ export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) 
         {/* Nav links */}
         <nav className="mt-4 flex flex-col gap-1 px-3">
           {navLinks.map(({ label, href }) => (
-            <Link
+            <a
               key={label}
               href={href}
               onClick={() => setOpen(false)}
               className="rounded-xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
             >
               {label}
-            </Link>
+            </a>
           ))}
         </nav>
 

@@ -147,6 +147,7 @@ The app is split into five main layers:
 - Owner subscriptions and usage workspace
 - Renders plan catalog and current plan summary
 - Initiates Razorpay Standard Checkout for paid plans
+- Shows the institution plan as a custom sales-assisted option instead of a checkout item
 
 15. src/app/api/create-order/route.ts
 
@@ -158,6 +159,11 @@ The app is split into five main layers:
 - Owner-authenticated API to verify Razorpay payment signature
 - Activates subscription only on valid HMAC signature match
 - Updates owners.plan and writes subscription audit trail
+
+17. src/app/api/create-order/route.ts
+
+- Owner-authenticated API to create Razorpay orders
+- Rejects the custom institution plan and unsupported legacy plan values
 
 17. src/app/api/owner/subscription/current/route.ts
 

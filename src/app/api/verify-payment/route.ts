@@ -15,15 +15,7 @@ const verifySchema = z.object({
   razorpay_payment_id: z.string().min(1),
   razorpay_order_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
-  plan: z.enum([
-    "free",
-    "micro",
-    "test",
-    "starter",
-    "pro",
-    "business",
-    "enterprise",
-  ]),
+  plan: z.enum(["free", "micro", "starter", "pro", "institution"]),
 });
 
 type RazorpayPaymentDetails = {
@@ -136,9 +128,9 @@ export async function POST(request: NextRequest) {
 
   const plan: OwnerPlan = normalizeOwnerPlan(parsed.data.plan);
 
-  if (plan === "free") {
+  if (plan === "free" || plan === "institution") {
     return NextResponse.json(
-      { error: "Free plan cannot be verified through online payment." },
+      { error: "This plan cannot be verified through online payment." },
       { status: 400 },
     );
   }

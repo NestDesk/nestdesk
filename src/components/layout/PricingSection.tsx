@@ -23,26 +23,9 @@ const pricingPlans = [
     highlighted: false,
   },
   {
-    planId: "test",
-    name: "Test",
-    monthlyPrice: "10",
-    period: "month",
-    description: "For a quick ₹10 end-to-end checkout verification.",
-    features: [
-      "1 property",
-      "Up to 10 tenants",
-      "Tenants, Payments, Notices, Maintenance",
-      "Payment flow testing",
-      "Minimal test subscription",
-    ],
-    cta: "Try Test Plan",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
     planId: "micro",
     name: "Micro",
-    monthlyPrice: "499",
+    monthlyPrice: "5",
     period: "month",
     description: "For growing hostels and PGs",
     features: [
@@ -59,7 +42,7 @@ const pricingPlans = [
   {
     planId: "starter",
     name: "Starter",
-    monthlyPrice: "699",
+    monthlyPrice: "7",
     period: "month",
     description: "For established hostels and PGs",
     features: [
@@ -76,7 +59,7 @@ const pricingPlans = [
   {
     planId: "pro",
     name: "Pro",
-    monthlyPrice: "1099",
+    monthlyPrice: "11",
     period: "month",
     description: "Most popular for multi-property operators",
     features: [
@@ -93,43 +76,23 @@ const pricingPlans = [
     highlighted: false,
   },
   {
-    planId: "business",
-    name: "Business",
-    monthlyPrice: "2099",
-    period: "month",
-    description: "For larger chains and operations teams",
+    planId: "institution",
+    name: "Institution",
+    monthlyPrice: null,
+    period: null,
+    description:
+      "For institutions that need a custom rollout and sales-assisted onboarding",
     features: [
-      "Up to 6 properties",
-      "Up to 100 tenants in each",
-      "Occupancy and Expense modules",
+      "Custom property and tenant limits",
+      "Tailored rollout and onboarding",
       "Tenant profile and Identity document upload",
-      "Dedicated onboarding",
-      "Tenants, Payments, Notices, Maintenance",
-      "Operational review support",
+      "Occupancy, Expenses, Payments, Notices, and Maintenance",
+      "Sales-assisted setup",
     ],
-    cta: "Choose Business",
-    ctaHref: "/register",
+    cta: "Contact Sales Team",
+    ctaHref: "tel:+917081335246",
     highlighted: false,
   },
-  //   {
-  //     name: "Enterprise",
-  //     monthlyPrice: null,
-  //     period: null,
-  //     description: "For very large chains and custom operations",
-  //     features: [
-  //       "Unlimited properties",
-  //       "High-volume tenant operations",
-  //       "Occupancy and Expense modules",
-  //       "Tenant profile and KYC review",
-  //       "Tenants, Payments, Notices, Maintenance",
-  //       "Custom onboarding and migration",
-  //       "Dedicated success coordination",
-  //       "Custom rollout planning",
-  //     ],
-  //     cta: "Contact Sales",
-  //     ctaHref: "mailto:support@nestdesk.in",
-  //     highlighted: false,
-  //   },
 ];
 
 function formatINR(n: number): string {
@@ -257,18 +220,13 @@ export function PricingSection() {
                 const isPaid =
                   monthlyPrice && monthlyPrice !== "0" && period === "month";
                 const monthly = isPaid ? parseInt(monthlyPrice) : null;
-
-                // Effective price (with 50% off already)
-                const effectiveMonthly = monthly;
-                // Yearly per-month = monthly * 0.9 (10% cheaper)
-                const effectiveYearly = monthly ? Math.round(monthly * 0.9) : null;
-                const activePrice = isYearly ? effectiveYearly : effectiveMonthly;
-
-                // Struck-through = 2x active price
-                const strikePrice = activePrice ? activePrice * 2 + 1 : null;
-
-                // Yearly total for display
-                const yearlyTotal = effectiveYearly ? effectiveYearly * 12 : null;
+                const activePrice =
+                  isYearly && monthly ? Math.round(monthly * 0.9) : monthly;
+                const yearlyTotal =
+                  isYearly && monthly ? Math.round(monthly * 0.9) * 12 : null;
+                const ctaLinkHref = ctaHref.startsWith("tel:")
+                  ? ctaHref
+                  : `${ctaHref}?plan=${planId}`;
 
                 return (
                   <div
@@ -300,23 +258,22 @@ export function PricingSection() {
 
                     <div className="mb-6">
                       {!isPaid ? (
-                        <span
-                          className={`text-3xl font-bold leading-none tracking-tight ${highlighted ? "text-white" : "text-foreground"}`}
-                        >
-                          {monthlyPrice === "0" ? "Free" : "Custom"}
-                        </span>
+                        <div className="space-y-3">
+                          <span
+                            className={`text-3xl font-bold leading-none tracking-tight ${highlighted ? "text-white" : "text-foreground"}`}
+                          >
+                            {monthlyPrice === "0" ? "Free" : "Custom"}
+                          </span>
+                          {planId === "institution" && (
+                            <p
+                              className={`text-sm ${highlighted ? "text-white/70" : "text-muted-foreground"}`}
+                            >
+                              Pricing is tailored to your rollout and requirements.
+                            </p>
+                          )}
+                        </div>
                       ) : (
                         <>
-                          {/* Struck-through doubled price */}
-                          <div className="mb-1.5">
-                            <span
-                              className={`text-lg font-semibold decoration-1 line-through decoration-red-400 ${highlighted ? "text-white/70" : "text-foreground/60"}`}
-                            >
-                              Rs.{strikePrice ? formatINR(strikePrice) : ""}
-                            </span>
-                          </div>
-
-                          {/* Active price + period */}
                           <div className="mb-3 flex items-baseline gap-1">
                             <span
                               className={`text-3xl font-bold leading-none tracking-tight ${highlighted ? "text-white" : "text-foreground"}`}
@@ -330,7 +287,6 @@ export function PricingSection() {
                             </span>
                           </div>
 
-                          {/* Yearly total hint */}
                           {isYearly && yearlyTotal && (
                             <p
                               className={`mb-3 text-xs ${highlighted ? "text-white/60" : "text-muted-foreground"}`}
@@ -338,18 +294,6 @@ export function PricingSection() {
                               Rs.{formatINR(yearlyTotal)} billed yearly
                             </p>
                           )}
-
-                          {/* Offer chip */}
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${
-                              highlighted
-                                ? "bg-amber-400/25 text-amber-200 ring-1 ring-amber-300/40"
-                                : "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-700"
-                            }`}
-                          >
-                            <Tag className="h-3 w-3" />
-                            {isYearly ? "55% off" : "50% off"}
-                          </span>
                         </>
                       )}
                     </div>
@@ -371,7 +315,7 @@ export function PricingSection() {
                       ))}
                     </ul>
 
-                    <Link href={`${ctaHref}?plan=${planId}`}>
+                    <Link href={ctaLinkHref}>
                       <Button
                         className={`w-full rounded-xl ${
                           highlighted
@@ -405,7 +349,7 @@ export function PricingSection() {
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
           Need a custom rollout for large operations? Contact support for an
-          enterprise plan tailored to your property network.
+          institution plan tailored to your property network.
         </p>
       </div>
     </section>

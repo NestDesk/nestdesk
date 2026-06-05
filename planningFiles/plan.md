@@ -177,6 +177,12 @@ The active product flow is:
 - Added GET /api/owner/subscription/current for owner plan visibility in topbar and dashboard.
 - Topbar avatar menu now shows current plan and includes quick links to My Account and Subscriptions.
 
+26. Pricing and subscription catalog was simplified:
+
+- Removed the test and business plan surfaces from the UI and payment backend.
+- Reduced paid plan prices to micro = 5, starter = 7, and pro = 11.
+- Replaced the old business card with a custom institution plan that routes users to sales instead of checkout.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileNav } from "./MobileNav";
+import { Navbar } from "./Navbar";
 import {
   formatPlanLabel,
   normalizeOwnerPlan,
@@ -66,6 +67,7 @@ export function TopBar({
     if (userLoadedRef.current) {
       return;
     }
+
     userLoadedRef.current = true;
 
     async function loadUser() {
@@ -103,6 +105,7 @@ export function TopBar({
           plan?: string;
           subscription?: { status?: SubscriptionStatus } | null;
         } | null;
+
         setSubscription({
           plan: normalizeOwnerPlan(payload?.plan),
           status: payload?.subscription?.status ?? "free",
@@ -127,6 +130,7 @@ export function TopBar({
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
+
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       window.location.replace("/");
@@ -136,86 +140,92 @@ export function TopBar({
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-sm md:px-6">
-      <div className="flex items-center gap-3">
-        <MobileNav isPhoneVerified={isPhoneVerified} />
-        {onToggleSidebar ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="hidden rounded-xl md:inline-flex"
-            onClick={onToggleSidebar}
-            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isSidebarCollapsed ? (
-              <PanelRight className="h-4 w-4" />
-            ) : (
-              <PanelLeft className="h-4 w-4" />
-            )}
-          </Button>
-        ) : null}
-        {title && <h1 className="text-sm font-semibold text-foreground">{title}</h1>}
-      </div>
-      <div className="flex items-center gap-2">
-        <ThemeToggle />
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
+    <Navbar
+      fullWidth
+      left={
+        <>
+          <MobileNav isPhoneVerified={isPhoneVerified} />
+          {onToggleSidebar ? (
+            <Button
               type="button"
-              className="rounded-full outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-label="Open profile menu"
+              variant="ghost"
+              size="icon"
+              className="hidden rounded-xl md:inline-flex"
+              onClick={onToggleSidebar}
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              <Avatar className="h-8 w-8 border border-border/60">
-                {user?.avatarUrl ? (
-                  <AvatarImage src={user.avatarUrl} alt={user.fullName} />
-                ) : null}
-                <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 rounded-xl">
-            <DropdownMenuLabel className="min-w-0 px-2 py-1.5">
-              <p className="truncate text-sm font-medium">
-                {user?.fullName || "Owner"}
-              </p>
-              <p className="truncate text-xs font-normal text-muted-foreground">
-                {user?.email || "Signed in"}
-              </p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-primary">
-                {formatPlanLabel(subscription.plan)} plan
-              </p>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => router.push("/profile")}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              My Account
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => router.push("/subscriptions")}
-            >
-              <CreditCard className="h-4 w-4" />
-              Subscriptions
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="cursor-pointer text-red-600 focus:text-red-600"
-            >
-              <LogOut className="h-4 w-4" />
-              {loggingOut ? "Logging out..." : "Logout"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </header>
+              {isSidebarCollapsed ? (
+                <PanelRight className="h-4 w-4" />
+              ) : (
+                <PanelLeft className="h-4 w-4" />
+              )}
+            </Button>
+          ) : null}
+          {title && (
+            <h1 className="text-sm font-semibold text-foreground">{title}</h1>
+          )}
+        </>
+      }
+      right={
+        <>
+          <ThemeToggle />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="rounded-full outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label="Open profile menu"
+              >
+                <Avatar className="h-8 w-8 border border-border/60">
+                  {user?.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt={user.fullName} />
+                  ) : null}
+                  <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 rounded-xl">
+              <DropdownMenuLabel className="min-w-0 px-2 py-1.5">
+                <p className="truncate text-sm font-medium">
+                  {user?.fullName || "Owner"}
+                </p>
+                <p className="truncate text-xs font-normal text-muted-foreground">
+                  {user?.email || "Signed in"}
+                </p>
+                <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-primary">
+                  {formatPlanLabel(subscription.plan)} plan
+                </p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => router.push("/profile")}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                My Account
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => router.push("/subscriptions")}
+              >
+                <CreditCard className="h-4 w-4" />
+                Subscriptions
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="cursor-pointer text-red-600 focus:text-red-600"
+              >
+                <LogOut className="h-4 w-4" />
+                {loggingOut ? "Logging out..." : "Logout"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      }
+    />
   );
 }

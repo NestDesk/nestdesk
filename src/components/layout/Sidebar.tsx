@@ -65,7 +65,7 @@ export function Sidebar({
       {/* Logo */}
       <div
         className={cn(
-          "flex h-14 items-center border-b border-sidebar-border",
+          "flex h-16 items-center border-b border-sidebar-border",
           collapsed && !mobile ? "justify-center px-2" : "gap-2.5 px-5",
         )}
       >

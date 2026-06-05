@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS public.owners (
   email TEXT,
   phone TEXT,
   plan TEXT NOT NULL DEFAULT 'free'
-    CHECK (plan IN ('free', 'micro', 'test', 'starter', 'pro', 'business', 'enterprise')),
+    CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution')),
   plan_expires_at TIMESTAMPTZ,
   phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
   phone_verified_at TIMESTAMPTZ,
@@ -585,7 +585,7 @@ CREATE INDEX IF NOT EXISTS idx_invoices_payment_id
 CREATE TABLE IF NOT EXISTS public.payment_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
-  plan TEXT NOT NULL CHECK (plan IN ('free','micro','test','starter','pro','business','enterprise')),
+  plan TEXT NOT NULL CHECK (plan IN ('free','micro','starter','pro','institution')),
   status TEXT NOT NULL DEFAULT 'created'
     CHECK (status IN ('created','paid','failed','cancelled')),
   amount_paise INT NOT NULL,
@@ -607,6 +607,39 @@ CREATE INDEX IF NOT EXISTS idx_payment_orders_status
 
 CREATE INDEX IF NOT EXISTS idx_payment_orders_razorpay_order_id
   ON public.payment_orders(razorpay_order_id);
+
+DO $$
+BEGIN
+  IF to_regclass('public.owners') IS NOT NULL THEN
+    UPDATE public.owners
+      SET plan = CASE
+        WHEN plan IN ('business', 'enterprise') THEN 'institution'
+        WHEN plan = 'test' THEN 'free'
+        ELSE plan
+      END
+    WHERE plan IN ('test', 'business', 'enterprise');
+  END IF;
+
+  IF to_regclass('public.subscriptions') IS NOT NULL THEN
+    UPDATE public.subscriptions
+      SET plan = CASE
+        WHEN plan IN ('business', 'enterprise') THEN 'institution'
+        WHEN plan = 'test' THEN 'free'
+        ELSE plan
+      END
+    WHERE plan IN ('test', 'business', 'enterprise');
+  END IF;
+
+  IF to_regclass('public.payment_orders') IS NOT NULL THEN
+    UPDATE public.payment_orders
+      SET plan = CASE
+        WHEN plan IN ('business', 'enterprise') THEN 'institution'
+        WHEN plan = 'test' THEN 'free'
+        ELSE plan
+      END
+    WHERE plan IN ('test', 'business', 'enterprise');
+  END IF;
+END $$;
 
 -- ============================================================
 -- SCHEMA ALTERATIONS FOR LATER MIGRATIONS
@@ -656,13 +689,13 @@ ALTER TABLE public.owners
   DROP CONSTRAINT IF EXISTS owners_plan_check;
 ALTER TABLE public.owners
   ADD CONSTRAINT owners_plan_check
-    CHECK (plan IN ('free', 'micro', 'test', 'starter', 'pro', 'business', 'enterprise'));
+    CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution'));
 
 ALTER TABLE public.payment_orders
   DROP CONSTRAINT IF EXISTS payment_orders_plan_check;
 ALTER TABLE public.payment_orders
   ADD CONSTRAINT payment_orders_plan_check
-    CHECK (plan IN ('free', 'micro', 'test', 'starter', 'pro', 'business', 'enterprise'));
+    CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution'));
 
 ALTER TABLE public.tenants
   DROP CONSTRAINT IF EXISTS tenants_gender_check;

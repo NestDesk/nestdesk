@@ -20,7 +20,12 @@ export function MobileNav({ isPhoneVerified }: MobileNavProps) {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-60 p-0">
+      <SheetContent
+        side="left"
+        className="w-60 p-0"
+        sheetTitle="Main navigation"
+        sheetDescription="Open the mobile navigation menu to access dashboard sections"
+      >
         <Sidebar
           mobile
           onNavigate={() => setOpen(false)}

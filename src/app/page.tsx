@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Navbar, NavbarLogo } from "@/components/layout/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import HeroSvg from "@/components/layout/HeroSvg";
@@ -172,7 +173,7 @@ export default async function LandingPage() {
     : null;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background bg-mesh-light dark:bg-mesh-dark">
+    <div className="relative min-h-screen overflow-x-clip bg-background bg-mesh-light dark:bg-mesh-dark">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-background to-background dark:from-primary/[0.1] dark:via-background dark:to-background" />
       <div className="pointer-events-none absolute -left-32 top-28 -z-10 h-80 w-80 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
       <div className="pointer-events-none absolute -right-28 top-44 -z-10 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/15" />
@@ -232,40 +233,31 @@ export default async function LandingPage() {
       </svg>
 
       {/* ── Navbar ─────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
+      <Navbar
+        left={
+          <>
             <LandingMobileNav user={landingUser} />
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
-                <Building2 className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-lg font-bold text-foreground">NestDesk</span>
-            </Link>
-          </div>
-
-          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <Link
-              href="#features"
-              className="transition-colors hover:text-foreground"
-            >
+            <NavbarLogo />
+          </>
+        }
+        center={
+          <>
+            <a href="#features" className="transition-colors hover:text-foreground">
               Features
-            </Link>
-            <Link
+            </a>
+            <a
               href="#how-it-works"
               className="transition-colors hover:text-foreground"
             >
               How it works
-            </Link>
-            <Link
-              href="#pricing"
-              className="transition-colors hover:text-foreground"
-            >
+            </a>
+            <a href="#pricing" className="transition-colors hover:text-foreground">
               Pricing
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2 sm:gap-3">
+            </a>
+          </>
+        }
+        right={
+          <>
             <ThemeToggle />
             {landingUser ? (
               <div className="hidden sm:block">
@@ -278,9 +270,9 @@ export default async function LandingPage() {
                 </Button>
               </Link>
             )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* ── Hero ───────────────────────────────── */}
       <section className="relative overflow-hidden">
