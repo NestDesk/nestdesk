@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS public.owners (
   plan TEXT NOT NULL DEFAULT 'free'
     CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution')),
   plan_expires_at TIMESTAMPTZ,
+  unused_credit_paise INT NOT NULL DEFAULT 0,
   phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
   phone_verified_at TIMESTAMPTZ,
   address_line1 TEXT,
@@ -687,6 +688,8 @@ ALTER TABLE public.maintenance_requests
 
 ALTER TABLE public.owners
   DROP CONSTRAINT IF EXISTS owners_plan_check;
+ALTER TABLE public.owners
+  ADD COLUMN IF NOT EXISTS unused_credit_paise INT NOT NULL DEFAULT 0;
 ALTER TABLE public.owners
   ADD CONSTRAINT owners_plan_check
     CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution'));

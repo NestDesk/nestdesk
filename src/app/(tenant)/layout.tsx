@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import Link from "next/link";
 import { LogOut, Sparkles } from "lucide-react";
 import { Navbar, NavbarLogo } from "@/components/layout/Navbar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";

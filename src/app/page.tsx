@@ -492,7 +492,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── Pricing ────────────────────────────── */}
-      <PricingSection />
+      <PricingSection isLoggedIn={Boolean(user)} />
 
       {/* ── Footer ─────────────────────────────── */}
       <footer className="border-t border-border bg-background">

@@ -72,9 +72,9 @@ function PasswordChecklist({ password }: { password: string }) {
             {ok ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
             ) : (
-              <XCircle className="h-3.5 w-3.5 text-white/30" />
+              <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
             )}
-            <span className={cn(ok ? "text-white/60" : "text-white/30")}>
+            <span className={cn(ok ? "text-foreground" : "text-muted-foreground")}>
               {rule.label}
             </span>
           </li>
@@ -127,14 +127,15 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      router.replace("/login?passwordReset=success");
+      toast.success("Password updated successfully. Redirecting to login...");
+      await router.push("/login?passwordReset=success");
     } catch {
       toast.error("Network error. Please try again.");
     }
   }
 
   return (
-    <Card className="w-full rounded-3xl border border-white/10 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl dark:bg-white/5">
+    <Card className="w-full rounded-3xl border border-border/70 bg-card/90 shadow-2xl shadow-black/10 backdrop-blur-2xl dark:bg-slate-950/80 dark:border-white/10">
       <CardHeader className="space-y-4 pb-4 pt-8">
         <div className="flex justify-center">
           <div className="glow-ring flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400">
@@ -142,10 +143,10 @@ export default function ResetPasswordPage() {
           </div>
         </div>
         <div className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Set a new password
           </CardTitle>
-          <CardDescription className="text-white/60">
+          <CardDescription className="text-muted-foreground">
             Choose a strong password for your NestDesk account.
           </CardDescription>
         </div>
@@ -161,7 +162,7 @@ export default function ResetPasswordPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-white/80">
+            <Label htmlFor="password" className="text-foreground">
               New password
             </Label>
             <div className="relative">
@@ -170,13 +171,13 @@ export default function ResetPasswordPage() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Min 8 chars, mixed case + number"
                 autoComplete="new-password"
-                className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                className="rounded-xl border-border/60 bg-background/90 pr-10 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/30"
                 {...register("password")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -194,7 +195,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword" className="text-white/80">
+            <Label htmlFor="confirmPassword" className="text-foreground">
               Confirm new password
             </Label>
             <div className="relative">
@@ -203,13 +204,13 @@ export default function ResetPasswordPage() {
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
                 autoComplete="new-password"
-                className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                className="rounded-xl border-border/60 bg-background/90 pr-10 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/30"
                 {...register("confirmPassword")}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((value) => !value)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label={showConfirmPassword ? "Hide password" : "Show password"}
               >
                 {showConfirmPassword ? (
@@ -245,7 +246,7 @@ export default function ResetPasswordPage() {
         <Button
           asChild
           variant="ghost"
-          className="mt-6 w-full rounded-xl border border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+          className="mt-6 w-full rounded-xl border border-border/60 text-foreground/70 hover:bg-muted/10 hover:text-foreground"
         >
           <Link href={sessionExpired ? "/forgot-password" : "/login"}>
             <ArrowLeft className="mr-2 h-4 w-4" />

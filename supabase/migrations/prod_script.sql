@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS public.owners (
   plan TEXT NOT NULL DEFAULT 'free'
     CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution')),
   plan_expires_at TIMESTAMPTZ,
+  unused_credit_paise INT NOT NULL DEFAULT 0,
   phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
   phone_verified_at TIMESTAMPTZ,
   address_line1 TEXT,

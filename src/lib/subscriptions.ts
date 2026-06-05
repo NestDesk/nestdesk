@@ -24,7 +24,7 @@ const PLAN_CONFIG: Record<OwnerPlan, PlanConfig> = {
     currency: "INR",
     billingCycle: "monthly",
     maxProperties: 1,
-    maxTenants: 10,
+    maxTenants: 15,
     support: "Community",
     isCustom: false,
   },
@@ -32,7 +32,7 @@ const PLAN_CONFIG: Record<OwnerPlan, PlanConfig> = {
     id: "micro",
     name: "Micro",
     description: "For growing hostels and PGs.",
-    amountPaise: 500,
+    amountPaise: 49900,
     currency: "INR",
     billingCycle: "monthly",
     maxProperties: 1,
@@ -44,11 +44,11 @@ const PLAN_CONFIG: Record<OwnerPlan, PlanConfig> = {
     id: "starter",
     name: "Starter",
     description: "For established hostels and PGs.",
-    amountPaise: 700,
+    amountPaise: 94900,
     currency: "INR",
     billingCycle: "monthly",
     maxProperties: 2,
-    maxTenants: 75,
+    maxTenants: 150,
     support: "Email",
     isCustom: false,
   },
@@ -56,11 +56,11 @@ const PLAN_CONFIG: Record<OwnerPlan, PlanConfig> = {
     id: "pro",
     name: "Pro",
     description: "For multi-property operators.",
-    amountPaise: 1100,
+    amountPaise: 139900,
     currency: "INR",
     billingCycle: "monthly",
     maxProperties: 3,
-    maxTenants: 75,
+    maxTenants: 150,
     support: "Priority",
     isCustom: false,
   },
@@ -118,6 +118,40 @@ export function getPlanAmountPaise(plan: OwnerPlan): number {
   return getPlanConfig(plan).amountPaise;
 }
 
+export const PLAN_RANKS: Record<OwnerPlan, number> = {
+  free: 0,
+  micro: 1,
+  starter: 2,
+  pro: 3,
+  institution: 4,
+};
+
+export function getPlanRank(plan: OwnerPlan): number {
+  return PLAN_RANKS[plan] ?? 0;
+}
+
+export type BillingCycle = "monthly" | "yearly";
+
+export function getPlanAmountPaiseForCycle(
+  plan: OwnerPlan,
+  billingCycle: BillingCycle,
+): number {
+  const monthlyAmount = getPlanAmountPaise(plan);
+  return billingCycle === "yearly"
+    ? Math.round(monthlyAmount * 12 * 0.9)
+    : monthlyAmount;
+}
+
+export function inferBillingCycleFromSubscription(
+  startDate: Date,
+  endDate: Date,
+): BillingCycle {
+  const days = Math.round(
+    (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  return days >= 330 ? "yearly" : "monthly";
+}
+
 export function buildOrderReceipt(ownerId: string, plan: OwnerPlan): string {
   const compactOwner = ownerId.replace(/-/g, "").slice(0, 8).toUpperCase();
   const stamp = Date.now().toString().slice(-8);
@@ -127,8 +161,9 @@ export function buildOrderReceipt(ownerId: string, plan: OwnerPlan): string {
 export function computeSubscriptionEndDate(
   plan: OwnerPlan,
   startDate: Date = new Date(),
+  billingCycle: BillingCycle = "monthly",
 ): Date {
   const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + 1);
+  endDate.setMonth(endDate.getMonth() + (billingCycle === "yearly" ? 12 : 1));
   return endDate;
 }

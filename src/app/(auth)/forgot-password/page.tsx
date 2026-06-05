@@ -72,7 +72,7 @@ function ForgotPasswordPageContent() {
   }
 
   return (
-    <Card className="w-full rounded-3xl border border-white/10 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl dark:bg-white/5">
+    <Card className="w-full rounded-3xl border border-border/70 bg-card/90 shadow-2xl shadow-black/10 backdrop-blur-2xl dark:bg-slate-950/80 dark:border-white/10">
       <CardHeader className="space-y-4 pb-4 pt-8">
         <div className="flex justify-center">
           <div className="glow-ring flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400">
@@ -84,10 +84,10 @@ function ForgotPasswordPageContent() {
           </div>
         </div>
         <div className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle className="text-2xl font-bold text-foreground">
             {submittedEmail ? "Check your inbox" : "Forgot your password?"}
           </CardTitle>
-          <CardDescription className="text-white/60">
+          <CardDescription className="text-muted-foreground">
             {submittedEmail
               ? "We sent a secure reset link if the account exists."
               : "Request a reset link for your owner or tenant account."}
@@ -104,16 +104,18 @@ function ForgotPasswordPageContent() {
 
         {submittedEmail ? (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-900 dark:text-emerald-100">
               <div className="flex items-start gap-3">
-                <CircleCheckBig className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                <CircleCheckBig className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
                 <div className="space-y-2">
                   <p>
                     If an account exists for{" "}
-                    <span className="font-semibold">{submittedEmail}</span>, a
-                    password reset link is on the way.
+                    <span className="font-semibold text-foreground dark:text-white">
+                      {submittedEmail}
+                    </span>
+                    , a password reset link is on the way.
                   </p>
-                  <ul className="list-inside list-disc space-y-1 text-xs text-emerald-100/75">
+                  <ul className="list-inside list-disc space-y-1 text-xs text-emerald-900/80 dark:text-emerald-100/75">
                     <li>Use the most recent email only</li>
                     <li>Check spam or promotions if it does not arrive soon</li>
                     <li>The link opens a secure password reset session</li>
@@ -134,7 +136,7 @@ function ForgotPasswordPageContent() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-white/80">
+              <Label htmlFor="email" className="text-foreground">
                 Email
               </Label>
               <Input
@@ -142,11 +144,11 @@ function ForgotPasswordPageContent() {
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                className="rounded-xl border-border/60 bg-background/90 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/30"
                 {...register("email")}
               />
               {errors.email && (
-                <p className="text-xs text-red-400">{errors.email.message}</p>
+                <p className="text-xs text-rose-500">{errors.email.message}</p>
               )}
             </div>
 
@@ -170,7 +172,7 @@ function ForgotPasswordPageContent() {
         <Button
           asChild
           variant="ghost"
-          className="mt-6 w-full rounded-xl border border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+          className="mt-6 w-full rounded-xl border border-border/60 text-foreground/70 hover:bg-muted hover:text-foreground"
         >
           <Link href="/login">
             <ArrowLeft className="mr-2 h-4 w-4" />

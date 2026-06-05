@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   computeSubscriptionEndDate,
+  getPlanRank,
   normalizeOwnerPlan,
   type OwnerPlan,
 } from "@/lib/subscriptions";
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
 
   const { data: paymentOrder, error: orderFetchError } = await ownerCtx.admin
     .from("payment_orders")
-    .select("id, plan, status, amount_paise, razorpay_payment_id")
+    .select("id, plan, status, amount_paise, razorpay_payment_id, notes")
     .eq("owner_id", ownerCtx.owner.id)
     .eq("razorpay_order_id", parsed.data.razorpay_order_id)
     .maybeSingle();
@@ -165,6 +166,30 @@ export async function POST(request: NextRequest) {
 
   if (paymentOrder.plan !== plan) {
     return NextResponse.json({ error: "Payment plan mismatch." }, { status: 400 });
+  }
+
+  const { data: activeSubscription } = await ownerCtx.admin
+    .from("subscriptions")
+    .select("plan, status, starts_at, ends_at")
+    .eq("owner_id", ownerCtx.owner.id)
+    .eq("status", "active")
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const now = new Date();
+  if (
+    activeSubscription?.ends_at &&
+    new Date(activeSubscription.ends_at) > now &&
+    getPlanRank(plan) < getPlanRank(normalizeOwnerPlan(activeSubscription.plan))
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Downgrades are blocked during an active subscription period. Cannot verify a lower-priced subscription.",
+      },
+      { status: 400 },
+    );
   }
 
   const isValidSignature = verifyRazorpayPaymentSignature({
@@ -232,7 +257,13 @@ export async function POST(request: NextRequest) {
 
   const startedAt = new Date();
   const startsAtIso = startedAt.toISOString();
-  const endsAtIso = computeSubscriptionEndDate(plan, startedAt).toISOString();
+  const billingCycleFromOrder =
+    paymentOrder?.notes?.billing_cycle === "yearly" ? "yearly" : "monthly";
+  const endsAtIso = computeSubscriptionEndDate(
+    plan,
+    startedAt,
+    billingCycleFromOrder,
+  ).toISOString();
 
   const { error: expireError } = await ownerCtx.admin
     .from("subscriptions")
@@ -266,12 +297,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const ownerUpdates: Record<string, unknown> = {
+    plan,
+    updated_at: startsAtIso,
+  };
+
+  const leftoverCreditAfter =
+    typeof paymentOrder.notes?.unused_credit_paise_after === "number"
+      ? paymentOrder.notes.unused_credit_paise_after
+      : null;
+
+  if (leftoverCreditAfter !== null) {
+    ownerUpdates.unused_credit_paise = leftoverCreditAfter;
+  }
+
   const { error: ownerUpdateError } = await ownerCtx.admin
     .from("owners")
-    .update({
-      plan,
-      updated_at: startsAtIso,
-    })
+    .update(ownerUpdates)
     .eq("id", ownerCtx.owner.id);
 
   if (ownerUpdateError) {
