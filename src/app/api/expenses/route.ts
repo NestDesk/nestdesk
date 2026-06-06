@@ -132,12 +132,28 @@ function addMonthsISO(dateStr: string, months: number) {
   return toDateOnly(target);
 }
 
-function monthsForFrequency(
+function addDaysISO(dateStr: string, days: number) {
+  const source = parseDate(dateStr);
+  if (Number.isNaN(source.getTime())) return dateStr;
+
+  const target = new Date(
+    Date.UTC(
+      source.getUTCFullYear(),
+      source.getUTCMonth(),
+      source.getUTCDate() + days,
+    ),
+  );
+  return toDateOnly(target);
+}
+
+function nextRecurringDate(
+  dateStr: string,
   frequency: (typeof EXPENSE_RECURRING_FREQUENCIES)[number],
 ) {
-  if (frequency === "monthly") return 1;
-  if (frequency === "quarterly") return 3;
-  return 12;
+  if (frequency === "daily") return addDaysISO(dateStr, 1);
+  if (frequency === "monthly") return addMonthsISO(dateStr, 1);
+  if (frequency === "quarterly") return addMonthsISO(dateStr, 3);
+  return addMonthsISO(dateStr, 12);
 }
 
 function makeExpenseKey(row: {
@@ -235,12 +251,11 @@ async function materializeRecurringExpenses(
   for (const recurring of recurringRows as ExpenseRecord[]) {
     if (!recurring.recurring_frequency || !recurring.next_due_date) continue;
 
-    const monthStep = monthsForFrequency(recurring.recurring_frequency);
     let dueDate = recurring.next_due_date;
     let changed = false;
     let guard = 0;
 
-    while (dueDate <= today && guard < 72) {
+    while (dueDate <= today && guard < 365) {
       const key = makeExpenseKey({
         hostel_id: recurring.hostel_id,
         title: recurring.title,
@@ -273,7 +288,7 @@ async function materializeRecurringExpenses(
         existingKeys.add(key);
       }
 
-      dueDate = addMonthsISO(dueDate, monthStep);
+      dueDate = nextRecurringDate(dueDate, recurring.recurring_frequency);
       changed = true;
       guard += 1;
     }
@@ -653,10 +668,7 @@ export async function POST(request: NextRequest) {
 
   const computedNextDueDate = data.is_recurring
     ? (data.next_due_date ??
-      addMonthsISO(
-        data.expense_date,
-        monthsForFrequency(data.recurring_frequency ?? "monthly"),
-      ))
+      nextRecurringDate(data.expense_date, data.recurring_frequency ?? "monthly"))
     : null;
 
   const admin = createAdminClient();

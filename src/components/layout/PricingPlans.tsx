@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { InstitutionSalesLeadDialog } from "@/components/layout/InstitutionSalesLeadDialog";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -21,11 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  getPlanRank,
-  type BillingCycle,
-  type OwnerPlan,
-} from "@/lib/subscriptions";
+import { getPlanRank, type BillingCycle, type OwnerPlan } from "@/lib/subscriptions";
 
 const pricingPlans = [
   {
@@ -110,10 +107,11 @@ const pricingPlans = [
       "Tailored rollout and onboarding",
       "Tenant profile and Identity document upload",
       "Occupancy, Expenses, Payments, Notices, and Maintenance",
+      "Institution and Inmates portals",
       "Sales-assisted setup",
     ],
     cta: "Contact Sales Team",
-    ctaHref: "tel:+917081335246",
+    ctaHref: "",
     highlighted: false,
   },
 ];
@@ -151,6 +149,7 @@ export function PricingPlans({
   const [isCheckoutScriptReady, setIsCheckoutScriptReady] = useState(false);
   const [isBuyingPlan, setIsBuyingPlan] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
   const [confirmingUpgrade, setConfirmingUpgrade] = useState(false);
   const [previewData, setPreviewData] = useState<{
     requestedPlan: OwnerPlan;
@@ -615,18 +614,18 @@ export function PricingPlans({
                     </ul>
 
                     {planId === "institution" ? (
-                      <Link href={ctaLinkHref}>
-                        <Button
-                          className={`w-full rounded-xl ${
-                            highlighted
-                              ? "bg-white text-primary hover:bg-white/90"
-                              : ""
-                          }`}
-                          variant={highlighted ? "secondary" : "default"}
-                        >
-                          {buttonText}
-                        </Button>
-                      </Link>
+                      <Button
+                        type="button"
+                        className={`w-full rounded-xl ${
+                          highlighted
+                            ? "bg-white text-primary hover:bg-white/90"
+                            : ""
+                        }`}
+                        variant={highlighted ? "secondary" : "default"}
+                        onClick={() => setIsLeadDialogOpen(true)}
+                      >
+                        {buttonText}
+                      </Button>
                     ) : isCurrent ? (
                       <Button
                         type="button"
@@ -718,6 +717,11 @@ export function PricingPlans({
           Need a custom rollout for large operations? Contact support for an
           institution plan tailored to your property network.
         </p>
+
+        <InstitutionSalesLeadDialog
+          open={isLeadDialogOpen}
+          onOpenChange={setIsLeadDialogOpen}
+        />
 
         <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
           <DialogContent>

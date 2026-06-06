@@ -136,7 +136,7 @@ export async function GET() {
 
   const hostelsResult = await admin
     .from("hostels")
-    .select("id, name, city, state")
+    .select("id, name, city, state, is_active")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
 

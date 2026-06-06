@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getCoreRowModel,
@@ -53,7 +54,6 @@ import {
   EXPENSE_PAYMENT_MODES,
   EXPENSE_PAYMENT_MODE_LABEL,
   EXPENSE_RECURRING_FREQUENCIES,
-  EXPENSE_STATUSES,
   EXPENSE_STATUS_LABEL,
   type ExpenseCategory,
   type ExpensePaymentMode,
@@ -175,6 +175,16 @@ function formatDate(dateStr: string) {
   });
 }
 
+function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return {
+    start: toIndianDateString(start),
+    end: toIndianDateString(end),
+  };
+}
+
 function recurringFrequencyLabel(value: ExpenseRecurringFrequency | null) {
   if (!value) return "Recurring";
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
@@ -194,6 +204,7 @@ export default function OwnerExpensesPage() {
     PropertyTotal[]
   >([]);
   const [dailyTotals, setDailyTotals] = useState<DailyTotal[]>([]);
+  const hasProperties = hostels.length > 0;
   // Remove monthOptions, use date range picker instead
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
     // Default to current month (local dates to avoid timezone shifts)
@@ -219,7 +230,6 @@ export default function OwnerExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterHostelId, setFilterHostelId] = useState("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | ExpenseStatus>("all");
   const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>(
     "all",
   );
@@ -282,7 +292,6 @@ export default function OwnerExpensesPage() {
     try {
       const params = new URLSearchParams();
       if (filterHostelId !== "all") params.set("hostel_id", filterHostelId);
-      if (filterStatus !== "all") params.set("status", filterStatus);
       if (filterCategory !== "all") params.set("category", filterCategory);
       if (debouncedSearchQuery) params.set("q", debouncedSearchQuery);
       // Add date range (for the table / list view)
@@ -378,13 +387,7 @@ export default function OwnerExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [
-    debouncedSearchQuery,
-    filterCategory,
-    filterHostelId,
-    filterStatus,
-    dateRange,
-  ]);
+  }, [debouncedSearchQuery, filterCategory, filterHostelId, dateRange]);
 
   useEffect(() => {
     loadExpenses().catch(() => {
@@ -737,18 +740,88 @@ export default function OwnerExpensesPage() {
             </p>
           </div>
         </div>
-        <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
-          <Plus className="h-4 w-4" />
-          Add Expense
-        </Button>
+        {hasProperties ? (
+          <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" />
+            Add Expense
+          </Button>
+        ) : (
+          <Link href="/hostels/new">
+            <Button size="sm" className="h-9 gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add Property
+            </Button>
+          </Link>
+        )}
       </div>
 
-      {/* Filters - moved above cards, single row */}
+      {/* Cards - Current Month, Recurring, and Daily Trend */}
+      {!loading && (
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+              Current Period Expenses
+            </p>
+            <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-200">
+              {formatAmount(summary.this_month)}
+            </p>
+            <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
+              {(() => {
+                const currentMonth = getCurrentMonthRange();
+                return `${formatDate(currentMonth.start)} - ${formatDate(currentMonth.end)}`;
+              })()}
+            </p>
+            <div className="mt-3 space-y-1.5">
+              {thisMonthPropertyTotals.length === 0 ? (
+                <p className="text-xs text-blue-700/70 dark:text-blue-300/80">
+                  No current-period expenses recorded.
+                </p>
+              ) : (
+                thisMonthPropertyTotals.slice(0, 5).map((item) => (
+                  <div
+                    key={item.hostel_id}
+                    className="flex items-center justify-between rounded-md border border-blue-200/70 bg-white/60 px-2.5 py-1.5 dark:border-blue-500/30 dark:bg-blue-900/20"
+                  >
+                    <span className="truncate text-xs text-blue-800 dark:text-blue-200">
+                      {item.hostel_name}
+                    </span>
+                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-200">
+                      {formatAmount(item.total)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Daily Trend - as compact line chart */}
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex flex-col justify-between lg:col-span-2 min-h-[220px]">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-primary">Daily Trend</h3>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {dateRange.start && dateRange.end
+                  ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
+                  : "-"}
+              </span>
+            </div>
+            {dailyTotals.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No trend data.</p>
+            ) : (
+              <ExpenseDailyTrend
+                dailyTotals={dailyTotals}
+                isDarkTheme={isDarkTheme}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Filters*/}
       <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-        <div className="relative w-full md:w-64">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="h-9 pl-8 pr-8 text-sm"
+            className="h-9 w-full min-w-0 pl-8 pr-8 text-sm"
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -803,89 +876,31 @@ export default function OwnerExpensesPage() {
             </option>
           ))}
         </select>
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full md:w-36"
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as "all" | ExpenseStatus)}
-        >
-          <option value="all">All Status</option>
-          {EXPENSE_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {EXPENSE_STATUS_LABEL[status]}
-            </option>
-          ))}
-        </select>
       </div>
-
-      {/* Cards - Current Month, Recurring, and Daily Trend */}
-      {!loading && (
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-              Current Period Expenses
-            </p>
-            <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-200">
-              {formatAmount(summary.this_month)}
-            </p>
-            <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
-              {dateRange.start && dateRange.end
-                ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
-                : "-"}
-            </p>
-            <div className="mt-3 space-y-1.5">
-              {thisMonthPropertyTotals.length === 0 ? (
-                <p className="text-xs text-blue-700/70 dark:text-blue-300/80">
-                  No current-period expenses recorded.
-                </p>
-              ) : (
-                thisMonthPropertyTotals.slice(0, 5).map((item) => (
-                  <div
-                    key={item.hostel_id}
-                    className="flex items-center justify-between rounded-md border border-blue-200/70 bg-white/60 px-2.5 py-1.5 dark:border-blue-500/30 dark:bg-blue-900/20"
-                  >
-                    <span className="truncate text-xs text-blue-800 dark:text-blue-200">
-                      {item.hostel_name}
-                    </span>
-                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-200">
-                      {formatAmount(item.total)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Recurring Expenses card removed per request */}
-
-          {/* Daily Trend - as compact line chart */}
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex flex-col justify-between lg:col-span-2 min-h-[220px]">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-primary">Daily Trend</h3>
-              <span className="text-xs font-semibold text-muted-foreground">
-                {dateRange.start && dateRange.end
-                  ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
-                  : "-"}
-              </span>
-            </div>
-            {dailyTotals.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No trend data.</p>
-            ) : (
-              <ExpenseDailyTrend
-                dailyTotals={dailyTotals}
-                isDarkTheme={isDarkTheme}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Duplicate Daily Trend card removed (compact chart kept above) */}
-
-      {/* Filters moved above, this block removed */}
-
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : !hasProperties ? (
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Building2 className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Add a property first
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              No property is available yet. Add your first property before recording
+              expenses.
+            </p>
+          </div>
+          <Link href="/hostels/new">
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add Property
+            </Button>
+          </Link>
         </div>
       ) : expenses.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
@@ -1019,6 +1034,26 @@ export default function OwnerExpensesPage() {
               </div>
 
               <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Category</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  value={draft.category}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      category: e.target.value as ExpenseCategory,
+                    }))
+                  }
+                >
+                  {EXPENSE_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {EXPENSE_CATEGORY_LABEL[category]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Expense Title</Label>
                 <Input
                   placeholder="e.g. Electricity Bill - May"
@@ -1030,27 +1065,7 @@ export default function OwnerExpensesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Category</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={draft.category}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        category: e.target.value as ExpenseCategory,
-                      }))
-                    }
-                  >
-                    {EXPENSE_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {EXPENSE_CATEGORY_LABEL[category]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Amount (INR)</Label>
                   <Input
@@ -1066,23 +1081,35 @@ export default function OwnerExpensesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Status</Label>
+                  <Label className="text-xs font-medium">Payment Mode</Label>
                   <select
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={draft.status}
+                    value={draft.payment_mode}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
-                        status: e.target.value as ExpenseStatus,
+                        payment_mode: e.target.value as ExpensePaymentMode | "",
                       }))
                     }
                   >
-                    {EXPENSE_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {EXPENSE_STATUS_LABEL[status]}
+                    <option value="">Not specified</option>
+                    {EXPENSE_PAYMENT_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {EXPENSE_PAYMENT_MODE_LABEL[mode]}
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Vendor (optional)</Label>
+                  <Input
+                    placeholder="Vendor / Service Provider"
+                    value={draft.vendor_name}
+                    onChange={(e) =>
+                      setDraft((prev) => ({ ...prev, vendor_name: e.target.value }))
+                    }
+                  />
                 </div>
               </div>
 
