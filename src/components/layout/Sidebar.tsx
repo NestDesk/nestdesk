@@ -11,6 +11,7 @@ import {
   BedDouble,
   CreditCard,
   WalletCards,
+  BarChart2,
   Bell,
   Wrench,
   UserCircle2,
@@ -32,6 +33,7 @@ const navItems = [
   { label: "Tenants", href: "/tenants", icon: Users },
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Expenses", href: "/expenses", icon: WalletCards },
+  { label: "Reports", href: "/reports", icon: BarChart2 },
   { label: "Occupancy", href: "/occupancy", icon: BedDouble },
   { label: "Notices", href: "/notices", icon: Bell },
   { label: "Maintenance", href: "/maintenance", icon: Wrench },
@@ -164,7 +166,9 @@ export function Sidebar({
               >
                 <div className="relative">
                   <Icon className="h-4 w-4 shrink-0" />
-                  {(showPropertyWarning || showUnverifiedWarning) && collapsed && !mobile ? (
+                  {(showPropertyWarning || showUnverifiedWarning) &&
+                  collapsed &&
+                  !mobile ? (
                     <span className="absolute -right-4 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
                       <AlertCircle className="h-3 w-3" />
                     </span>
@@ -206,8 +210,8 @@ export function Sidebar({
                     {showPropertyWarning
                       ? propertyWarning
                       : showUnverifiedWarning
-                      ? "Phone number not verified"
-                      : label}
+                        ? "Phone number not verified"
+                        : label}
                   </TooltipContent>
                 </Tooltip>
               );
