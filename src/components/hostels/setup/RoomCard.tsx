@@ -93,7 +93,7 @@ export function DraftRoomCard({
         <span className="font-bold text-sm leading-tight">{room.roomNumber}</span>
         <button
           type="button"
-          className="h-4 w-4 rounded-full text-[10px] leading-none opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+          className="h-4 w-4 rounded-full text-[10px] leading-none text-muted-foreground opacity-80 hover:opacity-100 transition-opacity"
           onClick={() => onRemove(room.localId)}
           aria-label="Remove room"
           disabled={disabled}

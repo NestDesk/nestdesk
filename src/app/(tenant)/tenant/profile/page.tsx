@@ -430,7 +430,7 @@ export default function TenantProfilePage() {
 
       <Dialog
         open={Boolean(previewImage)}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) {
             setPreviewImage(null);
           }
@@ -468,7 +468,9 @@ export default function TenantProfilePage() {
                 id="profile-name"
                 type="text"
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setFullName(e.target.value)
+                }
                 placeholder="Your full name"
                 className="rounded-xl max-w-sm"
                 required
@@ -503,7 +505,9 @@ export default function TenantProfilePage() {
                 type="tel"
                 inputMode="numeric"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPhone(e.target.value)
+                }
                 placeholder="10-digit mobile number"
                 className="rounded-xl max-w-sm"
               />
@@ -525,7 +529,9 @@ export default function TenantProfilePage() {
                 id="occupation-type"
                 className="block h-10 w-full max-w-sm rounded-xl border border-input bg-background px-3 text-sm"
                 value={occupationType}
-                onChange={(e) => setOccupationType(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setOccupationType(e.target.value)
+                }
                 disabled={isAccountActive}
               >
                 {OCCUPATION_OPTIONS.map((option) => (
@@ -542,7 +548,9 @@ export default function TenantProfilePage() {
                 id="institution-name"
                 type="text"
                 value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setInstitutionName(e.target.value)
+                }
                 placeholder="College / company / organization"
                 className="rounded-xl max-w-sm"
                 disabled={isAccountActive}
@@ -557,7 +565,7 @@ export default function TenantProfilePage() {
                 inputMode="numeric"
                 maxLength={12}
                 value={aadharNumber}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setAadharNumber(normalizeAadhaarNumber(e.target.value))
                 }
                 placeholder="12-digit Aadhaar number"
@@ -565,9 +573,7 @@ export default function TenantProfilePage() {
                 disabled={isAccountActive}
               />
               {aadharNumber && !isValidAadhaarNumber(aadharNumber) ? (
-                <p className="text-xs text-destructive">
-                  Aadhaar checksum is invalid.
-                </p>
+                <p className="text-xs text-destructive">Aadhaar number is invalid</p>
               ) : null}
             </div>
 

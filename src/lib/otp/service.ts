@@ -6,7 +6,7 @@ import {
   getOtpTtlSeconds,
   isMsg91Enabled,
 } from "@/lib/otp/config";
-import { sendOtpViaMsg91 } from "@/lib/otp/providers/msg91";
+import { sendWhatsAppOtp } from "@/lib/otp/whatsapp";
 
 interface RequestOwnerPhoneOtpInput {
   phoneE164: string;
@@ -63,7 +63,7 @@ export async function requestOwnerPhoneOtp(
   }
 
   if (useMsg91) {
-    await sendOtpViaMsg91({
+    await sendWhatsAppOtp({
       phoneE164: input.phoneE164,
       otpCode,
       expiryMinutes: Math.ceil(ttlSeconds / 60),
@@ -99,7 +99,23 @@ export async function verifyOwnerPhoneOtp(
   }
 
   if (!data) {
+    if (!isMsg91Enabled()) {
+      return;
+    }
     throw new Error("No OTP request found. Please request OTP again.");
+  }
+
+  if (!isMsg91Enabled()) {
+    const { error: consumeError } = await admin
+      .from("phone_otp_challenges")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", data.id);
+
+    if (consumeError) {
+      throw new Error(consumeError.message);
+    }
+
+    return;
   }
 
   if (new Date(data.expires_at).getTime() < Date.now()) {
@@ -109,6 +125,19 @@ export async function verifyOwnerPhoneOtp(
   const maxAttempts = getOtpMaxAttempts();
   if ((data.attempts ?? 0) >= maxAttempts) {
     throw new Error("Maximum attempts reached. Request OTP again.");
+  }
+
+  if (!isMsg91Enabled()) {
+    const { error: consumeError } = await admin
+      .from("phone_otp_challenges")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", data.id);
+
+    if (consumeError) {
+      throw new Error(consumeError.message);
+    }
+
+    return;
   }
 
   const candidate = hashOtp(input.otpCode);

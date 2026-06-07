@@ -22,6 +22,7 @@
     "@supabase/supabase-js": "^2.106.1",
     "@tanstack/react-table": "^8.21.3",
     "@vercel/analytics": "^2.0.1",
+    "aadhaar-validator": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.3.0",

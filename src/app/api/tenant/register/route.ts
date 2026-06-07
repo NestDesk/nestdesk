@@ -124,6 +124,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (normalizedAadhaar) {
+    const { data: existingTenant, error: existingTenantError } = await admin
+      .from("tenants")
+      .select("id")
+      .eq("aadhar_number", normalizedAadhaar)
+      .maybeSingle();
+
+    if (existingTenantError) {
+      return NextResponse.json(
+        { error: existingTenantError.message },
+        { status: 500 },
+      );
+    }
+
+    if (existingTenant) {
+      return NextResponse.json(
+        { error: "This Aadhaar number is already linked to an existing tenant." },
+        { status: 409 },
+      );
+    }
+  }
+
   const {
     data: authData,
     error: createError,
@@ -173,13 +195,26 @@ export async function POST(request: NextRequest) {
     if (
       tenantError.message.toLowerCase().includes("idx_tenants_aadhar_number_unique")
     ) {
+      await admin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+
       return NextResponse.json(
         { error: "This Aadhaar number is already linked to an existing tenant." },
         { status: 409 },
       );
     }
 
-    await admin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+    const deleteResult = await admin.auth.admin.deleteUser(authUserId);
+    if (deleteResult.error) {
+      return NextResponse.json(
+        {
+          error:
+            "Tenant registration failed and cleanup could not be completed. " +
+            "Please contact support.",
+          details: [tenantError.message, deleteResult.error.message],
+        },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({ error: tenantError.message }, { status: 500 });
   }

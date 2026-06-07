@@ -258,7 +258,7 @@ export function InstitutionSalesLeadDialog({
           {submitted ? (
             <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
               <p className="font-semibold">Request submitted</p>
-              <p className="mt-2 text-sm text-foreground/80">
+              <p className="mt-2 text-sm">
                 Thank you! Your request has been submitted and our sales
                 representative will reach out to you shortly.
               </p>

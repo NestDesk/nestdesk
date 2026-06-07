@@ -8,7 +8,9 @@ interface Msg91SendOtpInput {
 
 function getMsg91Config() {
   const authKey = process.env.MSG91_AUTH_KEY;
-  const templateId = process.env.MSG91_OTP_TEMPLATE_ID;
+  const templateId =
+    process.env.MSG91_WHATSAPP_TEMPLATE_ID?.trim() ||
+    process.env.MSG91_OTP_TEMPLATE_ID?.trim();
   const baseUrl = process.env.MSG91_BASE_URL?.trim() || "https://control.msg91.com";
 
   if (!authKey) {
@@ -16,7 +18,9 @@ function getMsg91Config() {
   }
 
   if (!templateId) {
-    throw new Error("MSG91_OTP_TEMPLATE_ID is missing.");
+    throw new Error(
+      "MSG91_WHATSAPP_TEMPLATE_ID or MSG91_OTP_TEMPLATE_ID is missing.",
+    );
   }
 
   return { authKey, templateId, baseUrl };

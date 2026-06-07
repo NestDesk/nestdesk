@@ -164,8 +164,8 @@ export function Sidebar({
               >
                 <div className="relative">
                   <Icon className="h-4 w-4 shrink-0" />
-                  {showPropertyWarning && collapsed && !mobile ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+                  {(showPropertyWarning || showUnverifiedWarning) && collapsed && !mobile ? (
+                    <span className="absolute -right-4 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
                       <AlertCircle className="h-3 w-3" />
                     </span>
                   ) : null}
@@ -203,7 +203,11 @@ export function Sidebar({
                 <Tooltip key={href}>
                   <TooltipTrigger asChild>{navLink}</TooltipTrigger>
                   <TooltipContent side="right">
-                    {showPropertyWarning ? propertyWarning : label}
+                    {showPropertyWarning
+                      ? propertyWarning
+                      : showUnverifiedWarning
+                      ? "Phone number not verified"
+                      : label}
                   </TooltipContent>
                 </Tooltip>
               );

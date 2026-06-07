@@ -190,12 +190,25 @@ export function PricingPlans({
       key_id: string;
     },
   ) {
-    if (!isCheckoutScriptReady || typeof window.Razorpay === "undefined") {
+    type RazorpayInstance = {
+      on(
+        event: "payment.failed",
+        callback: (failure: { error?: { description?: string } }) => void,
+      ): void;
+      on(event: string, callback: (event: unknown) => void): void;
+      open(): void;
+    };
+    type RazorpayConstructor = new (
+      options: Record<string, unknown>,
+    ) => RazorpayInstance;
+    const Razorpay = (window as unknown as { Razorpay?: RazorpayConstructor })
+      .Razorpay;
+    if (!isCheckoutScriptReady || typeof Razorpay === "undefined") {
       toast.error("Razorpay checkout is not ready. Please refresh and try again.");
       return;
     }
 
-    const razorpay = new window.Razorpay({
+    const razorpay = new Razorpay({
       key: orderData.key_id,
       amount: orderData.amount,
       currency: orderData.currency || "INR",

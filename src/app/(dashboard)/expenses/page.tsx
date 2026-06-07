@@ -1065,7 +1065,7 @@ export default function OwnerExpensesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Amount (INR)</Label>
                   <Input
@@ -1100,62 +1100,17 @@ export default function OwnerExpensesPage() {
                     ))}
                   </select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Vendor (optional)</Label>
-                  <Input
-                    placeholder="Vendor / Service Provider"
-                    value={draft.vendor_name}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, vendor_name: e.target.value }))
-                    }
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Payment Mode</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={draft.payment_mode}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        payment_mode: e.target.value as ExpensePaymentMode | "",
-                      }))
-                    }
-                  >
-                    <option value="">Not specified</option>
-                    {EXPENSE_PAYMENT_MODES.map((mode) => (
-                      <option key={mode} value={mode}>
-                        {EXPENSE_PAYMENT_MODE_LABEL[mode]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Vendor (optional)</Label>
-                  <Input
-                    placeholder="Vendor / Service Provider"
-                    value={draft.vendor_name}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, vendor_name: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Bill No. (optional)</Label>
-                  <Input
-                    placeholder="Invoice / Bill reference"
-                    value={draft.bill_number}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, bill_number: e.target.value }))
-                    }
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Bill No. (optional)</Label>
+                <Input
+                  placeholder="Invoice / Bill reference"
+                  value={draft.bill_number}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, bill_number: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="rounded-lg border border-border/70 p-3">

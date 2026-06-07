@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  Building2,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -27,6 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Navbar, NavbarLogo } from "@/components/layout/Navbar";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
 import { TenantConsentLink } from "@/components/legal/TenantConsentLink";
 import { cn } from "@/lib/utils";
@@ -120,7 +121,7 @@ function PasswordStrength({ password }: { password: string }) {
             key={i}
             className={cn(
               "h-1 flex-1 rounded-full transition-all duration-300",
-              i < passed ? STRENGTH_COLORS[passed] : "bg-white/10",
+              i < passed ? STRENGTH_COLORS[passed] : "bg-muted-foreground/20",
             )}
           />
         ))}
@@ -133,9 +134,11 @@ function PasswordStrength({ password }: { password: string }) {
               {ok ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
               ) : (
-                <XCircle className="h-3.5 w-3.5 text-white/30" />
+                <XCircle className="h-3.5 w-3.5 text-muted-foreground/40" />
               )}
-              <span className={ok ? "text-white/60" : "text-white/30"}>
+              <span
+                className={ok ? "text-muted-foreground" : "text-muted-foreground/70"}
+              >
                 {rule.label}
               </span>
             </li>
@@ -183,16 +186,18 @@ function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
     .join(", ");
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/8 p-3">
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-popover/80 p-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
         <Home className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-white leading-snug">{hostel.name}</p>
-        <p className="text-xs text-white/50">
+        <p className="text-sm font-medium text-foreground leading-snug">
+          {hostel.name}
+        </p>
+        <p className="text-xs text-muted-foreground">
           {PROPERTY_TYPE_LABELS[hostel.property_type] ?? hostel.property_type}
         </p>
-        <p className="mt-0.5 flex items-start gap-1 text-xs text-white/40">
+        <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground/70">
           <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
           <span className="break-words">{address}</span>
         </p>
@@ -322,9 +327,9 @@ function TenantRegisterPageContent() {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (hostelLoading) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-auth px-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground px-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-3 text-sm text-white/60">Verifying invite…</p>
+        <p className="mt-3 text-sm text-muted-foreground">Verifying invite…</p>
       </div>
     );
   }
@@ -332,13 +337,13 @@ function TenantRegisterPageContent() {
   // ── Error state ────────────────────────────────────────────────────────────
   if (hostelError || !hostel) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-auth px-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
           <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-destructive/20 text-destructive">
             <XCircle className="h-7 w-7" />
           </div>
-          <h2 className="text-xl font-bold text-white">Invalid Invite Link</h2>
-          <p className="text-sm text-white/60">{hostelError}</p>
+          <h2 className="text-xl font-bold text-foreground">Invalid Invite Link</h2>
+          <p className="text-sm text-muted-foreground">{hostelError}</p>
           <Button asChild variant="outline" className="rounded-xl">
             <Link href="/join">Try entering your property code</Link>
           </Button>
@@ -349,30 +354,26 @@ function TenantRegisterPageContent() {
 
   // ── Register form ──────────────────────────────────────────────────────────
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-auth">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background text-foreground">
       <div className="animate-blob pointer-events-none absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-primary/20 blur-3xl" />
       <div className="animate-blob-delay-2 pointer-events-none absolute -right-32 top-1/3 h-[400px] w-[400px] rounded-full bg-blue-500/15 blur-3xl" />
 
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-white/5 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
-              <Building2 className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-sm font-bold text-white">NestDesk</span>
-          </Link>
-          <Link
-            href="/login"
-            className="text-xs text-white/50 hover:text-white transition-colors"
-          >
-            Sign in
-          </Link>
-        </div>
-      </header>
+      <Navbar
+        left={<NavbarLogo />}
+        right={
+          <>
+            <ThemeToggle />
+            <Link href="/login" className="hidden sm:block">
+              <Button variant="ghost" size="sm" className="rounded-xl">
+                Sign in
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="relative z-10 flex flex-1 items-start justify-center px-4 py-10">
-        <Card className="w-full max-w-md rounded-3xl border border-white/10 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl dark:bg-white/5">
+        <Card className="w-full max-w-md rounded-3xl border border-border bg-card shadow-2xl shadow-black/10 backdrop-blur-2xl dark:shadow-black/30">
           <CardHeader className="space-y-4 pb-4 pt-8">
             <div className="flex justify-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400 glow-ring">
@@ -380,10 +381,10 @@ function TenantRegisterPageContent() {
               </div>
             </div>
             <div className="text-center">
-              <CardTitle className="text-2xl font-bold text-white">
+              <CardTitle className="text-2xl font-bold text-foreground">
                 Create Tenant Account
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-muted-foreground">
                 Register to live at this property
               </CardDescription>
             </div>
@@ -396,7 +397,7 @@ function TenantRegisterPageContent() {
 
               {/* Full name */}
               <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-white/80">
+                <Label htmlFor="fullName" className="text-foreground/80">
                   Full name
                 </Label>
                 <Input
@@ -404,7 +405,7 @@ function TenantRegisterPageContent() {
                   type="text"
                   placeholder="Your full name"
                   autoComplete="name"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("fullName")}
                 />
                 {errors.fullName && (
@@ -414,11 +415,11 @@ function TenantRegisterPageContent() {
 
               {/* Phone */}
               <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-white/80">
+                <Label htmlFor="phone" className="text-foreground/80">
                   Phone number
                 </Label>
-                <div className="flex overflow-hidden rounded-xl border border-white/15 bg-white/10 text-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary">
-                  <span className="flex items-center px-3 text-sm text-white/60">
+                <div className="flex overflow-hidden rounded-xl border border-border bg-popover/80 text-foreground focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                  <span className="flex items-center px-3 text-sm text-muted-foreground">
                     +91
                   </span>
                   <Input
@@ -428,7 +429,7 @@ function TenantRegisterPageContent() {
                     placeholder="1234567890"
                     autoComplete="tel-national"
                     maxLength={10}
-                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-0 text-white placeholder:text-white/30 focus-visible:ring-0"
+                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-2 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0"
                     {...register("phone", {
                       onChange: (event) => {
                         const value = normalizePhoneNumber(event.target.value);
@@ -445,12 +446,12 @@ function TenantRegisterPageContent() {
 
               {/* Occupation */}
               <div className="space-y-1.5">
-                <Label htmlFor="occupationType" className="text-white/80">
+                <Label htmlFor="occupationType" className="text-foreground/80">
                   Occupation type
                 </Label>
                 <select
                   id="occupationType"
-                  className="block h-10 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="block h-10 w-full rounded-xl border border-border bg-popover/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                   {...register("occupationType")}
                 >
                   {Object.entries(OCCUPATION_LABELS).map(([value, label]) => (
@@ -468,14 +469,14 @@ function TenantRegisterPageContent() {
 
               {/* Institution */}
               <div className="space-y-1.5">
-                <Label htmlFor="institutionName" className="text-white/80">
+                <Label htmlFor="institutionName" className="text-foreground/80">
                   Institution name
                 </Label>
                 <Input
                   id="institutionName"
                   type="text"
                   placeholder="College / company / organization"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("institutionName")}
                 />
                 {errors.institutionName && (
@@ -487,12 +488,12 @@ function TenantRegisterPageContent() {
 
               {/* Gender */}
               <div className="space-y-1.5">
-                <Label htmlFor="gender" className="text-white/80">
+                <Label htmlFor="gender" className="text-foreground/80">
                   Gender
                 </Label>
                 <select
                   id="gender"
-                  className="h-10 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="h-10 w-full rounded-xl border border-border bg-popover/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                   {...register("gender")}
                 >
                   {Object.entries(GENDER_LABELS).map(([value, label]) => (
@@ -508,9 +509,11 @@ function TenantRegisterPageContent() {
 
               {/* Aadhaar */}
               <div className="space-y-1.5">
-                <Label htmlFor="aadharNumber" className="text-white/80">
+                <Label htmlFor="aadharNumber" className="text-foreground/80">
                   Aadhaar number{" "}
-                  <span className="text-white/40 font-normal">(optional)</span>
+                  <span className="text-muted-foreground/70 font-normal">
+                    (optional)
+                  </span>
                 </Label>
                 <Input
                   id="aadharNumber"
@@ -518,7 +521,7 @@ function TenantRegisterPageContent() {
                   inputMode="numeric"
                   maxLength={12}
                   placeholder="12-digit Aadhaar number"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("aadharNumber", {
                     onChange: (e) => {
                       setValue(
@@ -538,7 +541,7 @@ function TenantRegisterPageContent() {
 
               {/* Email */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-white/80">
+                <Label htmlFor="email" className="text-foreground/80">
                   Email
                 </Label>
                 <Input
@@ -546,7 +549,7 @@ function TenantRegisterPageContent() {
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("email")}
                 />
                 {errors.email && (
@@ -556,7 +559,7 @@ function TenantRegisterPageContent() {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-white/80">
+                <Label htmlFor="password" className="text-foreground/80">
                   Password
                 </Label>
                 <div className="relative">
@@ -565,13 +568,13 @@ function TenantRegisterPageContent() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Min 8 chars, mixed case + number"
                     autoComplete="new-password"
-                    className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                    className="rounded-xl border-border bg-popover/80 pr-10 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                     {...register("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
@@ -590,7 +593,7 @@ function TenantRegisterPageContent() {
 
               {/* Confirm password */}
               <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-white/80">
+                <Label htmlFor="confirmPassword" className="text-foreground/80">
                   Confirm password
                 </Label>
                 <div className="relative">
@@ -599,13 +602,13 @@ function TenantRegisterPageContent() {
                     type={showConfirm ? "text" : "password"}
                     placeholder="••••••••"
                     autoComplete="new-password"
-                    className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                    className="rounded-xl border-border bg-popover/80 pr-10 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                     {...register("confirmPassword")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirm((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
                     aria-label={showConfirm ? "Hide" : "Show"}
                   >
                     {showConfirm ? (
@@ -623,20 +626,20 @@ function TenantRegisterPageContent() {
               </div>
 
               {/* Consent */}
-              <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-start gap-3 rounded-xl border border-border bg-popover/80 p-3">
                 <input
                   id="consentGiven"
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 accent-primary"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
                   {...register("consentGiven")}
                 />
                 <Label
                   htmlFor="consentGiven"
-                  className="text-xs text-white/60 leading-relaxed cursor-pointer"
+                  className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
                 >
                   I agree to NestDesk&apos;s{" "}
-                  <TenantConsentLink className="text-white/80" /> and consent to my
-                  personal data being used for rental management purposes by{" "}
+                  <TenantConsentLink className="text-foreground/80" /> and consent to
+                  my personal data being used for rental management purposes by{" "}
                   {hostel.name} and NestDesk.
                 </Label>
               </div>
@@ -660,11 +663,11 @@ function TenantRegisterPageContent() {
                 )}
               </Button>
 
-              <p className="text-center text-xs text-white/50">
+              <p className="text-center text-xs text-muted-foreground/70">
                 Already have an account?{" "}
                 <Link
                   href={`/login?token=${token}&hostel=${hostelId}`}
-                  className="underline underline-offset-4 hover:text-white"
+                  className="underline underline-offset-4 hover:text-foreground"
                 >
                   Sign in
                 </Link>

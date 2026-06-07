@@ -1356,10 +1356,13 @@ export default function OwnerTenantsPage() {
                             {tenant.hostel_name}
                           </span>
 
-                          {tenant.join_date ? (
+                          {(tenant.rent_start_date ?? tenant.join_date) ? (
                             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                               <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                              Joined {formatDate(tenant.join_date)}
+                              Rent start{" "}
+                              {formatDate(
+                                tenant.rent_start_date ?? tenant.join_date,
+                              )}
                             </span>
                           ) : null}
 
