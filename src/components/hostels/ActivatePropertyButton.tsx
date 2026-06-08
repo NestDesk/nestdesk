@@ -59,6 +59,7 @@ export function ActivatePropertyButton({
       }
 
       toast.success(payload.message ?? "Property activated.");
+      window.dispatchEvent(new CustomEvent("hostel-status-changed"));
       router.refresh();
     } catch {
       toast.error("Network error. Please try again.");

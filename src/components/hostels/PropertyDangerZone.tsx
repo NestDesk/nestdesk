@@ -52,6 +52,7 @@ export function PropertyDangerZone({ hostelId, hostelName, isActive }: Props) {
         return;
       }
       toast.success(payload.message ?? "Property deactivated.");
+      window.dispatchEvent(new CustomEvent("hostel-status-changed"));
       setDeactivateOpen(false);
       router.refresh();
     } catch {

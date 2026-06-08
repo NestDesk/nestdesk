@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { validateSupabaseEnv } from "./lib/supabase/env-check";
+import { createAdminClient } from "./lib/supabase/admin";
+import { normalizeOwnerPlan } from "./lib/subscriptions";
+
+const COMPANY_ADMIN_EMAIL = "support@nestdesk.in";
 
 const PUBLIC_PATHS = [
   "/",
@@ -20,12 +24,29 @@ const AUTH_ONLY_PATHS = [
   "/tenant/register",
 ];
 
+const FREE_PLAN_ALLOWED_PATHS = [
+  "/dashboard",
+  "/dashboard/tenants",
+  "/dashboard/payments",
+  "/dashboard/subscriptions",
+  "/dashboard/hostels",
+  "/dashboard/profile",
+  "/dashboard/settings",
+];
+
+function isFreePlanAllowedPath(pathname: string) {
+  return FREE_PLAN_ALLOWED_PATHS.some(
+    (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`),
+  );
+}
+
 function shouldBypassAuthCheck(pathname: string) {
   return (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/join/") ||
+    pathname.startsWith("/api/admin/") ||
     pathname === "/api/tenant/register"
   );
 }
@@ -81,11 +102,54 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth-only pages
   if (isLoggedIn && AUTH_ONLY_PATHS.includes(pathname)) {
-    // /tenant/register → send to tenant portal; others → owner dashboard
-    const dest = pathname.startsWith("/tenant/")
-      ? "/tenant/dashboard"
-      : "/dashboard";
+    let dest: string;
+    if (pathname.startsWith("/tenant/")) {
+      dest = "/tenant/dashboard";
+    } else if (user.email === COMPANY_ADMIN_EMAIL) {
+      dest = "/admin";
+    } else {
+      dest = "/dashboard";
+    }
     return NextResponse.redirect(new URL(dest, request.url));
+  }
+
+  // Company admin: redirect away from owner/tenant areas into /admin
+  if (isLoggedIn && user.email === COMPANY_ADMIN_EMAIL) {
+    if (
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/tenant") ||
+      pathname.startsWith("/onboarding") ||
+      pathname.startsWith("/subscriptions")
+    ) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+  }
+
+  // Non-admin: block access to /admin
+  if (
+    isLoggedIn &&
+    user.email !== COMPANY_ADMIN_EMAIL &&
+    pathname.startsWith("/admin")
+  ) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (
+    isLoggedIn &&
+    user.email !== COMPANY_ADMIN_EMAIL &&
+    pathname.startsWith("/dashboard") &&
+    !isFreePlanAllowedPath(pathname)
+  ) {
+    const admin = createAdminClient();
+    const { data: owner } = await admin
+      .from("owners")
+      .select("plan")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (owner && normalizeOwnerPlan(owner.plan) === "free") {
+      return NextResponse.redirect(new URL("/subscriptions", request.url));
+    }
   }
 
   // Protect non-public routes

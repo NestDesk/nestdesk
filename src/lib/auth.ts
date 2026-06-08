@@ -164,6 +164,12 @@ export async function exchangeAuthForSession(
 
 export async function resolveUserRedirectPath(userId: string) {
   const admin = createAdminClient();
+
+  const { data: userData } = await admin.auth.admin.getUserById(userId);
+  if (userData?.user?.email === "support@nestdesk.in") {
+    return "/admin";
+  }
+
   const { data: owner } = await admin
     .from("owners")
     .select("onboarding_completed")

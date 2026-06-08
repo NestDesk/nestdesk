@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
+import { normalizeOwnerPlan, getPlanConfig } from "../../../../lib/subscriptions";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
@@ -39,6 +40,7 @@ function getRoomStatusFromActiveCount(
 type OwnerContext = {
   ownerId: string;
   userId: string;
+  ownerPlan: string;
 };
 
 async function createSignedUrl(
@@ -78,7 +80,7 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
   const admin = createAdminClient();
   const { data: owner, error: ownerError } = await admin
     .from("owners")
-    .select("id")
+    .select("id, plan")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -90,7 +92,7 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
     return NextResponse.json({ error: "Owner account not found." }, { status: 403 });
   }
 
-  return { ownerId: owner.id, userId: user.id };
+  return { ownerId: owner.id, userId: user.id, ownerPlan: owner.plan ?? "free" };
 }
 
 export async function GET(
@@ -257,6 +259,32 @@ export async function PATCH(
         },
         { status: 400 },
       );
+    }
+
+    if (tenant.status !== "active") {
+      const planConfig = getPlanConfig(normalizeOwnerPlan(ctx.ownerPlan));
+      const { count: activeTenantCount, error: tenantCountError } = await admin
+        .from("tenants")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", ctx.ownerId)
+        .eq("status", "active")
+        .is("deleted_at", null);
+
+      if (tenantCountError) {
+        return NextResponse.json(
+          { error: tenantCountError.message },
+          { status: 500 },
+        );
+      }
+
+      if ((activeTenantCount ?? 0) >= planConfig.maxTenants) {
+        return NextResponse.json(
+          {
+            error: `Your current plan allows up to ${planConfig.maxTenants} active tenants. Upgrade your plan to activate more tenants.`,
+          },
+          { status: 403 },
+        );
+      }
     }
 
     if (!nextRoomId) {

@@ -47,6 +47,11 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  experimental: {
+    staleTimes: {
+      dynamic: 0,
+    },
+  },
   images: {
     remotePatterns: [
       {

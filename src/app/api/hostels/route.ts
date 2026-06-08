@@ -3,6 +3,7 @@ import https from "https";
 import { z } from "zod";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
+import { normalizeOwnerPlan, getPlanConfig } from "../../../lib/subscriptions";
 
 const createHostelSchema = z.object({
   hostelName: z.string().min(2).max(200),
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
 
   const ownerResult = await admin
     .from("owners")
-    .select("id")
+    .select("id, plan")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -207,6 +208,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Complete onboarding before adding properties." },
       { status: 409 },
+    );
+  }
+
+  const ownerPlanConfig = getPlanConfig(normalizeOwnerPlan(ownerResult.data?.plan));
+  const { count: existingHostelCount, error: hostelCountError } = await admin
+    .from("hostels")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId);
+
+  if (hostelCountError) {
+    return NextResponse.json({ error: hostelCountError.message }, { status: 500 });
+  }
+
+  if ((existingHostelCount ?? 0) >= ownerPlanConfig.maxProperties) {
+    return NextResponse.json(
+      {
+        error: `Your current plan allows up to ${ownerPlanConfig.maxProperties} propert${
+          ownerPlanConfig.maxProperties === 1 ? "y" : "ies"
+        }. Upgrade your plan to add more properties.`,
+      },
+      { status: 403 },
     );
   }
 

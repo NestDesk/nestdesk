@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { type OwnerPlan } from "../../lib/subscriptions";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -47,13 +48,29 @@ interface SidebarProps {
   mobile?: boolean;
   onNavigate?: () => void;
   isPhoneVerified: boolean;
+  currentPlan?: OwnerPlan;
 }
+
+const freePlanAllowedPages = new Set([
+  "/dashboard",
+  "/tenants",
+  "/payments",
+  "/subscriptions",
+  "/hostels",
+  "/profile",
+  "/settings",
+]);
+
+const isFreePlanAllowedSidebarHref = (href: string) =>
+  freePlanAllowedPages.has(href) ||
+  freePlanAllowedPages.has(href.split("/")[1] ? `/${href.split("/")[1]}` : href);
 
 export function Sidebar({
   collapsed = false,
   mobile = false,
   onNavigate,
   isPhoneVerified,
+  currentPlan,
 }: SidebarProps) {
   const pathname = usePathname();
   const [propertyWarning, setPropertyWarning] = useState<string | null>(null);
@@ -107,8 +124,15 @@ export function Sidebar({
 
     loadPropertyWarning();
 
+    const handleHostelStatusChanged = () => {
+      loadPropertyWarning();
+    };
+
+    window.addEventListener("hostel-status-changed", handleHostelStatusChanged);
+
     return () => {
       mounted = false;
+      window.removeEventListener("hostel-status-changed", handleHostelStatusChanged);
     };
   }, []);
 
@@ -150,6 +174,8 @@ export function Sidebar({
             const showUnverifiedWarning = label === "My Profile" && !isPhoneVerified;
             const showPropertyWarning =
               label === "My Properties" && Boolean(propertyWarning);
+            const isRestricted =
+              currentPlan === "free" && !isFreePlanAllowedSidebarHref(href);
 
             const navLink = (
               <Link
@@ -162,6 +188,7 @@ export function Sidebar({
                   pathname === href
                     ? "bg-gradient-to-r from-primary/80 to-blue-500/70 text-white shadow-md shadow-primary/20"
                     : "text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                  isRestricted && "opacity-60",
                 )}
               >
                 <div className="relative">

@@ -17,11 +17,23 @@ import { toast } from "sonner";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../../components/ui/card";
 import { Badge } from "../../../../components/ui/badge";
-import { Dialog, DialogContent, DialogTitle } from "../../../../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "../../../../components/ui/dialog";
 import { UploadDocType, processImageForUpload } from "../../../../lib/image-upload";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../../lib/aadhaar";
+import {
+  isValidAadhaarNumber,
+  normalizeAadhaarNumber,
+} from "../../../../lib/aadhaar";
 
 type TenantProfile = {
   id: string;
@@ -59,13 +71,6 @@ const DOC_LABELS: Record<UploadDocType, string> = {
   aadhar_front: "Aadhaar front image",
   aadhar_back: "Aadhaar back image",
   alternate_id: "Alternate government/institution ID",
-};
-
-const DOC_PREVIEW_KEY: Record<UploadDocType, keyof TenantProfile> = {
-  profile_photo: "profile_photo_url",
-  aadhar_front: "aadhar_front_url",
-  aadhar_back: "aadhar_back_url",
-  alternate_id: "alternate_id_url",
 };
 
 const STATUS_CONFIG: Record<
@@ -206,6 +211,32 @@ export default function TenantProfilePage() {
     }
   }
 
+  async function refreshCompletion() {
+    try {
+      const res = await fetch("/api/tenant/profile", { cache: "no-store" });
+      const j = (await res.json()) as { tenant?: TenantProfile; error?: string };
+      if (j.tenant) {
+        setProfile((prev) =>
+          prev
+            ? {
+                ...prev,
+                profile_photo_url: j.tenant!.profile_photo_url,
+                aadhar_front_url: j.tenant!.aadhar_front_url,
+                aadhar_back_url: j.tenant!.aadhar_back_url,
+                alternate_id_url: j.tenant!.alternate_id_url,
+                profile_completion_percentage:
+                  j.tenant!.profile_completion_percentage,
+                profile_completion_missing: j.tenant!.profile_completion_missing,
+                profile_completion_counts: j.tenant!.profile_completion_counts,
+              }
+            : prev,
+        );
+      }
+    } catch {
+      // silent — completion display is best-effort
+    }
+  }
+
   async function handleUpload(docType: UploadDocType, file: File) {
     setUploadingDoc(docType);
     try {
@@ -225,17 +256,8 @@ export default function TenantProfilePage() {
         return;
       }
 
-      const key = DOC_PREVIEW_KEY[docType];
-      setProfile((prev) =>
-        prev
-          ? {
-              ...prev,
-              [key]: json.signedUrl ?? prev[key],
-            }
-          : prev,
-      );
-
       toast.success(`${DOC_LABELS[docType]} uploaded successfully.`);
+      await refreshCompletion();
     } catch {
       toast.error("Could not process this image. Try a clearer photo.");
     } finally {
@@ -257,29 +279,16 @@ export default function TenantProfilePage() {
   const StatusIcon = statusCfg.icon;
   const completion = profile?.profile_completion_percentage ?? 0;
 
-  const normalizedFullName = fullName.trim();
   const normalizedPhone = phone.trim();
-  const normalizedInstitutionName = institutionName.trim();
   const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
-  const initialAadhaar = normalizeAadhaarNumber(profile?.aadhar_number ?? "");
   const isAadhaarValid =
     !normalizedAadhaar || isValidAadhaarNumber(normalizedAadhaar);
-  const hasChanges = Boolean(profile)
-    ? isAccountActive
-      ? normalizedPhone !== (profile?.phone ?? "")
-      : normalizedFullName !== (profile?.full_name ?? "") ||
-        normalizedPhone !== (profile?.phone ?? "") ||
-        occupationType !== (profile?.occupation_type ?? "student") ||
-        normalizedInstitutionName !== (profile?.institution_name ?? "") ||
-        normalizedAadhaar !== initialAadhaar
-    : false;
 
   const canSave =
     !saving &&
     Boolean(normalizedPhone) &&
     /^\d{10}$/.test(normalizedPhone) &&
-    isAadhaarValid &&
-    hasChanges;
+    isAadhaarValid;
 
   function UploadBlock({
     docType,
@@ -332,7 +341,7 @@ export default function TenantProfilePage() {
             ) : (
               <Camera className="h-3.5 w-3.5" />
             )}
-            {uploadDisabled ? "Upload disabled" : preview ? "Replace" : "Upload"}
+            {uploadDisabled ? "Uploading..." : preview ? "Replace" : "Upload"}
             <input
               type="file"
               accept="image/*"

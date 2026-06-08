@@ -3,7 +3,6 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 
 type SupabaseResponse<T> = { data: T | null; error: unknown };
-type HostelSummary = { id: string; name: string };
 type MaintenanceRequestRecord = {
   id: string;
   hostel_id: string;
