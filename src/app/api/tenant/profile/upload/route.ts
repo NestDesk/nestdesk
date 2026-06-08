@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;

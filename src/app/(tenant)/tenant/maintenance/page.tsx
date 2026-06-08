@@ -15,13 +15,13 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateInIndia } from "@/lib/date";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { formatDateInIndia } from "../../../../lib/date";
+import { Badge } from "../../../../components/ui/badge";
+import { Button } from "../../../../components/ui/button";
+import { Card, CardContent } from "../../../../components/ui/card";
+import { Input } from "../../../../components/ui/input";
+import { Label } from "../../../../components/ui/label";
+import { cn } from "../../../../lib/utils";
 
 type Request = {
   id: string;

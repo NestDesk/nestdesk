@@ -36,12 +36,12 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { ReportChart } from "@/components/reports/ReportChart";
-import { exportToCSV } from "@/lib/reports/exportUtils";
+import { cn } from "../../../lib/utils";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { DatePicker } from "../../../components/ui/DatePicker";
+import { ReportChart } from "../../../components/reports/ReportChart";
+import { exportToCSV } from "../../../lib/reports/exportUtils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 
@@ -92,9 +92,12 @@ interface OccupancyKPI {
 }
 interface OccupancyChartRow {
   property: string;
-  totalBeds: number;
-  occupiedBeds: number;
-  vacantBeds: number;
+  totalRooms: number;
+  occupiedFullRooms: number;
+  occupiedPartialRooms: number;
+  inactiveRooms: number;
+  maintenanceRooms: number;
+  vacantRooms: number;
 }
 interface OccupancyRow {
   id: string;
@@ -240,7 +243,9 @@ const STATUS_COLORS: Record<string, string> = {
     "border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-500/40 dark:bg-teal-500/15 dark:text-teal-300",
   closed:
     "border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-500/40 dark:bg-zinc-500/15 dark:text-zinc-300",
-  occupied:
+  occupied_full:
+    "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/15 dark:text-sky-300",
+  occupied_partial:
     "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300",
   vacant:
     "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
@@ -248,6 +253,14 @@ const STATUS_COLORS: Record<string, string> = {
     "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
   inactive:
     "border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-500/40 dark:bg-zinc-500/15 dark:text-zinc-300",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  occupied_full: "Fully occupied",
+  occupied_partial: "Partially occupied",
+  vacant: "Vacant",
+  maintenance: "Maintenance",
+  inactive: "Inactive",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -258,7 +271,7 @@ function StatusBadge({ status }: { status: string }) {
         STATUS_COLORS[status] ?? "border-zinc-200 bg-zinc-50 text-zinc-600",
       )}
     >
-      {status.replace(/_/g, " ")}
+      {STATUS_LABELS[status] ?? status.replace(/_/g, " ")}
     </span>
   );
 }
@@ -608,18 +621,35 @@ function OccupancyTab({ isDark }: { isDark: boolean }) {
 
       {chart.length > 0 && (
         <div className="rounded-xl border bg-card shadow-sm p-4">
-          <p className="text-sm font-semibold mb-3">Occupancy by Property</p>
+          <p className="text-sm font-semibold mb-3">Room Status by Property</p>
           <ReportChart
             id="occ-chart"
             type="bar"
-            stacked
+            stacked={false}
             isDark={isDark}
             categories={chart.map((c) => c.property)}
             series={[
-              { name: "Occupied", data: chart.map((c) => c.occupiedBeds) },
-              { name: "Vacant", data: chart.map((c) => c.vacantBeds) },
+              { name: "Total Rooms", data: chart.map((c) => c.totalRooms) },
+              {
+                name: "Fully occupied",
+                data: chart.map((c) => c.occupiedFullRooms),
+              },
+              {
+                name: "Partially occupied",
+                data: chart.map((c) => c.occupiedPartialRooms),
+              },
+              { name: "Inactive", data: chart.map((c) => c.inactiveRooms) },
+              { name: "Maintenance", data: chart.map((c) => c.maintenanceRooms) },
+              { name: "Vacant", data: chart.map((c) => c.vacantRooms) },
             ]}
-            colors={["#6366f1", "#e2e8f0"]}
+            colors={[
+              "#6b7280",
+              "#2563eb",
+              "#38bdf8",
+              "#64748b",
+              "#f59e0b",
+              "#10b981",
+            ]}
             yFormatter={fmtNum}
           />
         </div>

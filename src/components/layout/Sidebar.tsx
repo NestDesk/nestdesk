@@ -19,13 +19,13 @@ import {
   Settings,
   AlertCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "../ui/tooltip";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -33,11 +33,11 @@ const navItems = [
   { label: "Tenants", href: "/tenants", icon: Users },
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Expenses", href: "/expenses", icon: WalletCards },
-  { label: "Reports", href: "/reports", icon: BarChart2 },
   { label: "Occupancy", href: "/occupancy", icon: BedDouble },
   { label: "Notices", href: "/notices", icon: Bell },
   { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "My Profile", href: "/profile", icon: UserCircle2 },
+  { label: "Reports", href: "/reports", icon: BarChart2 },
   { label: "Subscriptions & Usage", href: "/subscriptions", icon: Rocket },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

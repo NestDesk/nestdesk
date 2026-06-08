@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
 
 const createHostelSchema = z.object({
   hostelName: z.string().min(2).max(200),

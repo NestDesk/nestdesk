@@ -5,9 +5,9 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { formatDateInIndia } from "@/lib/date";
-import { formatPlanLabel, type OwnerPlan } from "@/lib/subscriptions";
+} from "../ui/accordion";
+import { formatDateInIndia } from "../../lib/date";
+import { formatPlanLabel, type OwnerPlan } from "../../lib/subscriptions";
 
 type SubscriptionEntry = {
   id: string;

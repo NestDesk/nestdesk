@@ -10,8 +10,8 @@ import {
   PanelLeft,
   PanelRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "../ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MobileNav } from "./MobileNav";
 import { Navbar } from "./Navbar";
 import {
@@ -19,7 +19,7 @@ import {
   normalizeOwnerPlan,
   type OwnerPlan,
   type SubscriptionStatus,
-} from "@/lib/subscriptions";
+} from "../../lib/subscriptions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +27,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createClient as createBrowserClient } from "@/lib/supabase/client";
+} from "../ui/dropdown-menu";
+import { createClient as createBrowserClient } from "../../lib/supabase/client";
 
 type TopBarUser = {
   fullName: string;

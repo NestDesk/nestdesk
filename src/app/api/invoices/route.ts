@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   calculateRent,
   getFirstBillingPeriod,
   getFullMonthPeriod,
   getFinalBillingPeriod,
-} from "@/lib/billing";
+} from "../../../lib/billing";
 
 // ─── Auth helper (mirrors pattern in /api/payments) ──────────────────────────
 

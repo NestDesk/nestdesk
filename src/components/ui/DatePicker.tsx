@@ -18,7 +18,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 interface DatePickerProps {
   id?: string;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeOwnerPlan } from "@/lib/subscriptions";
+import { createClient } from "../../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { normalizeOwnerPlan } from "../../../../../lib/subscriptions";
 
 export async function GET() {
   const supabase = await createClient();

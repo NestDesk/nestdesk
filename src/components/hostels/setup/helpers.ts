@@ -43,6 +43,11 @@ export const STATUS_CONFIG: Record<
     color: "bg-blue-500/10 text-blue-700 border-blue-400/40 dark:text-blue-300",
     dot: "bg-blue-500",
   },
+  occupied_partial: {
+    label: "Partially occupied",
+    color: "bg-sky-500/10 text-sky-700 border-sky-400/40 dark:text-sky-300",
+    dot: "bg-sky-500",
+  },
   maintenance: {
     label: "Maintenance",
     color: "bg-amber-500/10 text-amber-700 border-amber-400/40 dark:text-amber-300",

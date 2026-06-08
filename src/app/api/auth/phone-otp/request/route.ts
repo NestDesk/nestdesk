@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { normalizeIndianPhone } from "@/lib/phone";
-import { requestOwnerPhoneOtp } from "@/lib/otp/service";
+import { normalizeIndianPhone } from "../../../../../lib/phone";
+import { requestOwnerPhoneOtp } from "../../../../../lib/otp/service";
 
 const requestSchema = z.object({
   phone: z.string().min(10, "Enter a valid phone number."),

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import {
   Building2,
   CreditCard,
@@ -12,11 +12,11 @@ import {
   Phone,
   IndianRupee,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { formatDateInIndia } from "@/lib/date";
-import { calculateRent } from "@/lib/billing";
-import { formatPlanLabel, normalizeOwnerPlan } from "@/lib/subscriptions";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { formatDateInIndia } from "../../../lib/date";
+import { calculateRent } from "../../../lib/billing";
+import { formatPlanLabel, normalizeOwnerPlan } from "../../../lib/subscriptions";
 
 function formatDateToLocalISO(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
@@ -241,7 +241,10 @@ export default async function DashboardPage() {
             const roomCapacity = Number(room.capacity) || 0;
             const activeInRoom = tenantCountByRoom.get(room.id) ?? 0;
             const occupiedBedsInRoom = Math.min(activeInRoom, roomCapacity);
-            const roomIsOccupied = activeInRoom > 0 || room.status === "occupied";
+            const roomIsOccupied =
+              activeInRoom > 0 ||
+              room.status === "occupied" ||
+              room.status === "occupied_partial";
             const roomIsInactive = room.status === "inactive";
             const roomIsMaintenance = room.status === "maintenance";
 

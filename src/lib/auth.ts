@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { validateSupabaseEnv } from "./supabase/env-check";
+import { createAdminClient } from "./supabase/admin";
 
 type SupabaseCookie = {
   name: string;

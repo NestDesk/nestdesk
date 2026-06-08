@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+
+type SupabaseResponse<T> = { data: T | null; error: unknown };
+type HostelSummary = { id: string; name: string };
+type PaymentRecord = {
+  id: string;
+  tenant_id: string | null;
+  hostel_id: string;
+  amount: string | number | null;
+  month: string | null;
+  status: string;
+  method: string | null;
+  paid_on: string | null;
+  receipt_number: string | null;
+};
+type ExpenseRecord = {
+  id: string;
+  hostel_id: string;
+  amount: string | number | null;
+  expense_date: string | null;
+  category: string | null;
+  status: string;
+};
+type TenantRecord = { id: string; full_name: string; room_id: string | null };
+type RoomRecord = { id: string; room_number: string };
+type PaymentAmountRecord = { amount: string | number | null };
 
 async function getOwnerCtx() {
   const supabase = await createClient();
@@ -10,16 +35,16 @@ async function getOwnerCtx() {
   } = await supabase.auth.getUser();
   if (error || !user) return null;
   const admin = createAdminClient();
-  const { data: owner } = await admin
+  const { data: owner } = (await admin
     .from("owners")
     .select("id")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .maybeSingle()) as SupabaseResponse<{ id: string }>;
   if (!owner) return null;
-  const { data: hostels } = await admin
+  const { data: hostels } = (await admin
     .from("hostels")
     .select("id, name")
-    .eq("owner_id", owner.id);
+    .eq("owner_id", owner.id)) as SupabaseResponse<HostelSummary[]>;
   return {
     ownerId: owner.id,
     hostels: hostels ?? [],
@@ -66,14 +91,14 @@ export async function GET(req: NextRequest) {
     .in("hostel_id", scopedIds);
   if (startDate) payQ = payQ.gte("paid_on", startDate);
   if (endDate) payQ = payQ.lte("paid_on", endDate);
-  const { data: payments } = await payQ;
+  const { data: payments } = (await payQ) as SupabaseResponse<PaymentRecord[]>;
 
   // outstanding (no date filter)
-  const { data: unpaid } = await admin
+  const { data: unpaid } = (await admin
     .from("payments")
     .select("amount")
     .in("hostel_id", scopedIds)
-    .neq("status", "paid");
+    .neq("status", "paid")) as SupabaseResponse<PaymentAmountRecord[]>;
 
   // --- expenses ---
   let expQ = admin
@@ -84,18 +109,22 @@ export async function GET(req: NextRequest) {
     .in("hostel_id", scopedIds);
   if (startDate) expQ = expQ.gte("expense_date", startDate);
   if (endDate) expQ = expQ.lte("expense_date", endDate);
-  const { data: expenses } = await expQ;
+  const { data: expenses } = (await expQ) as SupabaseResponse<ExpenseRecord[]>;
 
   // --- tenant / room names for table ---
   const tIds = Array.from(
-    new Set((payments ?? []).map((p) => p.tenant_id).filter(Boolean)),
+    new Set(
+      (payments ?? [])
+        .map((p) => p.tenant_id)
+        .filter((p): p is string => Boolean(p)),
+    ),
   );
   const tMap = new Map<string, { full_name: string; room_id: string | null }>();
   if (tIds.length) {
-    const { data: tenants } = await admin
+    const { data: tenants } = (await admin
       .from("tenants")
       .select("id, full_name, room_id")
-      .in("id", tIds);
+      .in("id", tIds)) as SupabaseResponse<TenantRecord[]>;
     (tenants ?? []).forEach((t) =>
       tMap.set(t.id, { full_name: t.full_name, room_id: t.room_id }),
     );
@@ -109,10 +138,10 @@ export async function GET(req: NextRequest) {
   );
   const rMap = new Map<string, string>();
   if (rIds.length) {
-    const { data: rooms } = await admin
+    const { data: rooms } = (await admin
       .from("rooms")
       .select("id, room_number")
-      .in("id", rIds);
+      .in("id", rIds)) as SupabaseResponse<RoomRecord[]>;
     (rooms ?? []).forEach((r) => rMap.set(r.id, r.room_number));
   }
 
@@ -152,7 +181,7 @@ export async function GET(req: NextRequest) {
 
   // --- table rows ---
   const table = (payments ?? []).map((p) => {
-    const t = tMap.get(p.tenant_id);
+    const t = p.tenant_id ? tMap.get(p.tenant_id) : undefined;
     return {
       id: p.id,
       tenant_name: t?.full_name ?? "—",

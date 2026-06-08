@@ -10,7 +10,7 @@ import {
   applySupabaseCookies,
   exchangeAuthForSession,
   resolveUserRedirectPath,
-} from "@/lib/auth";
+} from "../../../lib/auth";
 
 const RESET_PASSWORD_PATH = "/reset-password";
 

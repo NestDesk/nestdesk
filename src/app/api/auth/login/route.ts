@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { checkLoginRateLimit, logLoginAttempt } from "@/lib/rate-limiter";
+import { checkLoginRateLimit, logLoginAttempt } from "../../../../lib/rate-limiter";
 import {
   applySupabaseCookies,
   loginWithEmailPassword,
   resolveUserRedirectPath,
-} from "@/lib/auth";
+} from "../../../../lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email(),

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { normalizeIndianPhone } from "@/lib/phone";
-import { verifyOwnerPhoneOtp } from "@/lib/otp/service";
-import { createPhoneVerificationToken } from "@/lib/otp/token";
+import { normalizeIndianPhone } from "../../../../../lib/phone";
+import { verifyOwnerPhoneOtp } from "../../../../../lib/otp/service";
+import { createPhoneVerificationToken } from "../../../../../lib/otp/token";
 
 const verifySchema = z.object({
   phone: z.string().min(10, "Enter a valid phone number."),

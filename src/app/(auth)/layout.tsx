@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { Navbar, NavbarLogo } from "@/components/layout/Navbar";
+import { Button } from "../../components/ui/button";
+import { ThemeToggle } from "../../components/layout/ThemeToggle";
+import { Navbar, NavbarLogo } from "../../components/layout/Navbar";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (

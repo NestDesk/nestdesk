@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 import {
   applySupabaseCookies,
   isExistingUserError,
   registerWithEmailPassword,
-} from "@/lib/auth";
+} from "../../../../lib/auth";
 
 function buildValidationDetails(issues: z.ZodIssue[]) {
   return issues.map((issue) => ({

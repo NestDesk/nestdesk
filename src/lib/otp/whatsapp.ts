@@ -1,4 +1,4 @@
-import { sendOtpViaMsg91 } from "@/lib/otp/providers/msg91";
+import { sendOtpViaMsg91 } from "./providers/msg91";
 
 export interface SendWhatsAppOtpInput {
   phoneE164: string;

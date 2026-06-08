@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../../lib/aadhaar";
 import {
   applySupabaseCookies,
   isExistingUserError,
   registerWithEmailPassword,
-} from "@/lib/auth";
+} from "../../../../lib/auth";
 
 function getClientIp(req: NextRequest): string {
   return (

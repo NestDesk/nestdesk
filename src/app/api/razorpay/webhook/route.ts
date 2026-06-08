@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { computeSubscriptionEndDate, normalizeOwnerPlan } from "@/lib/subscriptions";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { computeSubscriptionEndDate, normalizeOwnerPlan } from "../../../../lib/subscriptions";
 
 type RazorpayWebhookPayload = {
   event?: string;

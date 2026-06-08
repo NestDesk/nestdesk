@@ -1,19 +1,19 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Navbar, NavbarLogo } from "@/components/layout/Navbar";
-import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import HeroSvg from "@/components/layout/HeroSvg";
-import { LandingMobileNav } from "@/components/layout/LandingMobileNav";
+import { Button } from "../components/ui/button";
+import { Navbar, NavbarLogo } from "../components/layout/Navbar";
+import { Badge } from "../components/ui/badge";
+import { ThemeToggle } from "../components/layout/ThemeToggle";
+import HeroSvg from "../components/layout/HeroSvg";
+import { LandingMobileNav } from "../components/layout/LandingMobileNav";
 import {
   LandingAccountMenu,
   type LandingAccountUser,
-} from "@/components/layout/LandingAccountMenu";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
-import { LegalPolicyLauncher } from "@/components/legal/LegalPolicyLauncher";
-import { PricingSection } from "@/components/layout/PricingSection";
+} from "../components/layout/LandingAccountMenu";
+import { Card, CardContent } from "../components/ui/card";
+import { Separator } from "../components/ui/separator";
+import { createClient } from "../lib/supabase/server";
+import { LegalPolicyLauncher } from "../components/legal/LegalPolicyLauncher";
+import { PricingSection } from "../components/layout/PricingSection";
 import {
   Building2,
   Zap,
@@ -520,14 +520,14 @@ export default async function LandingPage() {
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-foreground">Contact</h4>
                 <div className="space-y-3 text-sm text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="mt-1 h-10 w-10 text-primary" />
+                  <div className="flex items-center gap-2">
+                    <MapPin className="shrink-0 h-4 w-4 text-primary" />
                     <p>
                       3/45 Vikrant Khand, Gomtinagar, Lucknow, Uttar Pradesh, India
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-primary" />
+                    <Phone className="shrink-0 h-4 w-4 text-primary" />
                     <Link
                       href="tel:+917081335246"
                       className="transition-colors hover:text-foreground"

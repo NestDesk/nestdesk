@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button";
 import { LegalPolicyDialog } from "./LegalPolicyDialog";
 import type { LegalPolicyKey } from "./legal-policy-content";
 

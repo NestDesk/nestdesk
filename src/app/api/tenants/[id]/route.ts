@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
@@ -24,6 +24,17 @@ const updateTenantSchema = z.object({
   rentStartDate: z.string().date().nullable().optional(),
   moveOutDate: z.string().date().nullable().optional(),
 });
+
+type RoomOccupancyStatus = "vacant" | "occupied" | "occupied_partial";
+
+function getRoomStatusFromActiveCount(
+  activeCount: number,
+  capacity: number,
+): RoomOccupancyStatus {
+  if (activeCount <= 0) return "vacant";
+  if (activeCount >= capacity) return "occupied";
+  return "occupied_partial";
+}
 
 type OwnerContext = {
   ownerId: string;
@@ -296,6 +307,9 @@ export async function PATCH(
     nextMoveOutDate = null;
   }
 
+  let nextRoomCapacity = 0;
+  let nextRoomOccupantCount = 0;
+
   if (nextRoomId) {
     const { data: room, error: roomError } = await admin
       .from("rooms")
@@ -343,6 +357,9 @@ export async function PATCH(
         { status: 409 },
       );
     }
+
+    nextRoomCapacity = room.capacity;
+    nextRoomOccupantCount = (activeOccupantCount ?? 0) + 1;
   }
 
   const updatePayload: {
@@ -388,25 +405,53 @@ export async function PATCH(
   }
 
   if (previousRoomId && previousRoomId !== nextRoomId) {
-    const { count: remainingActiveTenants } = await admin
+    const { count: remainingActiveTenants, error: remainingError } = await admin
       .from("tenants")
       .select("id", { count: "exact", head: true })
       .eq("room_id", previousRoomId)
       .eq("status", "active")
       .is("deleted_at", null);
 
-    if (!remainingActiveTenants || remainingActiveTenants === 0) {
-      await admin
-        .from("rooms")
-        .update({ status: "vacant", updated_at: new Date().toISOString() })
-        .eq("id", previousRoomId);
+    if (remainingError) {
+      return NextResponse.json({ error: remainingError.message }, { status: 500 });
     }
+
+    const { data: previousRoom, error: previousRoomError } = await admin
+      .from("rooms")
+      .select("capacity, status")
+      .eq("id", previousRoomId)
+      .maybeSingle();
+
+    if (previousRoomError) {
+      return NextResponse.json(
+        { error: previousRoomError.message },
+        { status: 500 },
+      );
+    }
+
+    const previousRoomStatus =
+      previousRoom?.status === "inactive" || previousRoom?.status === "maintenance"
+        ? previousRoom.status
+        : getRoomStatusFromActiveCount(
+            remainingActiveTenants ?? 0,
+            previousRoom?.capacity ?? 1,
+          );
+
+    await admin
+      .from("rooms")
+      .update({ status: previousRoomStatus, updated_at: new Date().toISOString() })
+      .eq("id", previousRoomId);
   }
 
   if (nextStatus === "active" && nextRoomId) {
+    const nextRoomStatus = getRoomStatusFromActiveCount(
+      nextRoomOccupantCount,
+      nextRoomCapacity || 1,
+    );
+
     await admin
       .from("rooms")
-      .update({ status: "occupied", updated_at: new Date().toISOString() })
+      .update({ status: nextRoomStatus, updated_at: new Date().toISOString() })
       .eq("id", nextRoomId);
   }
 

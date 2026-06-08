@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+
+type SupabaseResponse<T> = { data: T | null; error: unknown };
+type HostelSummary = { id: string; name: string };
+type MaintenanceRequestRecord = {
+  id: string;
+  hostel_id: string;
+  room_id: string | null;
+  title: string;
+  category: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+type RoomRecord = { id: string; room_number: string };
 
 async function getOwnerCtx() {
   const supabase = await createClient();
@@ -61,17 +76,19 @@ export async function GET(req: NextRequest) {
     .is("deleted_at", null);
   if (startDate) q = q.gte("created_at", startDate);
   if (endDate) q = q.lte("created_at", endDate + "T23:59:59");
-  const { data: requests } = await q;
+  const { data: requests } = (await q) as SupabaseResponse<
+    MaintenanceRequestRecord[]
+  >;
 
   const rIds = Array.from(
     new Set((requests ?? []).map((r) => r.room_id).filter((x): x is string => !!x)),
   );
   const rMap = new Map<string, string>();
   if (rIds.length) {
-    const { data: rooms } = await admin
+    const { data: rooms } = (await admin
       .from("rooms")
       .select("id, room_number")
-      .in("id", rIds);
+      .in("id", rIds)) as SupabaseResponse<RoomRecord[]>;
     (rooms ?? []).forEach((r) => rMap.set(r.id, r.room_number));
   }
 

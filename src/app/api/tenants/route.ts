@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { getTenantProfileCompletion } from "../../../lib/tenant-profile-completion";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 

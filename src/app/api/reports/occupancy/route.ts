@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
+type SupabaseResponse<T> = { data: T | null; error: unknown };
 type OccupancyTenant = {
   id: string;
   hostel_id: string;
@@ -10,6 +11,13 @@ type OccupancyTenant = {
   status: string;
   rent_start_date: string | null;
   moved_out_at: string | null;
+};
+type RoomRecord = {
+  id: string;
+  hostel_id: string;
+  room_number: string;
+  capacity: number | string | null;
+  status: string;
 };
 
 async function getOwnerCtx() {
@@ -69,23 +77,21 @@ export async function GET(req: NextRequest) {
   }
 
   // rooms
-  const { data: rooms } = await admin
+  const { data: rooms } = (await admin
     .from("rooms")
     .select("id, hostel_id, room_number, capacity, status")
     .in("hostel_id", scopedIds)
-    .is("deleted_at", null);
+    .is("deleted_at", null)) as SupabaseResponse<RoomRecord[]>;
 
   // tenants
-  const { data: allTenants } = await admin
+  const { data: allTenants } = (await admin
     .from("tenants")
     .select(
       "id, hostel_id, room_id, full_name, status, rent_start_date, moved_out_at",
     )
-    .in("hostel_id", scopedIds);
+    .in("hostel_id", scopedIds)) as SupabaseResponse<OccupancyTenant[]>;
 
-  const tenants = ((allTenants ?? []) as OccupancyTenant[]).filter(
-    (t) => t.status !== "rejected",
-  );
+  const tenants = (allTenants ?? []).filter((t) => t.status !== "rejected");
 
   const activeTenants = tenants.filter((t) => t.status === "active");
   const now = new Date();
@@ -121,16 +127,67 @@ export async function GET(req: NextRequest) {
   const vacancyRate =
     totalBeds > 0 ? Math.round(((totalBeds - occupiedBeds) / totalBeds) * 100) : 0;
 
-  // per-property chart
+  function getRoomOccupancyState(
+    status: string,
+    activeCount: number,
+    capacity: number,
+  ) {
+    if (status === "inactive") return "inactive";
+    if (status === "maintenance") return "maintenance";
+    if (activeCount <= 0) return "vacant";
+    if (activeCount >= capacity) return "occupied_full";
+    return "occupied_partial";
+  }
+
+  const tenantCountByRoom = new Map<string, number>();
+  for (const tenant of activeTenants) {
+    if (!tenant.room_id) continue;
+    tenantCountByRoom.set(
+      tenant.room_id,
+      (tenantCountByRoom.get(tenant.room_id) ?? 0) + 1,
+    );
+  }
+
+  // per-property chart with room status breakdown
   const chart = scopedIds.map((hid) => {
     const hRooms = (rooms ?? []).filter((r) => r.hostel_id === hid);
-    const hBeds = hRooms.reduce((s, r) => s + Number(r.capacity), 0);
-    const hOccupied = activeTenants.filter((t) => t.hostel_id === hid).length;
+    let totalRooms = 0;
+    let occupiedFullRooms = 0;
+    let occupiedPartialRooms = 0;
+    let inactiveRooms = 0;
+    let maintenanceRooms = 0;
+    let vacantRooms = 0;
+
+    for (const room of hRooms) {
+      totalRooms += 1;
+      const activeInRoom = tenantCountByRoom.get(room.id) ?? 0;
+      const roomState = getRoomOccupancyState(
+        room.status,
+        activeInRoom,
+        Number(room.capacity) || 0,
+      );
+
+      if (roomState === "inactive") {
+        inactiveRooms += 1;
+      } else if (roomState === "maintenance") {
+        maintenanceRooms += 1;
+      } else if (roomState === "occupied_full") {
+        occupiedFullRooms += 1;
+      } else if (roomState === "occupied_partial") {
+        occupiedPartialRooms += 1;
+      } else {
+        vacantRooms += 1;
+      }
+    }
+
     return {
       property: hostelNameMap.get(hid) ?? hid,
-      totalBeds: hBeds,
-      occupiedBeds: hOccupied,
-      vacantBeds: Math.max(0, hBeds - hOccupied),
+      totalRooms,
+      occupiedFullRooms,
+      occupiedPartialRooms,
+      inactiveRooms,
+      maintenanceRooms,
+      vacantRooms,
     };
   });
 
@@ -139,15 +196,24 @@ export async function GET(req: NextRequest) {
   for (const t of activeTenants)
     if (t.room_id)
       activeByRoom.set(t.room_id, (activeByRoom.get(t.room_id) ?? 0) + 1);
-  const table = (rooms ?? []).map((r) => ({
-    id: r.id,
-    room_number: r.room_number,
-    hostel_name: hostelNameMap.get(r.hostel_id) ?? "—",
-    capacity: Number(r.capacity),
-    occupied: activeByRoom.get(r.id) ?? 0,
-    vacant: Math.max(0, Number(r.capacity) - (activeByRoom.get(r.id) ?? 0)),
-    status: r.status,
-  }));
+  const table = (rooms ?? []).map((r) => {
+    const activeCount = activeByRoom.get(r.id) ?? 0;
+    const roomState = getRoomOccupancyState(
+      r.status,
+      activeCount,
+      Number(r.capacity) || 0,
+    );
+
+    return {
+      id: r.id,
+      room_number: r.room_number,
+      hostel_name: hostelNameMap.get(r.hostel_id) ?? "—",
+      capacity: Number(r.capacity),
+      occupied: activeCount,
+      vacant: Math.max(0, Number(r.capacity) - activeCount),
+      status: roomState,
+    };
+  });
 
   return NextResponse.json({
     data: {

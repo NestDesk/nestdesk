@@ -1,15 +1,15 @@
 import { Rocket } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   formatPlanLabel,
   normalizeOwnerPlan,
   type OwnerPlan,
   type SubscriptionStatus,
-} from "@/lib/subscriptions";
-import { SubscriptionsUsageClient } from "@/components/subscriptions/SubscriptionsUsageClient";
-import { SubscriptionHistoryClient } from "@/components/subscriptions/SubscriptionHistoryClient";
-import { PricingPlans } from "@/components/layout/PricingPlans";
+} from "../../../lib/subscriptions";
+import { SubscriptionsUsageClient } from "../../../components/subscriptions/SubscriptionsUsageClient";
+import { SubscriptionHistoryClient } from "../../../components/subscriptions/SubscriptionHistoryClient";
+import { PricingPlans } from "../../../components/layout/PricingPlans";
 
 type SubscriptionRow = {
   id: string;

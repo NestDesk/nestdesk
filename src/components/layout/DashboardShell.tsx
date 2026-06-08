@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
-import { IdleTimeoutEnforcer } from "@/components/auth/IdleTimeoutEnforcer";
+import { IdleTimeoutEnforcer } from "../auth/IdleTimeoutEnforcer";
 
 interface DashboardShellProps {
   children: React.ReactNode;

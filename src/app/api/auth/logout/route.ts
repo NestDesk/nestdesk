@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applySupabaseCookies, logoutFromSession } from "@/lib/auth";
+import { applySupabaseCookies, logoutFromSession } from "../../../../lib/auth";
 
 export async function POST(request: NextRequest) {
   const { cookiesToSet } = await logoutFromSession(request);

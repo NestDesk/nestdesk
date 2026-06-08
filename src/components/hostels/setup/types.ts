@@ -1,6 +1,11 @@
 // Shared types for the property setup wizard
 
-export type RoomStatus = "vacant" | "occupied" | "maintenance" | "inactive";
+export type RoomStatus =
+  | "vacant"
+  | "occupied"
+  | "occupied_partial"
+  | "maintenance"
+  | "inactive";
 
 export type OccupancyType = 1 | 2 | 3 | 4 | number;
 
@@ -15,7 +20,7 @@ export type Room = {
   floor_id: string;
   room_number: string;
   capacity: number;
-  rent_amount: number;
+  rent_amount: number | null;
   status: RoomStatus;
   created_at: string;
 };

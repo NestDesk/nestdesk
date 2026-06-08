@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import type { LandingAccountUser } from "@/components/layout/LandingAccountMenu";
+import { Button } from "../ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
+import type { LandingAccountUser } from "./LandingAccountMenu";
 
 const navLinks = [
   { label: "Features", href: "#features" },

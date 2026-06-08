@@ -1,13 +1,13 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateInIndia } from "@/lib/date";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { formatDateInIndia } from "../../lib/date";
 import {
   formatPlanLabel,
   getPlanConfig,
   normalizeOwnerPlan,
   type OwnerPlan,
-} from "@/lib/subscriptions";
+} from "../../lib/subscriptions";
 
 type SubscriptionSummary = {
   id: string;

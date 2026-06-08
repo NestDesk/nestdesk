@@ -6,7 +6,7 @@
  * IP is also checked independently (extra brute-force layer).
  */
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "./supabase/admin";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MINUTES = 15;

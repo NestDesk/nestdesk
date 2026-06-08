@@ -1,4 +1,4 @@
-import { toMsg91Mobile } from "@/lib/phone";
+import { toMsg91Mobile } from "../../phone";
 
 interface Msg91SendOtpInput {
   phoneE164: string;

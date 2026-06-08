@@ -13,9 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { BuildingBlueprint } from "./setup/BuildingBlueprint";
 import { FloorRoomGenerator } from "./setup/FloorRoomGenerator";
 import { ActivatePropertyButton } from "./ActivatePropertyButton";

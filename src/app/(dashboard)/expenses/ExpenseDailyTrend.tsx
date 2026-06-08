@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
-import { formatDateInIndia } from "@/lib/date";
+import { formatDateInIndia } from "../../../lib/date";
 import { useIsMobile } from "../../../hooks/use-mobile";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });

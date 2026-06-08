@@ -20,7 +20,7 @@ export type InvoicePayment = {
   notes?: string | null;
 };
 
-import { formatDateInIndia } from "@/lib/date";
+import { formatDateInIndia } from "./date";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {

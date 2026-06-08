@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Bell, CalendarDays, Loader2, Megaphone } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateInIndia } from "@/lib/date";
-import { Card, CardContent } from "@/components/ui/card";
+import { formatDateInIndia } from "../../../../lib/date";
+import { Card, CardContent } from "../../../../components/ui/card";
 
 type TenantNotice = {
   id: string;

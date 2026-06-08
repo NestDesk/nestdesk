@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_PAYMENT_MODES,
   EXPENSE_RECURRING_FREQUENCIES,
   EXPENSE_STATUSES,
-} from "@/lib/expenses";
+} from "../../../lib/expenses";
 
 type OwnerContext = {
   ownerId: string;

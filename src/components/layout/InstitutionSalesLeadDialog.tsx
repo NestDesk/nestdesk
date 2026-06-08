@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "../ui/dialog";
 
 type InstitutionSalesLeadDialogProps = {
   open: boolean;
@@ -126,8 +126,11 @@ export function InstitutionSalesLeadDialog({
       }
     }
 
-    if (!form.institutionName.trim()) {
-      errors.institutionName = "Institution name is required.";
+    if (
+      form.institutionName.trim().length > 0 &&
+      form.institutionName.trim().length < 2
+    ) {
+      errors.institutionName = "Institution name must be at least 2 characters.";
     }
 
     if (!form.propertyCount.trim()) {
@@ -192,7 +195,7 @@ export function InstitutionSalesLeadDialog({
           contactName: form.contactName,
           contactEmail: form.contactEmail,
           contactPhone: form.contactPhone,
-          institutionName: form.institutionName,
+          institutionName: form.institutionName.trim() || undefined,
           propertyCount: form.propertyCount ? Number(form.propertyCount) : undefined,
           tenantCount: form.tenantCount ? Number(form.tenantCount) : undefined,
           preferredTimeline: formatPreferredTimeline(
@@ -332,7 +335,9 @@ export function InstitutionSalesLeadDialog({
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="lead-institution-name">Institution name</Label>
+                <Label htmlFor="lead-institution-name">
+                  Institution name (optional)
+                </Label>
                 <Input
                   id="lead-institution-name"
                   value={form.institutionName}

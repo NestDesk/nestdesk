@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -15,10 +15,10 @@ import {
   User,
   Wrench,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateInIndia } from "@/lib/date";
-import { Badge } from "@/components/ui/badge";
-import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { formatDateInIndia } from "../../../../lib/date";
+import { Badge } from "../../../../components/ui/badge";
+import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 
 const STATUS_CONFIG = {
   pending: {

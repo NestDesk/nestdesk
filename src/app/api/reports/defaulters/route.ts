@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+
+type SupabaseResponse<T> = { data: T | null; error: unknown };
+type HostelSummary = { id: string; name: string };
+type OverduePaymentRecord = {
+  id: string;
+  tenant_id: string | null;
+  hostel_id: string;
+  amount: string | number | null;
+  month: string | null;
+  status: string;
+  paid_on: string | null;
+};
+type TenantContact = {
+  id: string;
+  full_name: string;
+  room_id: string | null;
+  phone: string | null;
+};
+type TenantMeta = Omit<TenantContact, "id">;
+type RoomRecord = { id: string; room_number: string };
 
 async function getOwnerCtx() {
   const supabase = await createClient();
@@ -16,10 +36,10 @@ async function getOwnerCtx() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (!owner) return null;
-  const { data: hostels } = await admin
+  const { data: hostels } = (await admin
     .from("hostels")
     .select("id, name")
-    .eq("owner_id", owner.id);
+    .eq("owner_id", owner.id)) as SupabaseResponse<HostelSummary[]>;
   return {
     ownerId: owner.id,
     hostels: hostels ?? [],
@@ -50,25 +70,24 @@ export async function GET(req: NextRequest) {
   }
 
   // All non-paid payments
-  const { data: overdue } = await admin
+  const { data: overdue } = (await admin
     .from("payments")
     .select("id, tenant_id, hostel_id, amount, month, status, paid_on")
     .in("hostel_id", scopedIds)
-    .neq("status", "paid");
+    .neq("status", "paid")) as SupabaseResponse<OverduePaymentRecord[]>;
 
   // tenant names
   const tIds = Array.from(
-    new Set((overdue ?? []).map((p) => p.tenant_id).filter(Boolean)),
+    new Set(
+      (overdue ?? []).map((p) => p.tenant_id).filter((p): p is string => Boolean(p)),
+    ),
   );
-  const tMap = new Map<
-    string,
-    { full_name: string; room_id: string | null; phone: string | null }
-  >();
+  const tMap = new Map<string, TenantMeta>();
   if (tIds.length) {
-    const { data: tenants } = await admin
+    const { data: tenants } = (await admin
       .from("tenants")
       .select("id, full_name, room_id, phone")
-      .in("id", tIds);
+      .in("id", tIds)) as SupabaseResponse<TenantContact[]>;
     (tenants ?? []).forEach((t) =>
       tMap.set(t.id, { full_name: t.full_name, room_id: t.room_id, phone: t.phone }),
     );
@@ -82,10 +101,10 @@ export async function GET(req: NextRequest) {
   );
   const rMap = new Map<string, string>();
   if (rIds.length) {
-    const { data: rooms } = await admin
+    const { data: rooms } = (await admin
       .from("rooms")
       .select("id, room_number")
-      .in("id", rIds);
+      .in("id", rIds)) as SupabaseResponse<RoomRecord[]>;
     (rooms ?? []).forEach((r) => rMap.set(r.id, r.room_number));
   }
 
@@ -98,7 +117,7 @@ export async function GET(req: NextRequest) {
       0,
       Math.round((now.getTime() - due.getTime()) / 86400000),
     );
-    const t = tMap.get(p.tenant_id);
+    const t = p.tenant_id ? tMap.get(p.tenant_id) : undefined;
     return {
       id: p.id,
       tenant_name: t?.full_name ?? "—",

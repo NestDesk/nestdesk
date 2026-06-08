@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "../../../../components/ui/badge";
+import { Card, CardContent } from "../../../../components/ui/card";
 import { CreditCard, Download, IndianRupee, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateInIndia } from "@/lib/date";
-import { printInvoice } from "@/lib/invoice";
-import { cn } from "@/lib/utils";
+import { formatDateInIndia } from "../../../../lib/date";
+import { printInvoice } from "../../../../lib/invoice";
+import { cn } from "../../../../lib/utils";
 
 type PaymentRow = {
   hostel_name: string;

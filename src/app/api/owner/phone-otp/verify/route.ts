@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { normalizeIndianPhone } from "@/lib/phone";
-import { verifyOwnerPhoneOtp } from "@/lib/otp/service";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { createClient } from "../../../../../lib/supabase/server";
+import { normalizeIndianPhone } from "../../../../../lib/phone";
+import { verifyOwnerPhoneOtp } from "../../../../../lib/otp/service";
 
 const verifySchema = z.object({
   phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number."),

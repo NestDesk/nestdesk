@@ -1,13 +1,10 @@
 -- ============================================================
--- NestDesk - Consolidated final schema
--- Purpose: ensure all required tables, columns, indexes, RLS, and storage policies
--- are present for the current development schema.
--- Safe to re-run in dev: uses IF NOT EXISTS / IF NOT EXISTS patterns.
+-- Dev_create_schema
+-- Purpose: create fresh app schema with tables, indexes, policies and triggers
 -- ============================================================
 
 BEGIN;
 
--- Ensure the migration session evaluates timestamps in India local time.
 SET TIME ZONE 'Asia/Kolkata';
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -47,7 +44,6 @@ BEGIN
 END;
 $$;
 
-DROP EVENT TRIGGER IF EXISTS trg_auto_enable_rls_new_tables;
 CREATE EVENT TRIGGER trg_auto_enable_rls_new_tables
 ON ddl_command_end
 WHEN TAG IN ('CREATE TABLE')
@@ -57,7 +53,7 @@ EXECUTE FUNCTION public.auto_enable_rls_on_new_tables();
 -- CORE TABLES
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS public.owners (
+CREATE TABLE public.owners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
@@ -81,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.owners (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_owners_user_id_unique
+CREATE INDEX idx_owners_user_id_unique
   ON public.owners(user_id);
 
 CREATE OR REPLACE FUNCTION public.current_owner_id()
@@ -97,7 +93,7 @@ AS $$
   LIMIT 1;
 $$;
 
-CREATE TABLE IF NOT EXISTS public.hostels (
+CREATE TABLE public.hostels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE RESTRICT,
   name TEXT NOT NULL,
@@ -116,18 +112,18 @@ CREATE TABLE IF NOT EXISTS public.hostels (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_hostels_owner_id
+CREATE INDEX idx_hostels_owner_id
   ON public.hostels(owner_id);
 
-CREATE INDEX IF NOT EXISTS idx_hostels_tenant_join_token
+CREATE INDEX idx_hostels_tenant_join_token
   ON public.hostels(tenant_join_token)
   WHERE tenant_join_token IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_hostels_property_code
+CREATE UNIQUE INDEX idx_hostels_property_code
   ON public.hostels(property_code)
   WHERE property_code IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS public.floors (
+CREATE TABLE public.floors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -136,34 +132,34 @@ CREATE TABLE IF NOT EXISTS public.floors (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_floors_hostel_id
+CREATE INDEX idx_floors_hostel_id
   ON public.floors(hostel_id);
 
-CREATE TABLE IF NOT EXISTS public.rooms (
+CREATE TABLE public.rooms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   floor_id UUID NOT NULL REFERENCES public.floors(id) ON DELETE CASCADE,
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE CASCADE,
   room_number TEXT NOT NULL,
   capacity INTEGER NOT NULL DEFAULT 1 CHECK (capacity > 0),
-  rent_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  rent_amount NUMERIC(10,2) DEFAULT NULL,
   status TEXT NOT NULL DEFAULT 'vacant'
-    CHECK (status IN ('vacant', 'occupied', 'maintenance', 'inactive')),
+    CHECK (status IN ('vacant', 'occupied', 'occupied_partial', 'maintenance', 'inactive')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_rooms_hostel_id
+CREATE INDEX idx_rooms_hostel_id
   ON public.rooms(hostel_id);
 
-CREATE INDEX IF NOT EXISTS idx_rooms_floor_id
+CREATE INDEX idx_rooms_floor_id
   ON public.rooms(floor_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_rooms_hostel_room_number_unique
+CREATE UNIQUE INDEX idx_rooms_hostel_room_number_unique
   ON public.rooms(hostel_id, room_number)
   WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS public.tenants (
+CREATE TABLE public.tenants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   auth_user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE RESTRICT,
@@ -194,21 +190,21 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_tenants_owner_id
+CREATE INDEX idx_tenants_owner_id
   ON public.tenants(owner_id);
 
-CREATE INDEX IF NOT EXISTS idx_tenants_hostel_id
+CREATE INDEX idx_tenants_hostel_id
   ON public.tenants(hostel_id);
 
-CREATE INDEX IF NOT EXISTS idx_tenants_room_id
+CREATE INDEX idx_tenants_room_id
   ON public.tenants(room_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_aadhar_number_unique
+CREATE UNIQUE INDEX idx_tenants_aadhar_number_unique
   ON public.tenants(aadhar_number)
   WHERE aadhar_number IS NOT NULL
     AND deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS public.payments (
+CREATE TABLE public.payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE RESTRICT,
@@ -230,20 +226,20 @@ CREATE TABLE IF NOT EXISTS public.payments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_receipt_number_unique
+CREATE UNIQUE INDEX idx_payments_receipt_number_unique
   ON public.payments(receipt_number)
   WHERE receipt_number IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_payments_tenant_id
+CREATE INDEX idx_payments_tenant_id
   ON public.payments(tenant_id);
 
-CREATE INDEX IF NOT EXISTS idx_payments_hostel_month
+CREATE INDEX idx_payments_hostel_month
   ON public.payments(hostel_id, month);
 
-CREATE INDEX IF NOT EXISTS idx_payments_paid_on
+CREATE INDEX idx_payments_paid_on
   ON public.payments(paid_on);
 
-CREATE TABLE IF NOT EXISTS public.notices (
+CREATE TABLE public.notices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE CASCADE,
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE RESTRICT,
@@ -256,14 +252,14 @@ CREATE TABLE IF NOT EXISTS public.notices (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_notices_hostel_id
+CREATE INDEX idx_notices_hostel_id
   ON public.notices(hostel_id);
 
-CREATE INDEX IF NOT EXISTS idx_notices_hostel_published
+CREATE INDEX idx_notices_hostel_published
   ON public.notices(hostel_id, is_published)
   WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS public.maintenance_requests (
+CREATE TABLE public.maintenance_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE RESTRICT,
   room_id UUID REFERENCES public.rooms(id) ON DELETE SET NULL,
@@ -277,10 +273,10 @@ CREATE TABLE IF NOT EXISTS public.maintenance_requests (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_maintenance_hostel_id
+CREATE INDEX idx_maintenance_hostel_id
   ON public.maintenance_requests(hostel_id);
 
-CREATE TABLE IF NOT EXISTS public.maintenance_request_comments (
+CREATE TABLE public.maintenance_request_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   maintenance_request_id UUID NOT NULL REFERENCES public.maintenance_requests(id) ON DELETE CASCADE,
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE RESTRICT,
@@ -289,13 +285,13 @@ CREATE TABLE IF NOT EXISTS public.maintenance_request_comments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_maintenance_request_comments_request_id
+CREATE INDEX idx_maintenance_request_comments_request_id
   ON public.maintenance_request_comments(maintenance_request_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_maintenance_request_comments_owner_id
+CREATE INDEX idx_maintenance_request_comments_owner_id
   ON public.maintenance_request_comments(owner_id, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS public.subscriptions (
+CREATE TABLE public.subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
   plan TEXT NOT NULL,
@@ -308,10 +304,10 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_subscriptions_owner_id
+CREATE INDEX idx_subscriptions_owner_id
   ON public.subscriptions(owner_id);
 
-CREATE TABLE IF NOT EXISTS public.invite_codes (
+CREATE TABLE public.invite_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE CASCADE,
@@ -322,13 +318,13 @@ CREATE TABLE IF NOT EXISTS public.invite_codes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_invite_codes_code_unique
+CREATE UNIQUE INDEX idx_invite_codes_code_unique
   ON public.invite_codes(code);
 
-CREATE INDEX IF NOT EXISTS idx_invite_codes_owner_id
+CREATE INDEX idx_invite_codes_owner_id
   ON public.invite_codes(owner_id);
 
-CREATE TABLE IF NOT EXISTS public.login_activity (
+CREATE TABLE public.login_activity (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   email TEXT NOT NULL,
@@ -339,16 +335,16 @@ CREATE TABLE IF NOT EXISTS public.login_activity (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_login_activity_email_created
+CREATE INDEX idx_login_activity_email_created
   ON public.login_activity(email, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_login_activity_ip_created
+CREATE INDEX idx_login_activity_ip_created
   ON public.login_activity(ip_address, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_login_activity_success_created
+CREATE INDEX idx_login_activity_success_created
   ON public.login_activity(success, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS public.audit_logs (
+CREATE TABLE public.audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES public.owners(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -362,13 +358,13 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created
+CREATE INDEX idx_audit_logs_user_created
   ON public.audit_logs(user_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_owner_created
+CREATE INDEX idx_audit_logs_owner_created
   ON public.audit_logs(owner_id, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS public.consent_records (
+CREATE TABLE public.consent_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   consent_type TEXT NOT NULL
@@ -379,10 +375,10 @@ CREATE TABLE IF NOT EXISTS public.consent_records (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_consent_records_user_type
+CREATE INDEX idx_consent_records_user_type
   ON public.consent_records(user_id, consent_type, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS public.data_deletion_requests (
+CREATE TABLE public.data_deletion_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requested_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
@@ -394,10 +390,10 @@ CREATE TABLE IF NOT EXISTS public.data_deletion_requests (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_data_deletion_requests_requested_by
+CREATE INDEX idx_data_deletion_requests_requested_by
   ON public.data_deletion_requests(requested_by, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS public.phone_otp_challenges (
+CREATE TABLE public.phone_otp_challenges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone_e164 TEXT NOT NULL,
   purpose TEXT NOT NULL,
@@ -408,13 +404,13 @@ CREATE TABLE IF NOT EXISTS public.phone_otp_challenges (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_phone_otp_lookup
+CREATE INDEX idx_phone_otp_lookup
   ON public.phone_otp_challenges(phone_e164, purpose, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_phone_otp_expires
+CREATE INDEX idx_phone_otp_expires
   ON public.phone_otp_challenges(expires_at);
 
-CREATE TABLE IF NOT EXISTS public.expenses (
+CREATE TABLE public.expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE RESTRICT,
@@ -468,22 +464,22 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_expenses_owner_date
+CREATE INDEX idx_expenses_owner_date
   ON public.expenses(owner_id, expense_date DESC);
 
-CREATE INDEX IF NOT EXISTS idx_expenses_hostel_date
+CREATE INDEX idx_expenses_hostel_date
   ON public.expenses(hostel_id, expense_date DESC)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_expenses_owner_category
+CREATE INDEX idx_expenses_owner_category
   ON public.expenses(owner_id, category)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_expenses_owner_status
+CREATE INDEX idx_expenses_owner_status
   ON public.expenses(owner_id, status)
   WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS public.owner_billing (
+CREATE TABLE public.owner_billing (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL UNIQUE REFERENCES public.owners(id) ON DELETE CASCADE,
   gst_number TEXT,
@@ -494,10 +490,10 @@ CREATE TABLE IF NOT EXISTS public.owner_billing (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_owner_billing_owner_id
+CREATE INDEX idx_owner_billing_owner_id
   ON public.owner_billing(owner_id);
 
-CREATE TABLE IF NOT EXISTS public.property_terms (
+CREATE TABLE public.property_terms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL UNIQUE REFERENCES public.hostels(id) ON DELETE CASCADE,
   content TEXT NOT NULL DEFAULT '',
@@ -505,10 +501,10 @@ CREATE TABLE IF NOT EXISTS public.property_terms (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_property_terms_hostel_id
+CREATE INDEX idx_property_terms_hostel_id
   ON public.property_terms(hostel_id);
 
-CREATE TABLE IF NOT EXISTS public.support_staff (
+CREATE TABLE public.support_staff (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
   hostel_id UUID REFERENCES public.hostels(id) ON DELETE SET NULL,
@@ -519,13 +515,13 @@ CREATE TABLE IF NOT EXISTS public.support_staff (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_support_staff_owner_id
+CREATE INDEX idx_support_staff_owner_id
   ON public.support_staff(owner_id);
 
-CREATE INDEX IF NOT EXISTS idx_support_staff_hostel_id
+CREATE INDEX idx_support_staff_hostel_id
   ON public.support_staff(hostel_id);
 
-CREATE TABLE IF NOT EXISTS public.property_billing (
+CREATE TABLE public.property_billing (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hostel_id UUID NOT NULL UNIQUE REFERENCES public.hostels(id) ON DELETE CASCADE,
   gst_number TEXT,
@@ -536,10 +532,10 @@ CREATE TABLE IF NOT EXISTS public.property_billing (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_property_billing_hostel_id
+CREATE INDEX idx_property_billing_hostel_id
   ON public.property_billing(hostel_id);
 
-CREATE TABLE IF NOT EXISTS public.invoices (
+CREATE TABLE public.invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE RESTRICT,
@@ -566,24 +562,24 @@ CREATE TABLE IF NOT EXISTS public.invoices (
   CONSTRAINT chk_occupied_cap CHECK (occupied_days <= days_in_month)
 );
 
-CREATE INDEX IF NOT EXISTS idx_invoices_tenant_id
+CREATE INDEX idx_invoices_tenant_id
   ON public.invoices (tenant_id);
 
-CREATE INDEX IF NOT EXISTS idx_invoices_hostel_id
+CREATE INDEX idx_invoices_hostel_id
   ON public.invoices (hostel_id);
 
-CREATE INDEX IF NOT EXISTS idx_invoices_billing_start
+CREATE INDEX idx_invoices_billing_start
   ON public.invoices (billing_start DESC);
 
-CREATE INDEX IF NOT EXISTS idx_invoices_status
+CREATE INDEX idx_invoices_status
   ON public.invoices (status)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_invoices_payment_id
+CREATE INDEX idx_invoices_payment_id
   ON public.invoices (payment_id)
   WHERE payment_id IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS public.payment_orders (
+CREATE TABLE public.payment_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
   plan TEXT NOT NULL CHECK (plan IN ('free','micro','starter','pro','institution')),
@@ -600,116 +596,28 @@ CREATE TABLE IF NOT EXISTS public.payment_orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_payment_orders_owner_id
+CREATE INDEX idx_payment_orders_owner_id
   ON public.payment_orders(owner_id);
 
-CREATE INDEX IF NOT EXISTS idx_payment_orders_status
+CREATE INDEX idx_payment_orders_status
   ON public.payment_orders(status);
 
-CREATE INDEX IF NOT EXISTS idx_payment_orders_razorpay_order_id
+CREATE INDEX idx_payment_orders_razorpay_order_id
   ON public.payment_orders(razorpay_order_id);
 
-DO $$
-BEGIN
-  IF to_regclass('public.owners') IS NOT NULL THEN
-    UPDATE public.owners
-      SET plan = CASE
-        WHEN plan IN ('business', 'enterprise') THEN 'institution'
-        WHEN plan = 'test' THEN 'free'
-        ELSE plan
-      END
-    WHERE plan IN ('test', 'business', 'enterprise');
-  END IF;
-
-  IF to_regclass('public.subscriptions') IS NOT NULL THEN
-    UPDATE public.subscriptions
-      SET plan = CASE
-        WHEN plan IN ('business', 'enterprise') THEN 'institution'
-        WHEN plan = 'test' THEN 'free'
-        ELSE plan
-      END
-    WHERE plan IN ('test', 'business', 'enterprise');
-  END IF;
-
-  IF to_regclass('public.payment_orders') IS NOT NULL THEN
-    UPDATE public.payment_orders
-      SET plan = CASE
-        WHEN plan IN ('business', 'enterprise') THEN 'institution'
-        WHEN plan = 'test' THEN 'free'
-        ELSE plan
-      END
-    WHERE plan IN ('test', 'business', 'enterprise');
-  END IF;
-END $$;
-
--- ============================================================
--- SCHEMA ALTERATIONS FOR LATER MIGRATIONS
--- ============================================================
-
-ALTER TABLE public.hostels
-  ADD COLUMN IF NOT EXISTS tenant_join_token TEXT,
-  ADD COLUMN IF NOT EXISTS property_code TEXT;
-
-ALTER TABLE public.tenants
-  ADD COLUMN IF NOT EXISTS agreed_rent_amount NUMERIC(10,2),
-  ADD COLUMN IF NOT EXISTS occupation_type TEXT,
-  ADD COLUMN IF NOT EXISTS institution_name TEXT,
-  ADD COLUMN IF NOT EXISTS aadhar_number TEXT,
-  ADD COLUMN IF NOT EXISTS profile_photo_path TEXT,
-  ADD COLUMN IF NOT EXISTS aadhar_front_path TEXT,
-  ADD COLUMN IF NOT EXISTS aadhar_back_path TEXT,
-  ADD COLUMN IF NOT EXISTS alternate_id_path TEXT,
-  ADD COLUMN IF NOT EXISTS first_activated_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS gender TEXT,
-  ADD COLUMN IF NOT EXISTS rent_start_date DATE;
-
-ALTER TABLE public.notices
-  ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
-
-ALTER TABLE public.payments
-  ADD COLUMN IF NOT EXISTS paid_on DATE NOT NULL DEFAULT CURRENT_DATE,
-  ADD COLUMN IF NOT EXISTS billing_start DATE,
-  ADD COLUMN IF NOT EXISTS billing_end DATE;
-
-ALTER TABLE public.maintenance_requests
-  DROP CONSTRAINT IF EXISTS maintenance_requests_status_check;
-
-ALTER TABLE public.maintenance_requests
-  ADD CONSTRAINT maintenance_requests_status_check
-  CHECK (status IN (
-    'open',
-    'in_progress',
-    'rejected',
-    'completed',
-    'resolved',
-    'closed'
-  ));
-
-ALTER TABLE public.owners
-  DROP CONSTRAINT IF EXISTS owners_plan_check;
-ALTER TABLE public.owners
-  ADD COLUMN IF NOT EXISTS unused_credit_paise INT NOT NULL DEFAULT 0;
-ALTER TABLE public.owners
-  ADD CONSTRAINT owners_plan_check
-    CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution'));
-
-ALTER TABLE public.payment_orders
-  DROP CONSTRAINT IF EXISTS payment_orders_plan_check;
-ALTER TABLE public.payment_orders
-  ADD CONSTRAINT payment_orders_plan_check
-    CHECK (plan IN ('free', 'micro', 'starter', 'pro', 'institution'));
-
-ALTER TABLE public.tenants
-  DROP CONSTRAINT IF EXISTS tenants_gender_check;
-ALTER TABLE public.tenants
-  ADD CONSTRAINT tenants_gender_check
-    CHECK (gender IN ('male', 'female', 'rather_not_say') OR gender IS NULL);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_aadhar_number_unique
-  ON public.tenants(aadhar_number)
-  WHERE aadhar_number IS NOT NULL
-    AND deleted_at IS NULL;
+CREATE TABLE public.sales_leads (
+  contact_name TEXT NOT NULL,
+  contact_email TEXT NOT NULL,
+  contact_phone TEXT NOT NULL,
+  institution_name TEXT,
+  property_count INT,
+  tenant_count INT,
+  preferred_timeline TEXT,
+  status TEXT NOT NULL DEFAULT 'fresh'
+    CHECK (status IN ('fresh', 'contacted', 'closed', 'rejected')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- ============================================================
 -- STORAGE BUCKET + POLICIES
@@ -1222,82 +1130,66 @@ CREATE POLICY payment_orders_update_own ON public.payment_orders
 -- UPDATED_AT TRIGGERS
 -- ============================================================
 
-DROP TRIGGER IF EXISTS trg_owners_updated_at ON public.owners;
 CREATE TRIGGER trg_owners_updated_at
   BEFORE UPDATE ON public.owners
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_hostels_updated_at ON public.hostels;
 CREATE TRIGGER trg_hostels_updated_at
   BEFORE UPDATE ON public.hostels
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_floors_updated_at ON public.floors;
 CREATE TRIGGER trg_floors_updated_at
   BEFORE UPDATE ON public.floors
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_rooms_updated_at ON public.rooms;
 CREATE TRIGGER trg_rooms_updated_at
   BEFORE UPDATE ON public.rooms
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_tenants_updated_at ON public.tenants;
 CREATE TRIGGER trg_tenants_updated_at
   BEFORE UPDATE ON public.tenants
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_payments_updated_at ON public.payments;
 CREATE TRIGGER trg_payments_updated_at
   BEFORE UPDATE ON public.payments
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_notices_updated_at ON public.notices;
 CREATE TRIGGER trg_notices_updated_at
   BEFORE UPDATE ON public.notices
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_maintenance_requests_updated_at ON public.maintenance_requests;
 CREATE TRIGGER trg_maintenance_requests_updated_at
   BEFORE UPDATE ON public.maintenance_requests
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_subscriptions_updated_at ON public.subscriptions;
 CREATE TRIGGER trg_subscriptions_updated_at
   BEFORE UPDATE ON public.subscriptions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_data_deletion_requests_updated_at ON public.data_deletion_requests;
 CREATE TRIGGER trg_data_deletion_requests_updated_at
   BEFORE UPDATE ON public.data_deletion_requests
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_expenses_updated_at ON public.expenses;
 CREATE TRIGGER trg_expenses_updated_at
   BEFORE UPDATE ON public.expenses
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_owner_billing_updated_at ON public.owner_billing;
 CREATE TRIGGER trg_owner_billing_updated_at
   BEFORE UPDATE ON public.owner_billing
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_property_terms_updated_at ON public.property_terms;
 CREATE TRIGGER trg_property_terms_updated_at
   BEFORE UPDATE ON public.property_terms
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_support_staff_updated_at ON public.support_staff;
 CREATE TRIGGER trg_support_staff_updated_at
   BEFORE UPDATE ON public.support_staff
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_property_billing_updated_at ON public.property_billing;
 CREATE TRIGGER trg_property_billing_updated_at
   BEFORE UPDATE ON public.property_billing
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-DROP TRIGGER IF EXISTS trg_invoices_updated_at ON public.invoices;
 CREATE TRIGGER trg_invoices_updated_at
   BEFORE UPDATE ON public.invoices
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Building2, MapPin, Home, CheckCircle2 } from "lucide-react";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 
 type Props = {
   params: Promise<{ token: string }> | { token: string };

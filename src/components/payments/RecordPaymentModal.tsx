@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { calculateRent, type RentCalculation } from "@/lib/billing";
+import { Button } from "../ui/button";
+import { DatePicker } from "../ui/DatePicker";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { calculateRent, type RentCalculation } from "../../lib/billing";
 
 export type PaymentStatus = "paid" | "disputed";
 export type PaymentMethod = "cash" | "upi" | "bank_transfer" | "other";

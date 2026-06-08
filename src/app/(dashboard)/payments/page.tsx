@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -27,23 +27,23 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog";
+} from "../../../components/ui/dialog";
 import {
   RecordPaymentModal,
   type PaymentMethod,
   type PaymentStatus,
   type RecordPaymentTenantOption,
-} from "@/components/payments/RecordPaymentModal";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { Input } from "@/components/ui/input";
+} from "../../../components/payments/RecordPaymentModal";
+import { DatePicker } from "../../../components/ui/DatePicker";
+import { Input } from "../../../components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+} from "../../../components/ui/dropdown-menu";
+import { Label } from "../../../components/ui/label";
 import {
   createColumnHelper,
   flexRender,
@@ -52,8 +52,8 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { formatDateInIndia, toIndianDateString } from "@/lib/date";
-import { printInvoice } from "@/lib/invoice";
+import { formatDateInIndia, toIndianDateString } from "../../../lib/date";
+import { printInvoice } from "../../../lib/invoice";
 
 type PaymentRow = {
   id: string;

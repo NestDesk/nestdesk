@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 // ── Navbar Shell ───────────────────────────────────────────────────────────────
 // Sticky top navbar with consistent height, blur, and border used across all

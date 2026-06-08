@@ -1,7 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { Separator } from "@/components/ui/separator";
-import { SettingsClient } from "@/components/settings/SettingsClient";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { Separator } from "../../../components/ui/separator";
+import { SettingsClient } from "../../../components/settings/SettingsClient";
 import { Settings } from "lucide-react";
 
 type HostelRow = {

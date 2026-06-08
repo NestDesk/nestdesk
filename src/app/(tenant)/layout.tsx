@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../lib/supabase/server";
+import { createAdminClient } from "../../lib/supabase/admin";
 import { LogOut, Sparkles } from "lucide-react";
-import { Navbar, NavbarLogo } from "@/components/layout/Navbar";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { TenantNav } from "@/components/layout/TenantNav";
+import { Navbar, NavbarLogo } from "../../components/layout/Navbar";
+import { ThemeToggle } from "../../components/layout/ThemeToggle";
+import { TenantNav } from "../../components/layout/TenantNav";
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   pg: "PG",

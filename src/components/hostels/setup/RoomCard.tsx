@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil, Trash2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../ui/button";
 import { occupancyColor, occupancyLabel, bedIcons } from "./helpers";
 import type { Room, DraftRoom } from "./types";
 

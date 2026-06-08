@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
+import { validateSupabaseEnv } from "./lib/supabase/env-check";
 
 const PUBLIC_PATHS = [
   "/",

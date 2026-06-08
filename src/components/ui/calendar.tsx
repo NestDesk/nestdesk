@@ -1,7 +1,7 @@
 import * as React from "react";
 import { isSameDay, isWithinInterval, startOfDay } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 export interface CalendarProps {
   mode?: "range" | "single";

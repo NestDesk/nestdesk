@@ -4,8 +4,8 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { InstitutionSalesLeadDialog } from "@/components/layout/InstitutionSalesLeadDialog";
+import { Button } from "../ui/button";
+import { InstitutionSalesLeadDialog } from "./InstitutionSalesLeadDialog";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -21,8 +21,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { getPlanRank, type BillingCycle, type OwnerPlan } from "@/lib/subscriptions";
+} from "../ui/dialog";
+import { getPlanRank, type BillingCycle, type OwnerPlan } from "../../lib/subscriptions";
 
 const pricingPlans = [
   {

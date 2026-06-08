@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Phone, Users, Loader2, UserCog } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "../../../../components/ui/card";
 
 type StaffMember = {
   id: string;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   buildOrderReceipt,
   getPlanAmountPaiseForCycle,
@@ -10,7 +10,7 @@ import {
   normalizeOwnerPlan,
   type BillingCycle,
   type OwnerPlan,
-} from "@/lib/subscriptions";
+} from "../../../lib/subscriptions";
 
 const MINIMUM_AMOUNT_PAISE = 100;
 const RAZORPAY_CURRENCY = "INR" as const;

@@ -8,19 +8,19 @@ import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { normalizeOwnerPlan, formatPlanLabel } from "@/lib/subscriptions";
-import { PrivacyPolicyLink } from "@/components/legal/PrivacyPolicyLink";
+} from "../../../components/ui/card";
+import { cn } from "../../../lib/utils";
+import { normalizeOwnerPlan, formatPlanLabel } from "../../../lib/subscriptions";
+import { PrivacyPolicyLink } from "../../../components/legal/PrivacyPolicyLink";
 
 const registerSchema = z
   .object({
@@ -252,7 +252,7 @@ function RegisterPageBody() {
             <Input
               id="fullName"
               type="text"
-              placeholder="Owner Name"
+              placeholder="Property Owner Name"
               autoComplete="name"
               className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               {...register("fullName")}

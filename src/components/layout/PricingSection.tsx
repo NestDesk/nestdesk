@@ -1,4 +1,4 @@
-﻿import { PricingPlans } from "@/components/layout/PricingPlans";
+﻿import { PricingPlans } from "./PricingPlans";
 
 export function PricingSection({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   return (

@@ -27,9 +27,9 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { DatePicker } from "../../../components/ui/DatePicker";
 import {
   Dialog,
   DialogContent,
@@ -37,17 +37,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "../../../components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { formatDateInIndia, toIndianDateString } from "@/lib/date";
+} from "../../../components/ui/dropdown-menu";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { formatDateInIndia, toIndianDateString } from "../../../lib/date";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABEL,
@@ -59,8 +59,8 @@ import {
   type ExpensePaymentMode,
   type ExpenseRecurringFrequency,
   type ExpenseStatus,
-} from "@/lib/expenses";
-import { cn } from "@/lib/utils";
+} from "../../../lib/expenses";
+import { cn } from "../../../lib/utils";
 
 import ExpenseDailyTrend from "./ExpenseDailyTrend";
 
@@ -207,19 +207,8 @@ export default function OwnerExpensesPage() {
   const hasProperties = hostels.length > 0;
   // Remove monthOptions, use date range picker instead
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
-    // Default to current month (local dates to avoid timezone shifts)
-    const now = new Date();
-    const start = new Date(toIndianDateString(now));
-    const end = new Date(
-      toIndianDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-    );
-    const fmt = (v: Date) => {
-      const y = v.getFullYear();
-      const m = String(v.getMonth() + 1).padStart(2, "0");
-      const d = String(v.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    };
-    return { start: fmt(start), end: fmt(end) };
+    // Default to the current month range.
+    return getCurrentMonthRange();
   });
 
   const [loading, setLoading] = useState(true);

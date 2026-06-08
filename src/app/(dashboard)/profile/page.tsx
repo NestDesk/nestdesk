@@ -1,10 +1,10 @@
 import { UserCircle2, Building2, CalendarDays } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { formatDateInIndia } from "@/lib/date";
-import { OwnerProfileCard } from "@/components/profile/OwnerProfileCard";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Separator } from "../../../components/ui/separator";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { formatDateInIndia } from "../../../lib/date";
+import { OwnerProfileCard } from "../../../components/profile/OwnerProfileCard";
 
 type OwnerProfile = {
   id: string;

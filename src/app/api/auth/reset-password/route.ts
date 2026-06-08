@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
+import { validateSupabaseEnv } from "../../../../lib/supabase/env-check";
 
 const resetPasswordSchema = z.object({
   password: z

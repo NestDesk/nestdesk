@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
-import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../../lib/aadhaar";
+import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 

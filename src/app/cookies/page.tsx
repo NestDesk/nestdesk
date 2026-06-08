@@ -1,4 +1,4 @@
-import { LegalPolicyContent } from "@/components/legal/legal-policy-content";
+import { LegalPolicyContent } from "../../components/legal/legal-policy-content";
 
 export default function CookiePolicyPage() {
   return (

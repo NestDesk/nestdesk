@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { BedDouble, Building2, ChevronDown, Wrench } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Badge } from "../ui/badge";
+import { Card, CardTitle } from "../ui/card";
+import { cn } from "../../lib/utils";
 
-type RoomStatus = "vacant" | "occupied" | "maintenance" | "inactive";
+type RoomStatus =
+  | "vacant"
+  | "occupied"
+  | "occupied_partial"
+  | "maintenance"
+  | "inactive";
 type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
 
 type RoomOccupancyState =
@@ -29,7 +34,7 @@ export type OccupancyRoom = {
   id: string;
   roomNumber: string;
   capacity: number;
-  rentAmount: number;
+  rentAmount: number | null;
   status: RoomStatus;
   occupiedCount: number;
   availableCount: number;

@@ -20,15 +20,15 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { PropertyDangerZone } from "@/components/hostels/PropertyDangerZone";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "../ui/accordion";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
+import { PropertyDangerZone } from "../hostels/PropertyDangerZone";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

@@ -1,12 +1,12 @@
 import crypto from "node:crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "../supabase/admin";
 import {
   getDevOtpCode,
   getOtpMaxAttempts,
   getOtpTtlSeconds,
   isMsg91Enabled,
-} from "@/lib/otp/config";
-import { sendWhatsAppOtp } from "@/lib/otp/whatsapp";
+} from "./config";
+import { sendWhatsAppOtp } from "./whatsapp";
 
 interface RequestOwnerPhoneOtpInput {
   phoneE164: string;
