@@ -7,7 +7,6 @@ import {
   getEffectivePlan,
   isSubscriptionCurrent,
   normalizeOwnerPlan,
-  type OwnerPlan,
   type SubscriptionStatus,
 } from "../../../lib/subscriptions";
 import { SubscriptionsUsageClient } from "../../../components/subscriptions/SubscriptionsUsageClient";
@@ -59,14 +58,6 @@ export default async function SubscriptionsPage() {
     subscription !== null &&
     !isSubscriptionCurrent(subscription) &&
     currentSubscriptionPlan !== "free";
-
-  const subscriptionStatusLabel = isDowngradedToFreeAfterExpiry
-    ? "Active"
-    : subscription
-      ? isSubscriptionCurrent(subscription)
-        ? subscription.status
-        : "Expired"
-      : "Active";
 
   const displayExpiresOn =
     effectivePlan === "free" ? null : (subscription?.ends_at ?? null);
@@ -141,22 +132,9 @@ export default async function SubscriptionsPage() {
 
           <SubscriptionsUsageClient
             currentPlan={effectivePlan}
-            subscription={
-              subscription
-                ? {
-                    id: subscription.id,
-                    plan: normalizeOwnerPlan(subscription.plan),
-                    status: subscription.status,
-                    starts_at: subscription.starts_at,
-                    ends_at: subscription.ends_at,
-                    razorpay_payment_id: subscription.razorpay_sub_id,
-                  }
-                : null
-            }
             propertyCount={propertyCount ?? 0}
             tenantCount={tenantCount ?? 0}
             unusedCreditPaise={unusedCreditPaise}
-            subscriptionStatusLabel={subscriptionStatusLabel}
             displayExpiresOn={displayExpiresOn}
             downgradeNote={downgradeNote}
           />

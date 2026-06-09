@@ -9,22 +9,11 @@ import {
   type OwnerPlan,
 } from "../../lib/subscriptions";
 
-type SubscriptionSummary = {
-  id: string;
-  plan: OwnerPlan;
-  status: string;
-  starts_at: string;
-  ends_at: string | null;
-  razorpay_payment_id: string | null;
-} | null;
-
 type SubscriptionsUsageClientProps = {
   currentPlan: OwnerPlan;
-  subscription: SubscriptionSummary;
   propertyCount: number;
   tenantCount: number;
   unusedCreditPaise?: number;
-  subscriptionStatusLabel?: string;
   displayExpiresOn?: string | null;
   downgradeNote?: string | null;
 };
@@ -39,11 +28,9 @@ function formatDate(value: string | null) {
 
 export function SubscriptionsUsageClient({
   currentPlan,
-  subscription,
   propertyCount,
   tenantCount,
   unusedCreditPaise = 0,
-  subscriptionStatusLabel,
   displayExpiresOn,
   downgradeNote,
 }: SubscriptionsUsageClientProps) {

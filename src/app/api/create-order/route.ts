@@ -99,7 +99,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const currentPlan = normalizeOwnerPlan(ownerCtx.owner.plan);
   const currentOwnerCreditPaise = ownerCtx.owner.unused_credit_paise ?? 0;
 
   const { data: activeSubscription } = await createAdminClient()
