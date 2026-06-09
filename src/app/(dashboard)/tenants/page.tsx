@@ -1604,7 +1604,7 @@ export default function OwnerTenantsPage() {
                               htmlFor={`rent-${tenant.id}`}
                               className="text-xs font-medium"
                             >
-                              Agreed Rent per month
+                              Agreed Rent/month
                               <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <div className="relative">
@@ -1927,7 +1927,7 @@ export default function OwnerTenantsPage() {
 
                     <div className="sm:col-span-1">
                       <Label htmlFor="approval-rent" className="text-xs">
-                        Agreed Rent Per Month
+                        Agreed Rent/Month
                       </Label>
                       <Input
                         id="approval-rent"

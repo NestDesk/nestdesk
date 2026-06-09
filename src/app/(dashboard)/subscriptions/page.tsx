@@ -1,9 +1,11 @@
 import { Rocket } from "lucide-react";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
+import { formatDateInIndia } from "../../../lib/date";
 import {
   formatPlanLabel,
   getEffectivePlan,
+  isSubscriptionCurrent,
   normalizeOwnerPlan,
   type OwnerPlan,
   type SubscriptionStatus,
@@ -48,6 +50,42 @@ export default async function SubscriptionsPage() {
     .maybeSingle<SubscriptionRow>();
 
   const effectivePlan = getEffectivePlan(subscription ?? null);
+  const currentSubscriptionPlan = subscription
+    ? normalizeOwnerPlan(subscription.plan)
+    : null;
+
+  const isDowngradedToFreeAfterExpiry =
+    effectivePlan === "free" &&
+    subscription !== null &&
+    !isSubscriptionCurrent(subscription) &&
+    currentSubscriptionPlan !== "free";
+
+  const subscriptionStatusLabel = isDowngradedToFreeAfterExpiry
+    ? "Active"
+    : subscription
+      ? isSubscriptionCurrent(subscription)
+        ? subscription.status
+        : "Expired"
+      : "Active";
+
+  const displayExpiresOn =
+    effectivePlan === "free" ? null : (subscription?.ends_at ?? null);
+
+  const downgradeNote = isDowngradedToFreeAfterExpiry
+    ? `${formatPlanLabel(currentSubscriptionPlan ?? "free")} expired on ${formatDateInIndia(
+        subscription?.ends_at ?? new Date().toISOString(),
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        },
+      )}. Your account has been downgraded to Free Plan.`
+    : null;
+
+  const currentPlanLabel = formatPlanLabel(effectivePlan);
+  const currentPlanDisplayLabel = downgradeNote
+    ? `${currentPlanLabel} (downgraded)`
+    : currentPlanLabel;
 
   const { count: propertyCount } = await admin
     .from("hostels")
@@ -57,7 +95,8 @@ export default async function SubscriptionsPage() {
   const { count: tenantCount } = await admin
     .from("tenants")
     .select("id", { count: "exact", head: true })
-    .eq("owner_id", owner.id);
+    .eq("owner_id", owner.id)
+    .eq("status", "active");
 
   const { data: subscriptionHistory } = await admin
     .from("subscriptions")
@@ -117,6 +156,9 @@ export default async function SubscriptionsPage() {
             propertyCount={propertyCount ?? 0}
             tenantCount={tenantCount ?? 0}
             unusedCreditPaise={unusedCreditPaise}
+            subscriptionStatusLabel={subscriptionStatusLabel}
+            displayExpiresOn={displayExpiresOn}
+            downgradeNote={downgradeNote}
           />
         </div>
         <aside className="space-y-4">
@@ -126,12 +168,17 @@ export default async function SubscriptionsPage() {
               <p>
                 Current plan:{" "}
                 <span className="font-semibold text-foreground">
-                  {formatPlanLabel(effectivePlan)}
-                </span>{" "}
-                <br />
-                Proration-based upgrades apply unused credit instantly. Downgrades
-                are blocked while your active subscription is still live.
+                  {currentPlanDisplayLabel}
+                </span>
               </p>
+              {downgradeNote ? (
+                <p className="text-foreground">{downgradeNote}</p>
+              ) : (
+                <p>
+                  Proration-based upgrades apply unused credit instantly. Downgrades
+                  are blocked while your active subscription is still live.
+                </p>
+              )}
             </div>
           </div>
 

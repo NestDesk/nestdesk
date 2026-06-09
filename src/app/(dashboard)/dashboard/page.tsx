@@ -89,6 +89,8 @@ export default async function DashboardPage() {
   let currentPlan = "free";
   let subscriptionStatus = "free";
   let subscriptionEndsAt: string | null = null;
+  let subscriptionStatusLabel = "Active";
+  let previousPlanExpiredNote: string | null = null;
   const occupancySummary: OccupancySummary = {
     totalRooms: 0,
     occupiedRooms: 0,
@@ -141,10 +143,27 @@ export default async function DashboardPage() {
       isPhoneVerified = owner.phone_verified;
 
       if (currentSubscription) {
+        const subscriptionPlan = normalizeOwnerPlan(currentSubscription.plan);
         subscriptionStatus = isSubscriptionCurrent(currentSubscription)
           ? currentSubscription.status
           : "expired";
         subscriptionEndsAt = currentSubscription.ends_at;
+
+        if (subscriptionStatus === "expired" && currentPlan === "free") {
+          subscriptionStatusLabel = "Active";
+          if (subscriptionPlan !== "free") {
+            previousPlanExpiredNote = `${formatPlanLabel(subscriptionPlan)} expired on ${formatDateInIndia(
+              currentSubscription.ends_at ?? new Date().toISOString(),
+              { day: "2-digit", month: "short", year: "numeric" },
+            )}. Downgraded to Free Plan.`;
+          }
+        } else {
+          subscriptionStatusLabel =
+            subscriptionStatus === "free" ? "Active" : subscriptionStatus;
+        }
+      } else {
+        subscriptionStatusLabel =
+          currentPlan === "free" ? "Active" : subscriptionStatus;
       }
 
       const { data: hostels, error: hostelsError } = await admin
@@ -431,6 +450,7 @@ export default async function DashboardPage() {
     thisMonthRevenueExpected - thisMonthRentPaid,
     0,
   );
+  const isFreePlan = normalizeOwnerPlan(currentPlan) === "free";
   const stats = [
     {
       label: "Occupancy",
@@ -567,7 +587,9 @@ export default async function DashboardPage() {
 
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground sm:ml-3">
               <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-2 py-1 dark:bg-slate-950/60">
-                <span className="uppercase tracking-[0.08em] text-[10px]">Plan</span>
+                <span className="uppercase tracking-[0.08em] text-[10px]">
+                  Current Plan
+                </span>
                 <span className="font-semibold text-foreground">
                   {formatPlanLabel(currentPlan)}
                 </span>
@@ -577,7 +599,7 @@ export default async function DashboardPage() {
                   Status
                 </span>
                 <span className="font-semibold uppercase text-foreground">
-                  {subscriptionStatus}
+                  {subscriptionStatusLabel}
                 </span>
               </div>
               <div className="flex items-center gap-2 rounded-2xl bg-white/80 px-2 py-1 dark:bg-slate-950/60">
@@ -585,13 +607,15 @@ export default async function DashboardPage() {
                   Valid Till
                 </span>
                 <span className="font-semibold text-foreground">
-                  {subscriptionEndsAt
-                    ? formatDateInIndia(subscriptionEndsAt, {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "-"}
+                  {currentPlan === "free"
+                    ? "-"
+                    : subscriptionEndsAt
+                      ? formatDateInIndia(subscriptionEndsAt, {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "-"}
                 </span>
               </div>
             </div>
@@ -605,6 +629,11 @@ export default async function DashboardPage() {
               </Button>
             </div>
           </div>
+          {previousPlanExpiredNote ? (
+            <div className="mt-3 rounded-2xl border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/10 dark:text-amber-200">
+              {previousPlanExpiredNote}
+            </div>
+          ) : null}
         </Card>
         {!isPhoneVerified && (
           <div className="rounded-2xl border border-amber-300/40 bg-amber-50 p-2 dark:bg-amber-950/10">
@@ -738,79 +767,105 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {stats.map(
-          ({
-            label,
-            subtitle,
-            value,
-            icon: Icon,
-            change,
-            description,
-            badge,
-            progress,
-            progressLabel,
-            gradient,
-            iconColor,
-            iconBg,
-          }) => (
-            <Card
-              key={label}
-              className={`card-hover rounded-2xl bg-gradient-to-br ${gradient} border-border/60`}
-            >
-              <CardHeader className="flex flex-row items-center justify-between px-3 py-2">
-                <div>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {label}
-                  </CardTitle>
-                  {subtitle ? (
-                    <p className="mt-1 text-[11px] uppercase text-muted-foreground">
-                      {subtitle}
+      {isFreePlan ? (
+        <Card className="rounded-2xl border-border/70">
+          <CardHeader>
+            <CardTitle className="text-base">Dashboard insights</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground">
+                Dashboard insights are locked on the Free plan.
+              </p>
+              <p className="mt-2">
+                Upgrade to Starter or higher to unlock occupancy, rent collection,
+                expense, and cash flow analytics on your dashboard.
+              </p>
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link href="/subscriptions">Upgrade Plan</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {stats.map(
+            ({
+              label,
+              subtitle,
+              value,
+              icon: Icon,
+              change,
+              description,
+              badge,
+              progress,
+              progressLabel,
+              gradient,
+              iconColor,
+              iconBg,
+            }) => (
+              <Card
+                key={label}
+                className={`card-hover rounded-2xl bg-gradient-to-br ${gradient} border-border/60`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between px-3 py-2">
+                  <div>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {label}
+                    </CardTitle>
+                    {subtitle ? (
+                      <p className="mt-1 text-[11px] uppercase text-muted-foreground">
+                        {subtitle}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
+                  >
+                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 pt-2">
+                  <div className="text-2xl font-bold text-foreground">{value}</div>
+                  {progress !== undefined ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                        <span>{progressLabel ?? "Collected"}</span>
+                        <span className="font-semibold text-foreground">
+                          {progress}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all"
+                          style={{
+                            width: `${Math.min(Math.max(progress, 0), 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                  {description ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      {description}
                     </p>
                   ) : null}
-                </div>
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-                >
-                  <Icon className={`h-4 w-4 ${iconColor}`} />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-2">
-                <div className="text-2xl font-bold text-foreground">{value}</div>
-                {progress !== undefined ? (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                      <span>{progressLabel ?? "Collected"}</span>
-                      <span className="font-semibold text-foreground">
-                        {progress}%
-                      </span>
+                  {badge ? (
+                    <div className="mt-4 inline-flex items-center rounded-full bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
+                      {badge}
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                      <div
-                        className="h-full rounded-full bg-emerald-500 transition-all"
-                        style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-                {description ? (
-                  <p className="mt-3 text-xs text-muted-foreground">{description}</p>
-                ) : null}
-                {badge ? (
-                  <div className="mt-4 inline-flex items-center rounded-full bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
-                    {badge}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-xs text-muted-foreground">{change}</p>
-                )}
-                {badge && change ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{change}</p>
-                ) : null}
-              </CardContent>
-            </Card>
-          ),
-        )}
-      </div>
+                  ) : (
+                    <p className="mt-4 text-xs text-muted-foreground">{change}</p>
+                  )}
+                  {badge && change ? (
+                    <p className="mt-2 text-xs text-muted-foreground">{change}</p>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ),
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="rounded-2xl border-border/70">
@@ -818,7 +873,17 @@ export default async function DashboardPage() {
             <CardTitle className="text-base">Recent Payments</CardTitle>
           </CardHeader>
           <CardContent>
-            {hasProperties ? (
+            {isFreePlan ? (
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+                Recent payments are not available on the Free plan. Upgrade to
+                Starter or higher to unlock payment activity on the dashboard.
+                <div className="mt-3">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/subscriptions">Upgrade Plan</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : hasProperties ? (
               recentPayments.length > 0 ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
@@ -890,7 +955,17 @@ export default async function DashboardPage() {
             <CardTitle className="text-base">Room Occupancy</CardTitle>
           </CardHeader>
           <CardContent>
-            {hasProperties ? (
+            {isFreePlan ? (
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+                Room occupancy analytics are not available on the Free plan. Upgrade
+                to Starter or higher to unlock room and bed occupancy insights.
+                <div className="mt-3">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/subscriptions">Upgrade Plan</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : hasProperties ? (
               <div className="space-y-3">
                 <div>
                   <div className="flex items-end justify-between gap-3">

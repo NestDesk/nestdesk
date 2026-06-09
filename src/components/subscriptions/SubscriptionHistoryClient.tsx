@@ -116,7 +116,12 @@ export function SubscriptionHistoryClient({
                       <div className="text-right text-[11px] text-muted-foreground">
                         Started {formatDate(entry.starts_at)}
                         <br />
-                        Ends {formatDate(entry.ends_at)}
+                        {entry.status === "expired" ||
+                        entry.status === "cancelled" ? (
+                          <>Ended {formatDate(entry.ends_at)}</>
+                        ) : (
+                          <>Ends {formatDate(entry.ends_at)}</>
+                        )}
                       </div>
                     </div>
                     {entry.razorpay_sub_id ? (

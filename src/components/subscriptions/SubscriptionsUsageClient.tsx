@@ -24,6 +24,9 @@ type SubscriptionsUsageClientProps = {
   propertyCount: number;
   tenantCount: number;
   unusedCreditPaise?: number;
+  subscriptionStatusLabel?: string;
+  displayExpiresOn?: string | null;
+  downgradeNote?: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -40,6 +43,9 @@ export function SubscriptionsUsageClient({
   propertyCount,
   tenantCount,
   unusedCreditPaise = 0,
+  subscriptionStatusLabel,
+  displayExpiresOn,
+  downgradeNote,
 }: SubscriptionsUsageClientProps) {
   const activePlan = normalizeOwnerPlan(currentPlan);
   const planConfig = getPlanConfig(activePlan);
@@ -76,7 +82,7 @@ export function SubscriptionsUsageClient({
               Expires On
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {formatDate(subscription?.ends_at ?? null)}
+              {displayExpiresOn ? formatDate(displayExpiresOn) : "-"}
             </p>
           </div>
           <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">
@@ -90,6 +96,13 @@ export function SubscriptionsUsageClient({
             </p>
           </div>
         </CardContent>
+        {downgradeNote ? (
+          <CardContent className="border-t border-border/70 pt-3">
+            <div className="rounded-3xl border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/10 dark:text-amber-100">
+              {downgradeNote}
+            </div>
+          </CardContent>
+        ) : null}
       </Card>
     </div>
   );

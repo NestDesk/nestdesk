@@ -118,6 +118,29 @@ export function TopBar({
     });
   }, []);
 
+  const statusPill = useMemo(() => {
+    const plan = formatPlanLabel(subscription.plan);
+    const status =
+      subscription.status === "free" || subscription.status === "active"
+        ? "Active"
+        : subscription.status === "grace_period"
+          ? "Grace"
+          : "Expired";
+
+    const badgeClass =
+      status === "Active"
+        ? "bg-emerald-500/10 text-emerald-700"
+        : status === "Grace"
+          ? "bg-amber-500/10 text-amber-700"
+          : "bg-rose-500/10 text-rose-700";
+
+    return {
+      plan,
+      status,
+      badgeClass,
+    };
+  }, [subscription.plan, subscription.status]);
+
   const initials = useMemo(() => {
     const source = user?.fullName || user?.email || "ND";
     const parts = source.split(" ").filter(Boolean);
@@ -169,6 +192,14 @@ export function TopBar({
       right={
         <>
           <ThemeToggle />
+          <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-muted/80 px-3 py-1 text-xs text-muted-foreground md:inline-flex">
+            <span className="font-semibold text-foreground">{statusPill.plan}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 uppercase ${statusPill.badgeClass}`}
+            >
+              {statusPill.status}
+            </span>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
