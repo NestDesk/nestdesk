@@ -3,11 +3,14 @@ import { z } from "zod";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import {
+  BILLING_CYCLES,
   buildOrderReceipt,
   getPlanAmountPaiseForCycle,
   getPlanRank,
   inferBillingCycleFromSubscription,
+  isPaidPlan,
   normalizeOwnerPlan,
+  OWNER_PLANS,
   type BillingCycle,
   type OwnerPlan,
 } from "../../../lib/subscriptions";
@@ -17,8 +20,8 @@ const RAZORPAY_CURRENCY = "INR" as const;
 
 const createOrderSchema = z.object({
   receipt: z.string().max(80).optional(),
-  plan: z.enum(["free", "micro", "starter", "pro", "institution"]).optional(),
-  billingCycle: z.enum(["monthly", "yearly"]).optional(),
+  plan: z.enum(OWNER_PLANS).optional(),
+  billingCycle: z.enum(BILLING_CYCLES).optional(),
   preview: z.boolean().optional(),
   confirm: z.boolean().optional(),
 });
@@ -84,16 +87,14 @@ export async function POST(request: NextRequest) {
   const preview = parsed.data.preview === true;
   const confirm = parsed.data.confirm === true;
 
-  if (requestedPlan === "free") {
+  if (!isPaidPlan(requestedPlan)) {
     return NextResponse.json(
-      { error: "Free plan does not require an online payment order." },
-      { status: 400 },
-    );
-  }
-
-  if (requestedPlan === "institution") {
-    return NextResponse.json(
-      { error: "Institution plan is custom. Please contact the sales team." },
+      {
+        error:
+          requestedPlan === "free"
+            ? "Free plan does not require an online payment order."
+            : "Institution plan is custom. Please contact the sales team.",
+      },
       { status: 400 },
     );
   }
@@ -105,13 +106,13 @@ export async function POST(request: NextRequest) {
     .from("subscriptions")
     .select("plan, status, starts_at, ends_at")
     .eq("owner_id", ownerCtx.owner.id)
-    .eq("status", "active")
+    .in("status", ["active", "grace_period"])
     .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const now = new Date();
-  let activeSubscriptionPlan: OwnerPlan = currentPlan;
+  let activeSubscriptionPlan: OwnerPlan = "free";
   let activeBillingCycle: BillingCycle = "monthly";
   let activeEndsAt: Date | null = null;
   let activeStartsAt: Date | null = null;

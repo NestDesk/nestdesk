@@ -1221,3 +1221,17 @@ CREATE TRIGGER trg_invoices_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 COMMIT;
+BEGIN;
+
+ALTER TABLE public.subscriptions
+  ADD CONSTRAINT chk_subscriptions_valid_period
+  CHECK (ends_at IS NULL OR ends_at >= starts_at);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_owner_status_ends_at
+  ON public.subscriptions(owner_id, status, ends_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_owner_single_active
+  ON public.subscriptions(owner_id)
+  WHERE status = 'active';
+
+COMMIT;

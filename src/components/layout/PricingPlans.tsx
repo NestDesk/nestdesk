@@ -24,104 +24,10 @@ import {
 } from "../ui/dialog";
 import {
   getPlanRank,
+  listPlanDisplayConfigs,
   type BillingCycle,
   type OwnerPlan,
 } from "../../lib/subscriptions";
-
-const pricingPlans = [
-  {
-    planId: "free",
-    name: "Free",
-    monthlyPrice: "0",
-    period: "forever",
-    description:
-      "Start with the essential owner portal experience for tenant and payment management.",
-    features: [
-      "Dashboard overview with owner activity snapshots",
-      "Tenant management and room occupancy status",
-      "Rent payments, receipts, and billing history",
-      "Subscriptions & usage insights",
-      "Tenant document upload and review",
-    ],
-    cta: "Start Free",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
-    planId: "starter",
-    name: "Starter",
-    monthlyPrice: "499",
-    period: "month",
-    description: "For growing hostels and PGs ready to move beyond manual tracking.",
-    features: [
-      "Unlock Dashboard, Hostels, Tenants, Payments, Subscriptions, and Usage",
-      "1 property with floors, rooms, and occupancy setup",
-      "Up to 50 tenants with tenant lifecycle workflows",
-      "Create notices and track maintenance requests",
-      "Track expenses and payment statuses",
-      "Tenant profile and identity document upload",
-      "Email support for faster onboarding",
-    ],
-    cta: "Choose Starter",
-    ctaHref: "/register",
-    highlighted: true,
-  },
-  {
-    planId: "micro",
-    name: "Micro",
-    monthlyPrice: "949",
-    period: "month",
-    description: "For established operators scaling to multi-property management.",
-    features: [
-      "Full owner portal access across all sidebar sections",
-      "Up to 2 properties and 150 tenants",
-      "Live occupancy tracking and room assignment",
-      "Notices, maintenance, payments, and expense workflows",
-      "Tenant KYC, document verification, and profile completion",
-      "Email support with faster issue resolution",
-    ],
-    cta: "Choose Micro",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
-    planId: "pro",
-    name: "Pro",
-    monthlyPrice: "1399",
-    period: "month",
-    description: "Designed for ambitious operators with larger portfolio scale.",
-    features: [
-      "Full owner portal access with all sidebar modules unlocked",
-      "Up to 3 properties and 200 tenants",
-      "Advanced reports, occupancy analytics, and room-level visibility",
-      "Priority notices, maintenance, payments, expenses, and settings control",
-      "Tenant KYC, profile, and document workflows in one place",
-      "Faster email support for growing teams",
-    ],
-    cta: "Choose Pro",
-    ctaHref: "/register",
-    highlighted: false,
-  },
-  {
-    planId: "institution",
-    name: "Institution",
-    monthlyPrice: null,
-    period: null,
-    description:
-      "For large institutions that need a bespoke rollout and hands-on onboarding.",
-    features: [
-      "Custom property and tenant limits for large portfolios",
-      "Dedicated sales-assisted setup, onboarding, and support",
-      "Full access to Dashboard, Hostels, Tenants, Payments, Expenses, Occupancy, Notices, Maintenance, Reports, Subscriptions, and Settings",
-      "Tenant profile, ID, and KYC workflows for institution use cases",
-      "Separate institution and inmate portal access",
-      "Priority rollout support and tailored reporting",
-    ],
-    cta: "Contact Sales Team",
-    ctaHref: "",
-    highlighted: false,
-  },
-];
 
 function formatINR(n: number): string {
   return n.toLocaleString("en-IN");
@@ -464,189 +370,192 @@ export function PricingPlans({
             ref={carouselRef}
             className="flex gap-4 overflow-x-auto pb-3 pr-3 pt-3 ml-4 snap-x snap-mandatory scroll-smooth"
           >
-            {pricingPlans.map(
-              ({
-                planId,
-                name,
-                monthlyPrice,
-                period,
-                description: planDescription,
-                features: planFeatures,
-                cta,
-                ctaHref,
-                highlighted,
-              }) => {
-                const isCurrent = isLoggedIn && currentPlan === planId;
-                const planRank = getPlanRank(planId as OwnerPlan);
-                const currentPlanRank = currentPlan ? getPlanRank(currentPlan) : 0;
-                const isDowngrade =
-                  isLoggedIn &&
-                  currentPlan &&
-                  planRank < currentPlanRank &&
-                  currentPlan !== "free";
-                const isPaid =
-                  monthlyPrice && monthlyPrice !== "0" && period === "month";
-                const monthly = isPaid ? parseInt(monthlyPrice, 10) : null;
-                const activePrice =
-                  isYearly && monthly ? Math.round(monthly * 0.9) : monthly;
-                const yearlyTotal =
-                  isYearly && monthly ? Math.round(monthly * 0.9) * 12 : null;
-                const ctaLinkHref = ctaHref.startsWith("tel:")
-                  ? ctaHref
-                  : isLoggedIn
-                    ? "/dashboard/subscriptions"
-                    : `${ctaHref}?plan=${planId}`;
-                const buttonText = getCtaLabel(cta, ctaText, planId);
-                const currentButtonText = isCurrent
-                  ? "Current plan"
-                  : isDowngrade
-                    ? "Downgrade unavailable"
-                    : buttonText;
+            {listPlanDisplayConfigs().map((plan) => {
+              const planId = plan.id;
+              const name = plan.name;
+              const planDescription = plan.description;
+              const planFeatures = plan.features;
+              const cta = plan.ctaLabel;
+              const ctaHref = plan.ctaHref;
+              const highlighted = plan.highlighted;
+              const isCurrent = isLoggedIn && currentPlan === planId;
+              const planRank = getPlanRank(planId);
+              const currentPlanRank = currentPlan ? getPlanRank(currentPlan) : 0;
+              const isDowngrade =
+                isLoggedIn &&
+                currentPlan &&
+                planRank < currentPlanRank &&
+                currentPlan !== "free";
+              const monthly = plan.amountPaise > 0 ? plan.amountPaise / 100 : null;
+              const isPaid = monthly !== null;
+              const activePrice =
+                isYearly && monthly ? Math.round(monthly * 0.9) : monthly;
+              const yearlyTotal =
+                isYearly && monthly ? Math.round(monthly * 0.9) * 12 : null;
+              const ctaLinkHref = ctaHref.startsWith("tel:")
+                ? ctaHref
+                : isLoggedIn
+                  ? "/dashboard/subscriptions"
+                  : `${ctaHref}?plan=${planId}`;
+              const buttonText = getCtaLabel(cta, ctaText, planId);
+              const currentButtonText = isCurrent
+                ? "Current plan"
+                : isDowngrade
+                  ? "Downgrade unavailable"
+                  : buttonText;
 
-                return (
-                  <div
-                    key={name}
-                    className={`relative flex min-w-[80vw] flex-col rounded-2xl border p-5 snap-start sm:min-w-[68vw] md:min-w-[20rem] xl:min-w-[22rem] ${
-                      highlighted
-                        ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
-                        : "card-hover border-border/60 bg-card/80 backdrop-blur-sm"
-                    }`}
-                  >
-                    {highlighted && (
-                      <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold text-white ring-2 ring-background">
-                        Most Popular
-                      </span>
-                    )}
+              return (
+                <div
+                  key={name}
+                  className={`relative flex min-w-[80vw] flex-col rounded-2xl border p-5 snap-start sm:min-w-[68vw] md:min-w-[20rem] xl:min-w-[22rem] ${
+                    highlighted
+                      ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
+                      : "card-hover border-border/60 bg-card/80 backdrop-blur-sm"
+                  }`}
+                >
+                  {highlighted && (
+                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold text-white ring-2 ring-background">
+                      Most Popular
+                    </span>
+                  )}
 
-                    <div className="mb-3">
-                      <h3
-                        className={`text-base font-semibold ${
-                          highlighted ? "text-white" : "text-foreground"
-                        }`}
-                      >
-                        {name}
-                      </h3>
-                      <p
-                        className={`mt-1 h-6 text-[11px] leading-4 ${
-                          highlighted ? "text-white/70" : "text-muted-foreground"
-                        }`}
-                      >
-                        {planDescription}
-                      </p>
-                    </div>
+                  <div className="mb-3">
+                    <h3
+                      className={`text-base font-semibold ${
+                        highlighted ? "text-white" : "text-foreground"
+                      }`}
+                    >
+                      {name}
+                    </h3>
+                    <p
+                      className={`mt-1 h-6 text-[11px] leading-4 ${
+                        highlighted ? "text-white/70" : "text-muted-foreground"
+                      }`}
+                    >
+                      {planDescription}
+                    </p>
+                  </div>
 
-                    <div className="mb-4">
-                      {!isPaid ? (
-                        <div className="space-y-3">
-                          <span
-                            className={`text-3xl font-bold leading-none tracking-tight ${
-                              highlighted ? "text-white" : "text-foreground"
+                  <div className="mb-4">
+                    {!isPaid ? (
+                      <div className="space-y-3">
+                        <span
+                          className={`text-3xl font-bold leading-none tracking-tight ${
+                            highlighted ? "text-white" : "text-foreground"
+                          }`}
+                        >
+                          {plan.isCustom ? "Custom" : "Free"}
+                        </span>
+                        {planId === "institution" && (
+                          <p
+                            className={`text-sm ${
+                              highlighted ? "text-white/70" : "text-muted-foreground"
                             }`}
                           >
-                            {monthlyPrice === "0" ? "Free" : "Custom"}
-                          </span>
-                          {planId === "institution" && (
-                            <p
+                            Pricing is tailored to your rollout and requirements.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-2 space-y-2">
+                          <div className="flex items-center gap-2 text-[18px] font-semibold">
+                            <span
+                              className={`line-through ${
+                                highlighted
+                                  ? "text-white/60"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              Rs.{monthly ? formatINR(monthly * 2 + 1) : ""}
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                                highlighted
+                                  ? "bg-white/15 text-white"
+                                  : "bg-emerald-100 text-emerald-700"
+                              }`}
+                            >
+                              50% off
+                            </span>
+                          </div>
+
+                          <div className="flex items-baseline gap-1">
+                            <span
+                              className={`text-3xl font-bold leading-none tracking-tight ${
+                                highlighted ? "text-white" : "text-foreground"
+                              }`}
+                            >
+                              Rs.{activePrice ? formatINR(activePrice) : ""}
+                            </span>
+                            <span
                               className={`text-sm ${
                                 highlighted
                                   ? "text-white/70"
                                   : "text-muted-foreground"
                               }`}
                             >
-                              Pricing is tailored to your rollout and requirements.
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="mb-2 space-y-2">
-                            <div className="flex items-center gap-2 text-[18px] font-semibold">
-                              <span
-                                className={`line-through ${
-                                  highlighted
-                                    ? "text-white/60"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                Rs.{monthly ? formatINR(monthly * 2 + 1) : ""}
-                              </span>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                                  highlighted
-                                    ? "bg-white/15 text-white"
-                                    : "bg-emerald-100 text-emerald-700"
-                                }`}
-                              >
-                                50% off
-                              </span>
-                            </div>
-
-                            <div className="flex items-baseline gap-1">
-                              <span
-                                className={`text-3xl font-bold leading-none tracking-tight ${
-                                  highlighted ? "text-white" : "text-foreground"
-                                }`}
-                              >
-                                Rs.{activePrice ? formatINR(activePrice) : ""}
-                              </span>
-                              <span
-                                className={`text-sm ${
-                                  highlighted
-                                    ? "text-white/70"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                /month
-                              </span>
-                            </div>
+                              /month
+                            </span>
                           </div>
+                        </div>
 
-                          {isYearly && yearlyTotal && (
-                            <p
-                              className={`mb-2 text-sm font-semibold ${
-                                highlighted ? "text-white" : "text-foreground"
-                              }`}
-                            >
-                              Rs.{formatINR(yearlyTotal)} billed yearly
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <ul className="mb-6 flex-1 space-y-2">
-                      {planFeatures.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <CheckCircle2
-                            className={`mt-0.5 h-4 w-4 shrink-0 ${
-                              highlighted ? "text-white/80" : "text-primary"
+                        {isYearly && yearlyTotal && (
+                          <p
+                            className={`mb-2 text-sm font-semibold ${
+                              highlighted ? "text-white" : "text-foreground"
                             }`}
-                          />
-                          <span
-                            className={
-                              highlighted ? "text-white/90" : "text-muted-foreground"
-                            }
                           >
-                            {f}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                            Rs.{formatINR(yearlyTotal)} billed yearly
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
 
-                    {planId === "institution" ? (
-                      <Button
-                        type="button"
-                        className={`w-full rounded-xl ${
-                          highlighted
-                            ? "bg-white text-primary hover:bg-white/90"
-                            : ""
-                        }`}
-                        variant={highlighted ? "secondary" : "default"}
-                        onClick={() => setIsLeadDialogOpen(true)}
-                      >
-                        {buttonText}
-                      </Button>
-                    ) : isCurrent ? (
+                  <ul className="mb-6 flex-1 space-y-2">
+                    {planFeatures.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <CheckCircle2
+                          className={`mt-0.5 h-4 w-4 shrink-0 ${
+                            highlighted ? "text-white/80" : "text-primary"
+                          }`}
+                        />
+                        <span
+                          className={
+                            highlighted ? "text-white/90" : "text-muted-foreground"
+                          }
+                        >
+                          {f}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {planId === "institution" ? (
+                    <Button
+                      type="button"
+                      className={`w-full rounded-xl ${
+                        highlighted ? "bg-white text-primary hover:bg-white/90" : ""
+                      }`}
+                      variant={highlighted ? "secondary" : "default"}
+                      onClick={() => setIsLeadDialogOpen(true)}
+                    >
+                      {buttonText}
+                    </Button>
+                  ) : isCurrent ? (
+                    <Button
+                      type="button"
+                      className={`w-full rounded-xl ${
+                        highlighted ? "bg-white text-primary" : ""
+                      }`}
+                      variant={highlighted ? "secondary" : "default"}
+                      disabled
+                    >
+                      {currentButtonText}
+                    </Button>
+                  ) : isDowngrade ? (
+                    <div className="space-y-2">
                       <Button
                         type="button"
                         className={`w-full rounded-xl ${
@@ -657,66 +566,51 @@ export function PricingPlans({
                       >
                         {currentButtonText}
                       </Button>
-                    ) : isDowngrade ? (
-                      <div className="space-y-2">
-                        <Button
-                          type="button"
-                          className={`w-full rounded-xl ${
-                            highlighted ? "bg-white text-primary" : ""
-                          }`}
-                          variant={highlighted ? "secondary" : "default"}
-                          disabled
-                        >
-                          {currentButtonText}
-                        </Button>
-                        <p className="text-xs text-amber-600">
-                          Downgrades are blocked while your current subscription is
-                          active.
-                        </p>
-                      </div>
-                    ) : isLoggedIn && isPaid ? (
+                      <p className="text-xs text-amber-600">
+                        Downgrades are blocked while your current subscription is
+                        active.
+                      </p>
+                    </div>
+                  ) : isLoggedIn && isPaid ? (
+                    <Button
+                      type="button"
+                      className={`w-full rounded-xl ${
+                        highlighted ? "bg-white text-primary hover:bg-white/90" : ""
+                      }`}
+                      variant={highlighted ? "secondary" : "default"}
+                      size="sm"
+                      disabled={isBuyingPlan === planId}
+                      onClick={() => previewUpgrade(planId, name)}
+                    >
+                      {isBuyingPlan === planId ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="h-4 w-4" />
+                          {buttonText}
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Link href={ctaLinkHref}>
                       <Button
-                        type="button"
                         className={`w-full rounded-xl ${
                           highlighted
                             ? "bg-white text-primary hover:bg-white/90"
                             : ""
                         }`}
                         variant={highlighted ? "secondary" : "default"}
-                        size="sm"
-                        disabled={isBuyingPlan === planId}
-                        onClick={() => previewUpgrade(planId, name)}
                       >
-                        {isBuyingPlan === planId ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="h-4 w-4" />
-                            {buttonText}
-                          </>
-                        )}
+                        {buttonText}
                       </Button>
-                    ) : (
-                      <Link href={ctaLinkHref}>
-                        <Button
-                          className={`w-full rounded-xl ${
-                            highlighted
-                              ? "bg-white text-primary hover:bg-white/90"
-                              : ""
-                          }`}
-                          variant={highlighted ? "secondary" : "default"}
-                        >
-                          {buttonText}
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                );
-              },
-            )}
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="absolute inset-y-0 right-0 z-10 hidden items-center pr-1 md:flex">

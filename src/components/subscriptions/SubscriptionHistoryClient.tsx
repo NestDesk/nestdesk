@@ -170,7 +170,7 @@ export function SubscriptionHistoryClient({
                           <p className="font-semibold">Credit-only upgrade</p>
                         ) : (
                           <p className="font-semibold">
-                            Plan change with credit applied: ₹
+                            Plan change with credit applied:
                             {formatAmountPaise(
                               order.notes?.credit_used_paise ?? 0,
                             ).replace(/[^0-9.,]/g, "")}
@@ -178,25 +178,25 @@ export function SubscriptionHistoryClient({
                         )}
                         {order.notes?.proration_credit_paise ? (
                           <p>
-                            Proration credit: ₹
+                            Proration credit:
                             {formatAmountPaise(order.notes.proration_credit_paise)}
                           </p>
                         ) : null}
                         {order.notes?.credit_used_paise ? (
                           <p>
-                            Credit used: ₹
+                            Credit used:
                             {formatAmountPaise(order.notes.credit_used_paise)}
                           </p>
                         ) : null}
                         {order.notes?.amount_due_paise != null ? (
                           <p>
-                            Amount due now: ₹
+                            Amount due now:
                             {formatAmountPaise(order.notes.amount_due_paise)}
                           </p>
                         ) : null}
                         {order.notes?.unused_credit_paise_after != null ? (
                           <p>
-                            Credit balance after: ₹
+                            Credit balance after:
                             {formatAmountPaise(
                               order.notes.unused_credit_paise_after,
                             )}

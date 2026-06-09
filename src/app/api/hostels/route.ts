@@ -3,7 +3,11 @@ import https from "https";
 import { z } from "zod";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
-import { normalizeOwnerPlan, getPlanConfig } from "../../../lib/subscriptions";
+import {
+  getPlanConfig,
+  getEffectivePlan,
+  type SubscriptionRecord,
+} from "../../../lib/subscriptions";
 
 const createHostelSchema = z.object({
   hostelName: z.string().min(2).max(200),
@@ -211,7 +215,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const ownerPlanConfig = getPlanConfig(normalizeOwnerPlan(ownerResult.data?.plan));
+  const { data: currentSubscription } = await admin
+    .from("subscriptions")
+    .select("plan, status, ends_at")
+    .eq("owner_id", ownerId)
+    .in("status", ["active", "grace_period"])
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SubscriptionRecord>();
+
+  const effectivePlan = getEffectivePlan(currentSubscription ?? null);
+  const ownerPlanConfig = getPlanConfig(effectivePlan);
   const { count: existingHostelCount, error: hostelCountError } = await admin
     .from("hostels")
     .select("id", { count: "exact", head: true })

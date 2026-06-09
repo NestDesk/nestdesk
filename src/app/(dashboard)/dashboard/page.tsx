@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import {
   Building2,
@@ -16,7 +21,12 @@ import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { formatDateInIndia } from "../../../lib/date";
 import { calculateRent } from "../../../lib/billing";
-import { formatPlanLabel, normalizeOwnerPlan } from "../../../lib/subscriptions";
+import {
+  formatPlanLabel,
+  getEffectivePlan,
+  isSubscriptionCurrent,
+  normalizeOwnerPlan,
+} from "../../../lib/subscriptions";
 
 function formatDateToLocalISO(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
@@ -117,19 +127,23 @@ export default async function DashboardPage() {
       .maybeSingle<{ id: string; plan: string; phone_verified: boolean }>();
 
     if (owner) {
-      currentPlan = normalizeOwnerPlan(owner.plan);
-      isPhoneVerified = owner.phone_verified;
-
       const { data: currentSubscription } = await admin
         .from("subscriptions")
-        .select("status, ends_at")
+        .select("plan, status, ends_at")
         .eq("owner_id", owner.id)
         .order("starts_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
+      currentPlan = currentSubscription
+        ? getEffectivePlan(currentSubscription)
+        : normalizeOwnerPlan(owner.plan);
+      isPhoneVerified = owner.phone_verified;
+
       if (currentSubscription) {
-        subscriptionStatus = currentSubscription.status;
+        subscriptionStatus = isSubscriptionCurrent(currentSubscription)
+          ? currentSubscription.status
+          : "expired";
         subscriptionEndsAt = currentSubscription.ends_at;
       }
 

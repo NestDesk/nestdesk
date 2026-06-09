@@ -2,7 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { validateSupabaseEnv } from "./lib/supabase/env-check";
 import { createAdminClient } from "./lib/supabase/admin";
-import { normalizeOwnerPlan } from "./lib/subscriptions";
+import {
+  getEffectivePlan,
+  normalizeOwnerPlan,
+  type SubscriptionRecord,
+} from "./lib/subscriptions";
 
 const COMPANY_ADMIN_EMAIL = "support@nestdesk.in";
 
@@ -143,12 +147,25 @@ export async function middleware(request: NextRequest) {
     const admin = createAdminClient();
     const { data: owner } = await admin
       .from("owners")
-      .select("plan")
+      .select("id, plan")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (owner && normalizeOwnerPlan(owner.plan) === "free") {
-      return NextResponse.redirect(new URL("/subscriptions", request.url));
+    if (owner) {
+      const { data: subscription } = await admin
+        .from("subscriptions")
+        .select("plan, status, ends_at")
+        .eq("owner_id", owner.id)
+        .in("status", ["active", "grace_period"])
+        .order("starts_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<SubscriptionRecord>();
+
+      const effectivePlan = getEffectivePlan(subscription ?? null);
+
+      if (normalizeOwnerPlan(effectivePlan) === "free") {
+        return NextResponse.redirect(new URL("/subscriptions", request.url));
+      }
     }
   }
 

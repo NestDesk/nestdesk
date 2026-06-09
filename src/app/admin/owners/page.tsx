@@ -8,7 +8,7 @@ import { Card, CardContent } from "../../../components/ui/card";
 export const dynamic = "force-dynamic";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
-import { normalizeOwnerPlan } from "../../../lib/subscriptions";
+import { normalizeOwnerPlan, PLAN_BADGE_CLASSES } from "../../../lib/subscriptions";
 import { formatDateInIndia } from "../../../lib/date";
 
 type OwnerRow = {
@@ -22,16 +22,6 @@ type OwnerRow = {
   hostel_count: number;
   active_tenant_count: number;
   created_at: string;
-};
-
-const PLAN_COLORS: Record<string, string> = {
-  free: "bg-zinc-500/10 text-zinc-600 border-zinc-500/30 dark:text-zinc-400",
-  micro: "bg-blue-500/10 text-blue-600 border-blue-500/30 dark:text-blue-400",
-  starter:
-    "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-400",
-  pro: "bg-violet-500/10 text-violet-600 border-violet-500/30 dark:text-violet-400",
-  institution:
-    "bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400",
 };
 
 export default function AdminOwnersPage() {
@@ -191,7 +181,7 @@ export default function AdminOwnersPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase ${PLAN_COLORS[plan] ?? ""}`}
+                            className={`inline-flex items-center rounded-full border border-border/30 px-2.5 py-0.5 text-[11px] font-semibold uppercase ${PLAN_BADGE_CLASSES[plan] ?? ""}`}
                           >
                             {plan}
                           </span>

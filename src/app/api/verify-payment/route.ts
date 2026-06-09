@@ -5,7 +5,9 @@ import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   computeSubscriptionEndDate,
   getPlanRank,
+  isPaidPlan,
   normalizeOwnerPlan,
+  OWNER_PLANS,
   type OwnerPlan,
 } from "../../../lib/subscriptions";
 import { verifyRazorpayPaymentSignature } from "../../../lib/subscriptions-signature";
@@ -16,7 +18,7 @@ const verifySchema = z.object({
   razorpay_payment_id: z.string().min(1),
   razorpay_order_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
-  plan: z.enum(["free", "micro", "starter", "pro", "institution"]),
+  plan: z.enum(OWNER_PLANS),
 });
 
 type RazorpayPaymentDetails = {
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
 
   const plan: OwnerPlan = normalizeOwnerPlan(parsed.data.plan);
 
-  if (plan === "free" || plan === "institution") {
+  if (!isPaidPlan(plan)) {
     return NextResponse.json(
       { error: "This plan cannot be verified through online payment." },
       { status: 400 },
@@ -172,7 +174,7 @@ export async function POST(request: NextRequest) {
     .from("subscriptions")
     .select("plan, status, starts_at, ends_at")
     .eq("owner_id", ownerCtx.owner.id)
-    .eq("status", "active")
+    .in("status", ["active", "grace_period"])
     .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle();

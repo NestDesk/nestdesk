@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { createAdminClient } from "../../lib/supabase/admin";
-import { normalizeOwnerPlan } from "../../lib/subscriptions";
+import {
+  normalizeOwnerPlan,
+  PLAN_BADGE_CLASSES,
+  type OwnerPlan,
+} from "../../lib/subscriptions";
 import { formatDateInIndia } from "../../lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import {
@@ -32,14 +36,6 @@ function fmtRupees(rupees: number) {
     maximumFractionDigits: 0,
   }).format(rupees);
 }
-
-const PLAN_COLORS: Record<string, string> = {
-  free: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
-  starter: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  micro: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  pro: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  institution: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-};
 
 const LEAD_STATUS_COLORS: Record<string, string> = {
   fresh: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -363,7 +359,7 @@ export default async function AdminOverviewPage() {
               return (
                 <div key={plan} className="flex items-center gap-3">
                   <span
-                    className={`inline-flex h-5 w-20 items-center justify-center rounded-full text-[10px] font-semibold uppercase tracking-wide ${PLAN_COLORS[plan] ?? ""}`}
+                    className={`inline-flex h-5 w-20 items-center justify-center rounded-full text-[10px] font-semibold uppercase tracking-wide ${PLAN_BADGE_CLASSES[plan as OwnerPlan] ?? ""}`}
                   >
                     {plan}
                   </span>
@@ -491,7 +487,7 @@ export default async function AdminOverviewPage() {
                         </td>
                         <td className="py-2.5">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${PLAN_COLORS[normalizeOwnerPlan(owner.plan)] ?? ""}`}
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${PLAN_BADGE_CLASSES[normalizeOwnerPlan(owner.plan)] ?? ""}`}
                           >
                             {normalizeOwnerPlan(owner.plan)}
                           </span>

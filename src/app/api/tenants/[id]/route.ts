@@ -3,7 +3,12 @@ import { z } from "zod";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
-import { normalizeOwnerPlan, getPlanConfig } from "../../../../lib/subscriptions";
+import {
+  normalizeOwnerPlan,
+  getPlanConfig,
+  getEffectivePlan,
+  type SubscriptionRecord,
+} from "../../../../lib/subscriptions";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
@@ -92,7 +97,22 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
     return NextResponse.json({ error: "Owner account not found." }, { status: 403 });
   }
 
-  return { ownerId: owner.id, userId: user.id, ownerPlan: owner.plan ?? "free" };
+  const { data: currentSubscription } = await admin
+    .from("subscriptions")
+    .select("plan, status, ends_at")
+    .eq("owner_id", owner.id)
+    .in("status", ["active", "grace_period"])
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SubscriptionRecord>();
+
+  const effectiveOwnerPlan = getEffectivePlan(currentSubscription ?? null);
+
+  return {
+    ownerId: owner.id,
+    userId: user.id,
+    ownerPlan: effectiveOwnerPlan,
+  };
 }
 
 export async function GET(

@@ -3,6 +3,7 @@ import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   formatPlanLabel,
+  getEffectivePlan,
   normalizeOwnerPlan,
   type OwnerPlan,
   type SubscriptionStatus,
@@ -45,6 +46,8 @@ export default async function SubscriptionsPage() {
     .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle<SubscriptionRow>();
+
+  const effectivePlan = getEffectivePlan(subscription ?? null);
 
   const { count: propertyCount } = await admin
     .from("hostels")
@@ -98,7 +101,7 @@ export default async function SubscriptionsPage() {
           </div>
 
           <SubscriptionsUsageClient
-            currentPlan={normalizeOwnerPlan(owner.plan) as OwnerPlan}
+            currentPlan={effectivePlan}
             subscription={
               subscription
                 ? {
@@ -123,7 +126,7 @@ export default async function SubscriptionsPage() {
               <p>
                 Current plan:{" "}
                 <span className="font-semibold text-foreground">
-                  {formatPlanLabel(normalizeOwnerPlan(owner.plan))}
+                  {formatPlanLabel(effectivePlan)}
                 </span>{" "}
                 <br />
                 Proration-based upgrades apply unused credit instantly. Downgrades
@@ -157,14 +160,14 @@ export default async function SubscriptionsPage() {
 
         <PricingPlans
           isLoggedIn
-          currentPlan={normalizeOwnerPlan(owner.plan) as OwnerPlan}
+          currentPlan={effectivePlan}
           ctaText="Buy"
           title=""
           description=""
         />
       </div>
       <SubscriptionHistoryClient
-        currentPlan={normalizeOwnerPlan(owner.plan) as OwnerPlan}
+        currentPlan={effectivePlan}
         subscriptionHistory={subscriptionHistory ?? []}
         paymentHistory={paymentHistory ?? []}
       />

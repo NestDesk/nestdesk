@@ -29,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../components/ui/dialog";
-import { normalizeOwnerPlan } from "../../../lib/subscriptions";
+import { normalizeOwnerPlan, PLAN_BADGE_CLASSES } from "../../../lib/subscriptions";
 
 type OwnerRow = {
   id: string;
@@ -40,14 +40,6 @@ type OwnerRow = {
   hostel_count: number;
   active_tenant_count: number;
   created_at: string;
-};
-
-const PLAN_COLORS: Record<string, string> = {
-  free: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
-  micro: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  starter: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  pro: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  institution: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
 };
 
 function fmt(paise: number) {
@@ -247,7 +239,7 @@ export default function AdminCreditsPage() {
                     </p>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${PLAN_COLORS[normalizeOwnerPlan(owner.plan)] ?? ""}`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${PLAN_BADGE_CLASSES[normalizeOwnerPlan(owner.plan)] ?? ""}`}
                   >
                     {normalizeOwnerPlan(owner.plan)}
                   </span>
