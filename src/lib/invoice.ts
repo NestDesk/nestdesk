@@ -38,23 +38,39 @@ export function formatDateShort(dateStr: string) {
   });
 }
 
+function parseDateValue(value?: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function formatBillingPeriod(payment: InvoicePayment) {
-  if (payment.billing_start && payment.billing_end) {
-    return `${formatDateShort(payment.billing_start)} - ${formatDateShort(
-      payment.billing_end,
+  const monthDate = parseDateValue(payment.month);
+  const monthStart = monthDate
+    ? new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+    : null;
+  const monthEnd = monthDate
+    ? new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
+    : null;
+
+  const billingStart = parseDateValue(payment.billing_start) ?? monthStart;
+  const billingEnd = parseDateValue(payment.billing_end) ?? monthEnd;
+
+  if (billingStart && billingEnd) {
+    return `${formatDateShort(billingStart.toISOString())} - ${formatDateShort(
+      billingEnd.toISOString(),
     )}`;
   }
 
-  const date = new Date(payment.month);
-  const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
-  const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const fmt = (d: Date) =>
-    formatDateInIndia(d, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).replace(/ /g, "-");
-  return `${fmt(startDate)} - ${fmt(endDate)}`;
+  if (billingStart) {
+    return formatDateShort(billingStart.toISOString());
+  }
+
+  if (billingEnd) {
+    return formatDateShort(billingEnd.toISOString());
+  }
+
+  return payment.month;
 }
 
 function formatAddress(address: string | null | undefined) {
@@ -82,8 +98,27 @@ function formatAddress(address: string | null | undefined) {
 }
 
 function renderPropertyAddress(payment: InvoicePayment) {
+  const defaultAddressParts: string[] = [];
+
+  if (payment.hostel_address?.trim()) {
+    defaultAddressParts.push(payment.hostel_address.trim());
+  }
+
+  const cityStateParts = [payment.hostel_city, payment.hostel_state]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .map((part) => part.trim());
+
+  if (cityStateParts.length > 0) {
+    defaultAddressParts.push(cityStateParts.join(", "));
+  }
+
+  if (payment.hostel_pincode?.trim()) {
+    defaultAddressParts.push(payment.hostel_pincode.trim());
+  }
+
+  const fallbackAddress = defaultAddressParts.join(", ");
   const addressText =
-    payment.hostel_billing_address?.trim() || payment.hostel_address?.trim() || "";
+    payment.hostel_billing_address?.trim() || fallbackAddress || "";
   const formatted = formatAddress(addressText);
   return formatted ? `<div class="property-address">${formatted}</div>` : "";
 }

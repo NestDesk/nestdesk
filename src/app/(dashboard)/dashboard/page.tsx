@@ -533,9 +533,6 @@ export default async function DashboardPage() {
         <h2 className="text-2xl font-bold tracking-tight text-foreground">
           Dashboard
         </h2>
-        <p className="text-muted-foreground">
-          Overview of your PG, colive, hostel, and rental business
-        </p>
       </div>
 
       {/* ── Top dashboard prompts ─────────────────────────── */}

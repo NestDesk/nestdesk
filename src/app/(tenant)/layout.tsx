@@ -4,6 +4,7 @@ import { createAdminClient } from "../../lib/supabase/admin";
 import { LogOut, Sparkles } from "lucide-react";
 import { Navbar, NavbarLogo } from "../../components/layout/Navbar";
 import { ThemeToggle } from "../../components/layout/ThemeToggle";
+import { TenantMobileNav } from "../../components/layout/TenantMobileNav";
 import { TenantNav } from "../../components/layout/TenantNav";
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
@@ -73,13 +74,11 @@ export default async function TenantLayout({
         left={
           <>
             <NavbarLogo href="/tenant/dashboard" subtitle="Tenant Portal" />
-            <span className="hidden rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground lg:inline-flex">
-              {hostelName}
-            </span>
           </>
         }
         right={
           <>
+            <TenantMobileNav />
             <span className="hidden text-xs text-muted-foreground md:block">
               {tenant.full_name}
             </span>
@@ -115,22 +114,27 @@ export default async function TenantLayout({
               </div>
             </div>
 
-            <div className="mt-3 rounded-xl border border-border/60 bg-background/70 p-3">
-              <p className="line-clamp-1 text-sm font-medium text-foreground">
+            <div className="mt-3 rounded-xl border border-border/60 bg-background/70 p-4">
+              <p className="line-clamp-1 text-base font-semibold text-foreground">
                 {hostelName}
               </p>
               {propertyType ? (
-                <p className="mt-1 text-xs text-muted-foreground">{propertyType}</p>
+                <p className="mt-1 text-sm uppercase tracking-[0.16em] text-primary/75">
+                  {propertyType}
+                </p>
               ) : null}
+
               {propertyAddress ? (
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {propertyAddress}
                 </p>
               ) : null}
             </div>
           </div>
 
-          <TenantNav />
+          <div className="hidden md:block">
+            <TenantNav />
+          </div>
         </aside>
 
         <main className="min-w-0 pb-8">{children}</main>

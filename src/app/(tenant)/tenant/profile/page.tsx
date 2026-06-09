@@ -334,6 +334,11 @@ export default function TenantProfilePage() {
                 ? "cursor-not-allowed opacity-70"
                 : "cursor-pointer hover:bg-muted"
             }`}
+            title={
+              isAccountActive
+                ? "This account is activated by the owner. Image replacement is disabled."
+                : undefined
+            }
             aria-disabled={uploadDisabled}
           >
             {isUploading ? (
@@ -341,7 +346,13 @@ export default function TenantProfilePage() {
             ) : (
               <Camera className="h-3.5 w-3.5" />
             )}
-            {uploadDisabled ? "Uploading..." : preview ? "Replace" : "Upload"}
+            {isUploading
+              ? "Uploading..."
+              : isAccountActive
+                ? "Locked"
+                : preview
+                  ? "Replace"
+                  : "Upload"}
             <input
               type="file"
               accept="image/*"

@@ -20,6 +20,8 @@ export async function GET() {
     id: string;
     amount: number;
     month: string;
+    billing_start?: string | null;
+    billing_end?: string | null;
     status: string;
     method: string | null;
     receipt_number: string | null;
@@ -48,7 +50,7 @@ export async function GET() {
   const { data: payments, error } = await admin
     .from("payments")
     .select(
-      "id, amount, month, status, method, receipt_number, notes, paid_on, created_at",
+      "id, amount, month, billing_start, billing_end, status, method, receipt_number, notes, paid_on, created_at",
     )
     .eq("tenant_id", tenant.id)
     .order("month", { ascending: false });

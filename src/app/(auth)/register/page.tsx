@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { Skeleton } from "../../../components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -135,7 +136,29 @@ function PasswordStrength({ password }: { password: string }) {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="rounded-3xl border border-border/70 bg-card/70 p-8 shadow-sm">
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <Skeleton className="h-5 w-40 rounded-full" />
+              <Skeleton className="h-8 w-64 rounded-2xl" />
+              <Skeleton className="h-4 w-full max-w-2xl rounded-full" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-12 rounded-2xl" />
+              <Skeleton className="h-12 rounded-2xl" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-12 rounded-2xl" />
+              <Skeleton className="h-12 rounded-2xl" />
+              <Skeleton className="h-12 rounded-2xl" />
+            </div>
+            <Skeleton className="h-12 rounded-2xl" />
+          </div>
+        </div>
+      }
+    >
       <RegisterPageBody />
     </Suspense>
   );

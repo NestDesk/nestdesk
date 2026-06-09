@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Building2, CircleCheckBig, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../../components/ui/button";
+import { Skeleton } from "../../../components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -29,7 +30,21 @@ export default function ForgotPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="rounded-3xl border border-white/10 bg-white/10 p-8" />
+        <div className="rounded-3xl border border-border/70 bg-card/70 p-8 shadow-sm">
+          <div className="space-y-6">
+            <div className="mx-auto h-14 w-14 rounded-2xl bg-muted" />
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-44 rounded-full" />
+              <Skeleton className="h-4 w-72 rounded-full" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-12 rounded-2xl" />
+              <Skeleton className="h-12 rounded-2xl" />
+              <Skeleton className="h-12 rounded-2xl" />
+            </div>
+            <Skeleton className="h-12 rounded-2xl" />
+          </div>
+        </div>
       }
     >
       <ForgotPasswordPageContent />

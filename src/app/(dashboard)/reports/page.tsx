@@ -487,17 +487,17 @@ function FinancialTab({ isDark }: { isDark: boolean }) {
           sub="Paid expenses in period"
         />
         <KPICard
-          label="Net Operating Inc."
+          label="Net Operating Income"
           value={fmt(noi)}
           icon={noi >= 0 ? TrendingUp : TrendingDown}
           sub={noi >= 0 ? "Surplus" : "Deficit"}
         />
-        <KPICard
+        {/* <KPICard
           label="Outstanding Dues"
           value={fmt(kpis?.outstandingDues ?? 0)}
           icon={IndianRupee}
           sub="All pending / disputed"
-        />
+        /> */}
       </div>
 
       {chart.length > 0 && (
