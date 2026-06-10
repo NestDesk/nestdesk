@@ -93,7 +93,7 @@ export default function TenantNoticesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {notices.map((n, idx) => (
+          {notices.map((n) => (
             <Card
               key={n.id}
               className="group rounded-2xl border border-border/70 bg-card/70 transition-shadow hover:shadow-sm"

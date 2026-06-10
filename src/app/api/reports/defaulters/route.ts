@@ -5,22 +5,6 @@ import { calculateRent } from "../../../../lib/billing";
 
 type SupabaseResponse<T> = { data: T | null; error: unknown };
 type HostelSummary = { id: string; name: string };
-type OverduePaymentRecord = {
-  id: string;
-  tenant_id: string | null;
-  hostel_id: string;
-  amount: string | number | null;
-  month: string | null;
-  status: string;
-  paid_on: string | null;
-};
-type TenantContact = {
-  id: string;
-  full_name: string;
-  room_id: string | null;
-  phone: string | null;
-};
-type TenantMeta = Omit<TenantContact, "id">;
 type RoomRecord = { id: string; room_number: string };
 
 type TenantCoverageRow = {
@@ -257,7 +241,7 @@ export async function GET(req: NextRequest) {
         status: string;
         aging_days: number;
         bucket: string;
-      }[] => Boolean(row),
+      } => Boolean(row),
     );
 
   const totalOverdue = rows.reduce((s, r) => s + r.amount, 0);

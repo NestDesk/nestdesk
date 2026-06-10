@@ -232,7 +232,7 @@ export async function PATCH(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
+      "id, owner_id, hostel_id, room_id, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
