@@ -8,7 +8,7 @@ type MaintenanceRequestRecord = {
   hostel_id: string;
   room_id: string | null;
   title: string;
-  category: string | null;
+  description: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -69,25 +69,46 @@ export async function GET(req: NextRequest) {
   let q = admin
     .from("maintenance_requests")
     .select(
-      "id, hostel_id, room_id, title, category, status, created_at, updated_at, deleted_at",
+      "id, hostel_id, room_id, title, description, status, created_at, updated_at, deleted_at",
     )
     .in("hostel_id", scopedIds)
     .is("deleted_at", null);
   if (startDate) q = q.gte("created_at", startDate);
   if (endDate) q = q.lte("created_at", endDate + "T23:59:59");
-  const { data: requests } = (await q) as SupabaseResponse<
+  const { data: requests, error: requestsError } = (await q) as SupabaseResponse<
     MaintenanceRequestRecord[]
   >;
+
+  if (requestsError) {
+    console.error(
+      "[reports/maintenance] failed to load maintenance requests",
+      requestsError,
+    );
+    return NextResponse.json(
+      { error: "Failed to load maintenance requests." },
+      { status: 500 },
+    );
+  }
 
   const rIds = Array.from(
     new Set((requests ?? []).map((r) => r.room_id).filter((x): x is string => !!x)),
   );
   const rMap = new Map<string, string>();
   if (rIds.length) {
-    const { data: rooms } = (await admin
+    const { data: rooms, error: roomsError } = (await admin
       .from("rooms")
       .select("id, room_number")
-      .in("id", rIds)) as SupabaseResponse<RoomRecord[]>;
+      .in("id", rIds)
+      .is("deleted_at", null)) as SupabaseResponse<RoomRecord[]>;
+
+    if (roomsError) {
+      console.error("[reports/maintenance] failed to load rooms", roomsError);
+      return NextResponse.json(
+        { error: "Failed to load maintenance rooms." },
+        { status: 500 },
+      );
+    }
+
     (rooms ?? []).forEach((r) => rMap.set(r.id, r.room_number));
   }
 
@@ -129,7 +150,7 @@ export async function GET(req: NextRequest) {
   const table = (requests ?? []).map((r) => ({
     id: r.id,
     title: r.title,
-    category: r.category ?? "—",
+    description: r.description ?? "—",
     hostel_name: hostelNameMap.get(r.hostel_id) ?? "—",
     room_number: r.room_id ? (rMap.get(r.room_id) ?? "—") : "—",
     status: r.status,

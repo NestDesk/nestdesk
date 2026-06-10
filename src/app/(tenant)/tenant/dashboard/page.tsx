@@ -15,7 +15,12 @@ import {
   User,
   Wrench,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../../components/ui/card";
 import { formatDateInIndia } from "../../../../lib/date";
 import { Badge } from "../../../../components/ui/badge";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
@@ -65,7 +70,7 @@ export default async function TenantDashboardPage() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, status, join_date, room_id, hostel_id, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
+      "id, full_name, email, phone, status, join_date, room_id, hostel_id, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();

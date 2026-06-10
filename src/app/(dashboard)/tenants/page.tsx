@@ -139,7 +139,7 @@ type TenantProfileDetail = {
   status: TenantStatus;
   occupation_type: string | null;
   institution_name: string | null;
-  aadhar_number: string | null;
+  aadhar_last4: string | null;
   profile_photo_url: string | null;
   aadhar_front_url: string | null;
   aadhar_back_url: string | null;
@@ -1746,7 +1746,7 @@ export default function OwnerTenantsPage() {
       )}
 
       <Dialog open={reviewOpen} onOpenChange={closeReview}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Tenant Profile Review</DialogTitle>
             <DialogDescription>
@@ -1830,7 +1830,7 @@ export default function OwnerTenantsPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Aadhaar</p>
                   <p className="text-sm font-medium text-foreground">
-                    {maskAadhaar(reviewTenant.aadhar_number)}
+                    {maskAadhaar(reviewTenant.aadhar_last4)}
                   </p>
                 </div>
                 <div>
@@ -1904,8 +1904,8 @@ export default function OwnerTenantsPage() {
                     <ShieldCheck className="h-3.5 w-3.5" /> Approval
                   </p>
 
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-6">
-                    <div className="sm:col-span-1">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-12">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-room" className="text-xs">
                         Room
                       </Label>
@@ -1925,7 +1925,7 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-1">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-rent" className="text-xs">
                         Agreed Rent/Month
                       </Label>
@@ -1943,7 +1943,7 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-join-date" className="text-xs">
                         Join Date
                       </Label>
@@ -1962,7 +1962,7 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-rent-start-date" className="text-xs">
                         Rent Start Date
                       </Label>

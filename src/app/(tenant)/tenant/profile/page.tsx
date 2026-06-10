@@ -43,7 +43,7 @@ type TenantProfile = {
   status: string | null;
   occupation_type: string | null;
   institution_name: string | null;
-  aadhar_number: string | null;
+  aadhar_last4: string | null;
   profile_photo_url: string | null;
   aadhar_front_url: string | null;
   aadhar_back_url: string | null;
@@ -128,6 +128,7 @@ export default function TenantProfilePage() {
   const [occupationType, setOccupationType] = useState("student");
   const [institutionName, setInstitutionName] = useState("");
   const [aadharNumber, setAadharNumber] = useState("");
+  const [savedAadharLast4, setSavedAadharLast4] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{
     src: string;
     title: string;
@@ -142,7 +143,8 @@ export default function TenantProfilePage() {
       setPhone(j.tenant.phone ?? "");
       setOccupationType(j.tenant.occupation_type ?? "student");
       setInstitutionName(j.tenant.institution_name ?? "");
-      setAadharNumber(j.tenant.aadhar_number ?? "");
+      setSavedAadharLast4(j.tenant.aadhar_last4 ?? null);
+      setAadharNumber("");
     }
   }
 
@@ -592,6 +594,11 @@ export default function TenantProfilePage() {
                 className="rounded-xl max-w-sm"
                 disabled={isAccountActive}
               />
+              {savedAadharLast4 && !aadharNumber ? (
+                <p className="text-xs text-muted-foreground">
+                  Saved Aadhaar: **** **** {savedAadharLast4}
+                </p>
+              ) : null}
               {aadharNumber && !isValidAadhaarNumber(aadharNumber) ? (
                 <p className="text-xs text-destructive">Aadhaar number is invalid</p>
               ) : null}

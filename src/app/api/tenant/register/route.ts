@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../../lib/supabase/admin";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../../lib/aadhaar";
+import {
+  isValidAadhaarNumber,
+  normalizeAadhaarNumber,
+} from "../../../../lib/aadhaar";
+import { encryptAadhaar, hashAadhaar } from "../../../../lib/aadhaar-encryption";
 import {
   applySupabaseCookies,
   isExistingUserError,
@@ -125,10 +129,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (normalizedAadhaar) {
+    const aadhaarHash = hashAadhaar(normalizedAadhaar);
     const { data: existingTenant, error: existingTenantError } = await admin
       .from("tenants")
       .select("id")
-      .eq("aadhar_number", normalizedAadhaar)
+      .eq("aadhar_number_hash", aadhaarHash)
       .maybeSingle();
 
     if (existingTenantError) {
@@ -186,14 +191,18 @@ export async function POST(request: NextRequest) {
     occupation_type: occupationType,
     institution_name: institutionName,
     gender,
-    aadhar_number: normalizedAadhaar,
+    aadhar_number: normalizedAadhaar ? encryptAadhaar(normalizedAadhaar) : null,
+    aadhar_number_hash: normalizedAadhaar ? hashAadhaar(normalizedAadhaar) : null,
     aadhar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : null,
     status: "pending",
   });
 
   if (tenantError) {
     if (
-      tenantError.message.toLowerCase().includes("idx_tenants_aadhar_number_unique")
+      tenantError.message
+        .toLowerCase()
+        .includes("idx_tenants_aadhar_number_hash_unique") ||
+      tenantError.message.toLowerCase().includes("aadhar_number_hash")
     ) {
       await admin.auth.admin.deleteUser(authUserId).catch(() => undefined);
 

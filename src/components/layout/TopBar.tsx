@@ -129,10 +129,10 @@ export function TopBar({
 
     const badgeClass =
       status === "Active"
-        ? "bg-emerald-500/10 text-emerald-700"
+        ? "bg-emerald-500/15 text-emerald-800"
         : status === "Grace"
-          ? "bg-amber-500/10 text-amber-700"
-          : "bg-rose-500/10 text-rose-700";
+          ? "bg-amber-500/15 text-amber-800"
+          : "bg-rose-500/15 text-rose-800";
 
     return {
       plan,
@@ -192,10 +192,10 @@ export function TopBar({
       right={
         <>
           <ThemeToggle />
-          <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-muted/80 px-3 py-1 text-xs text-muted-foreground md:inline-flex">
+          <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-muted/80 px-3 py-1 text-xs text-foreground md:inline-flex">
             <span className="font-semibold text-foreground">{statusPill.plan}</span>
             <span
-              className={`rounded-full px-2 py-0.5 uppercase ${statusPill.badgeClass}`}
+              className={`rounded-full px-2 py-0.5 uppercase font-semibold ${statusPill.badgeClass}`}
             >
               {statusPill.status}
             </span>

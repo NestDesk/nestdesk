@@ -32,7 +32,7 @@ export default async function TenantLayout({
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, status, hostel_id, email, phone, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, hostels(name, address, city, state, pincode, property_type)",
+      "id, full_name, status, hostel_id, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, hostels(name, address, city, state, pincode, property_type)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();

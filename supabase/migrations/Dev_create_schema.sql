@@ -172,6 +172,7 @@ CREATE TABLE public.tenants (
   phone TEXT,
   aadhar_last4 TEXT,
   aadhar_number TEXT,
+  aadhar_number_hash TEXT,
   aadhar_doc_path TEXT,
   profile_photo_path TEXT,
   aadhar_front_path TEXT,
@@ -201,9 +202,9 @@ CREATE INDEX idx_tenants_hostel_id
 CREATE INDEX idx_tenants_room_id
   ON public.tenants(room_id);
 
-CREATE UNIQUE INDEX idx_tenants_aadhar_number_unique
-  ON public.tenants(aadhar_number)
-  WHERE aadhar_number IS NOT NULL
+CREATE UNIQUE INDEX idx_tenants_aadhar_number_hash_unique
+  ON public.tenants(aadhar_number_hash)
+  WHERE aadhar_number_hash IS NOT NULL
     AND deleted_at IS NULL;
 
 CREATE TABLE public.payments (
@@ -1233,5 +1234,17 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_owner_status_ends_at
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_owner_single_active
   ON public.subscriptions(owner_id)
   WHERE status = 'active';
+
+  ALTER TABLE public.tenants
+  ADD COLUMN IF NOT EXISTS aadhar_number_hash TEXT;
+
+ALTER TABLE public.tenants
+  ADD COLUMN IF NOT EXISTS aadhar_last4 TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_aadhar_number_hash_unique
+  ON public.tenants(aadhar_number_hash)
+  WHERE aadhar_number_hash IS NOT NULL
+    AND deleted_at IS NULL;
+
 
 COMMIT;

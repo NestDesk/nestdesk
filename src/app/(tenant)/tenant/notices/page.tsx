@@ -101,13 +101,7 @@ export default function TenantNoticesPage() {
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
                   {/* Icon bubble */}
-                  <div
-                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                      idx === 0
-                        ? "bg-primary/15 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                     <Bell className="h-4 w-4" />
                   </div>
 

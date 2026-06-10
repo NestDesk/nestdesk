@@ -143,7 +143,7 @@ interface MaintenanceChartRow {
 interface MaintenanceRow {
   id: string;
   title: string;
-  category: string;
+  description: string;
   hostel_name: string;
   room_number: string;
   status: string;
@@ -779,7 +779,7 @@ function DefaultersTab({ isDark }: { isDark: boolean }) {
 const mntCol = createColumnHelper<MaintenanceRow>();
 const mntCols = [
   mntCol.accessor("title", { header: "Title" }),
-  mntCol.accessor("category", { header: "Category" }),
+  mntCol.accessor("description", { header: "Description" }),
   mntCol.accessor("hostel_name", { header: "Property" }),
   mntCol.accessor("room_number", { header: "Room" }),
   mntCol.accessor("status", {

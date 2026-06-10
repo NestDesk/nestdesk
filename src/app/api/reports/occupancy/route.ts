@@ -10,7 +10,7 @@ type OccupancyTenant = {
   full_name: string;
   status: string;
   rent_start_date: string | null;
-  moved_out_at: string | null;
+  move_out_date: string | null;
 };
 type RoomRecord = {
   id: string;
@@ -77,44 +77,62 @@ export async function GET(req: NextRequest) {
   }
 
   // rooms
-  const { data: rooms } = (await admin
+  const { data: rooms, error: roomsError } = (await admin
     .from("rooms")
     .select("id, hostel_id, room_number, capacity, status")
     .in("hostel_id", scopedIds)
     .is("deleted_at", null)) as SupabaseResponse<RoomRecord[]>;
 
+  if (roomsError) {
+    console.error("[reports/occupancy] failed to load rooms", roomsError);
+    return NextResponse.json(
+      { error: "Failed to load occupancy rooms." },
+      { status: 500 },
+    );
+  }
+
   // tenants
-  const { data: allTenants } = (await admin
+  const { data: allTenants, error: tenantsError } = (await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, status, rent_start_date, moved_out_at",
+      "id, hostel_id, room_id, full_name, status, rent_start_date, move_out_date",
     )
-    .in("hostel_id", scopedIds)) as SupabaseResponse<OccupancyTenant[]>;
+    .eq("owner_id", ctx.ownerId)
+    .is("deleted_at", null)) as SupabaseResponse<OccupancyTenant[]>;
+
+  if (tenantsError) {
+    console.error("[reports/occupancy] failed to load tenants", tenantsError);
+    return NextResponse.json(
+      { error: "Failed to load occupancy tenants." },
+      { status: 500 },
+    );
+  }
 
   const tenants = (allTenants ?? []).filter((t) => t.status !== "rejected");
-
-  const activeTenants = tenants.filter((t) => t.status === "active");
+  const roomIds = new Set((rooms ?? []).map((room) => room.id));
+  const scopedTenants = tenants.filter((t) => t.room_id && roomIds.has(t.room_id));
+  const activeTenants = scopedTenants.filter((t) => t.status === "active");
   const now = new Date();
 
   // new move-ins in date range
   const moveInStart = startDate ?? "1970-01-01";
   const moveInEnd = endDate ?? now.toISOString().slice(0, 10);
-  const newMoveIns = tenants.filter((t) => {
+  const newMoveIns = scopedTenants.filter((t) => {
     const d = t.rent_start_date;
     return d && d >= moveInStart && d <= moveInEnd;
   }).length;
 
-  const moveOuts = tenants.filter((t) => {
-    const d = t.moved_out_at;
+  const moveOuts = scopedTenants.filter((t) => {
+    const d = t.move_out_date;
     return d && d >= moveInStart && d <= moveInEnd;
   }).length;
 
   // avg stay
-  const stays = tenants
+  const stays = scopedTenants
     .filter((t) => t.rent_start_date)
     .map((t) => {
       const start = new Date(t.rent_start_date!);
-      const end = t.moved_out_at ? new Date(t.moved_out_at) : now;
+      const end = t.move_out_date ? new Date(t.move_out_date) : now;
       return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
     });
   const avgStay = stays.length
@@ -122,7 +140,9 @@ export async function GET(req: NextRequest) {
     : 0;
 
   // bed counts
-  const totalBeds = (rooms ?? []).reduce((s, r) => s + Number(r.capacity), 0);
+  const totalBeds = (rooms ?? [])
+    .filter((r) => r.status !== "inactive")
+    .reduce((s, r) => s + Number(r.capacity), 0);
   const occupiedBeds = activeTenants.length;
   const vacancyRate =
     totalBeds > 0 ? Math.round(((totalBeds - occupiedBeds) / totalBeds) * 100) : 0;
