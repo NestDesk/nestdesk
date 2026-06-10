@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { calculateRent } from "../../../../lib/billing";
 
 type SupabaseResponse<T> = { data: T | null; error: unknown };
 type HostelSummary = { id: string; name: string };
@@ -21,6 +22,77 @@ type TenantContact = {
 };
 type TenantMeta = Omit<TenantContact, "id">;
 type RoomRecord = { id: string; room_number: string };
+
+type TenantCoverageRow = {
+  id: string;
+  full_name: string;
+  room_id: string | null;
+  phone: string | null;
+  hostel_id: string;
+  rent_start_date: string | null;
+  agreed_rent_amount: number | null;
+};
+
+type PaidPaymentRecord = {
+  tenant_id: string | null;
+  billing_end: string | null;
+};
+
+function parseISODate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function toISODate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function addDays(dateStr: string, days: number) {
+  const date = parseISODate(dateStr);
+  date.setDate(date.getDate() + days);
+  return toISODate(date);
+}
+
+function calculatePendingBreakdown(
+  monthlyRent: number,
+  pendingFrom: string,
+  pendingTo: string,
+) {
+  let cursor = parseISODate(pendingFrom);
+  const end = parseISODate(pendingTo);
+  const rows: Array<{ amount: number }> = [];
+
+  while (cursor <= end) {
+    const periodStart = new Date(cursor);
+    const monthEnd = new Date(
+      periodStart.getFullYear(),
+      periodStart.getMonth() + 1,
+      0,
+    );
+    const periodEnd = monthEnd < end ? monthEnd : end;
+
+    const calc = calculateRent(
+      monthlyRent,
+      toISODate(periodStart),
+      toISODate(periodEnd),
+    );
+
+    rows.push({ amount: calc.payableAmount });
+    cursor = new Date(periodEnd);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return rows;
+}
+
+function bucketFromAging(agingDays: number) {
+  if (agingDays <= 30) return "0–30 days";
+  if (agingDays <= 60) return "31–60 days";
+  if (agingDays <= 90) return "61–90 days";
+  return "90+ days";
+}
 
 async function getOwnerCtx() {
   const supabase = await createClient();
@@ -69,75 +141,124 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // All non-paid payments
-  const { data: overdue } = (await admin
-    .from("payments")
-    .select("id, tenant_id, hostel_id, amount, month, status, paid_on")
+  const { data: tenants } = await admin
+    .from("tenants")
+    .select(
+      "id, full_name, room_id, phone, hostel_id, rent_start_date, agreed_rent_amount",
+    )
     .in("hostel_id", scopedIds)
-    .neq("status", "paid")) as SupabaseResponse<OverduePaymentRecord[]>;
+    .eq("status", "active")
+    .not("rent_start_date", "is", null)
+    .gt("agreed_rent_amount", 0);
 
-  // tenant names
-  const tIds = Array.from(
-    new Set(
-      (overdue ?? []).map((p) => p.tenant_id).filter((p): p is string => Boolean(p)),
-    ),
+  const tenantIds = Array.from(
+    new Set(((tenants ?? []) as TenantCoverageRow[]).map((t) => t.id)),
   );
-  const tMap = new Map<string, TenantMeta>();
-  if (tIds.length) {
-    const { data: tenants } = (await admin
-      .from("tenants")
-      .select("id, full_name, room_id, phone")
-      .in("id", tIds)) as SupabaseResponse<TenantContact[]>;
-    (tenants ?? []).forEach((t) =>
-      tMap.set(t.id, { full_name: t.full_name, room_id: t.room_id, phone: t.phone }),
-    );
+
+  const paidByTenant: Record<string, string> = {};
+  if (tenantIds.length) {
+    const { data: paidPayments } = (await admin
+      .from("payments")
+      .select("tenant_id, billing_end")
+      .in("tenant_id", tenantIds)
+      .eq("status", "paid")
+      .not("billing_end", "is", null)) as SupabaseResponse<PaidPaymentRecord[]>;
+
+    (paidPayments ?? []).forEach((p) => {
+      if (!p.tenant_id || !p.billing_end) return;
+      const current = paidByTenant[p.tenant_id];
+      if (!current || p.billing_end > current) {
+        paidByTenant[p.tenant_id] = p.billing_end;
+      }
+    });
   }
-  const rIds = Array.from(
+
+  const disputedTenantIds = new Set<string>();
+  if (tenantIds.length) {
+    const { data: disputedRows } = (await admin
+      .from("payments")
+      .select("tenant_id")
+      .in("tenant_id", tenantIds)
+      .eq("status", "disputed")) as SupabaseResponse<Array<{ tenant_id: string }>>;
+    (disputedRows ?? []).forEach((row) => {
+      if (row.tenant_id) disputedTenantIds.add(row.tenant_id);
+    });
+  }
+
+  const roomIds = Array.from(
     new Set(
-      Array.from(tMap.values())
+      ((tenants ?? []) as TenantCoverageRow[])
         .map((t) => t.room_id)
-        .filter((x): x is string => !!x),
+        .filter((id): id is string => Boolean(id)),
     ),
   );
-  const rMap = new Map<string, string>();
-  if (rIds.length) {
+
+  const roomMap = new Map<string, string>();
+  if (roomIds.length) {
     const { data: rooms } = (await admin
       .from("rooms")
       .select("id, room_number")
-      .in("id", rIds)) as SupabaseResponse<RoomRecord[]>;
-    (rooms ?? []).forEach((r) => rMap.set(r.id, r.room_number));
+      .in("id", roomIds)) as SupabaseResponse<RoomRecord[]>;
+    (rooms ?? []).forEach((room) => roomMap.set(room.id, room.room_number));
   }
 
-  const now = new Date();
+  const today = toISODate(new Date());
+  const rows = ((tenants ?? []) as TenantCoverageRow[])
+    .map((tenant) => {
+      if (!tenant.rent_start_date || tenant.agreed_rent_amount === null) return null;
+      const coveredTill = paidByTenant[tenant.id] ?? null;
+      const pendingFrom = coveredTill
+        ? addDays(coveredTill, 1)
+        : tenant.rent_start_date;
 
-  // Bucket by aging
-  const rows = (overdue ?? []).map((p) => {
-    const due = new Date(`${p.month}-01`);
-    const agingDays = Math.max(
-      0,
-      Math.round((now.getTime() - due.getTime()) / 86400000),
+      if (pendingFrom > today) return null;
+
+      const breakdown = calculatePendingBreakdown(
+        Number(tenant.agreed_rent_amount),
+        pendingFrom,
+        today,
+      );
+
+      const amount = breakdown.reduce((sum, row) => sum + row.amount, 0);
+      if (amount <= 0) return null;
+
+      const agingDays = Math.max(
+        0,
+        Math.round(
+          (parseISODate(today).getTime() - parseISODate(pendingFrom).getTime()) /
+            86_400_000,
+        ),
+      );
+
+      return {
+        id: tenant.id,
+        tenant_name: tenant.full_name,
+        phone: tenant.phone ?? "—",
+        room_number: tenant.room_id ? (roomMap.get(tenant.room_id) ?? "—") : "—",
+        hostel_name: hostelNameMap.get(tenant.hostel_id) ?? "—",
+        amount,
+        month: pendingFrom.slice(0, 7),
+        status: disputedTenantIds.has(tenant.id) ? "disputed" : "pending",
+        aging_days: agingDays,
+        bucket: bucketFromAging(agingDays),
+      };
+    })
+    .filter(
+      (
+        row,
+      ): row is {
+        id: string;
+        tenant_name: string;
+        phone: string;
+        room_number: string;
+        hostel_name: string;
+        amount: number;
+        month: string;
+        status: string;
+        aging_days: number;
+        bucket: string;
+      }[] => Boolean(row),
     );
-    const t = p.tenant_id ? tMap.get(p.tenant_id) : undefined;
-    return {
-      id: p.id,
-      tenant_name: t?.full_name ?? "—",
-      phone: t?.phone ?? "—",
-      room_number: t?.room_id ? (rMap.get(t.room_id) ?? "—") : "—",
-      hostel_name: hostelNameMap.get(p.hostel_id) ?? "—",
-      amount: Number(p.amount),
-      month: String(p.month),
-      status: p.status,
-      aging_days: agingDays,
-      bucket:
-        agingDays <= 30
-          ? "0–30 days"
-          : agingDays <= 60
-            ? "31–60 days"
-            : agingDays <= 90
-              ? "61–90 days"
-              : "90+ days",
-    };
-  });
 
   const totalOverdue = rows.reduce((s, r) => s + r.amount, 0);
   const disputed = rows
@@ -148,7 +269,7 @@ export async function GET(req: NextRequest) {
     .reduce((s, r) => s + r.amount, 0);
 
   // unique defaulters
-  const uniqueTenants = new Set(rows.map((r) => r.tenant_name)).size;
+  const uniqueTenants = new Set(rows.map((r) => r.id)).size;
 
   return NextResponse.json({
     data: {
