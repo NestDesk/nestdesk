@@ -244,6 +244,7 @@ export async function POST(request: NextRequest) {
           current_plan: activeSubscriptionPlan,
           current_plan_billing_cycle: activeBillingCycle,
           current_plan_ends_at: currentPlanEndsAt,
+          previous_owner_credit_paise: currentOwnerCreditPaise,
           proration_credit_paise: prorationCreditPaise,
           credit_used_paise: creditUsedPaise,
           available_credit_paise: availableCreditPaise,

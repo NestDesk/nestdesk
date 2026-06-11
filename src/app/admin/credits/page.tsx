@@ -9,9 +9,9 @@ import {
   IndianRupee,
   RefreshCw,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 import {
   Card,
   CardContent,
@@ -29,6 +29,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../components/ui/dialog";
+export const dynamic = "force-dynamic";
+
 import { normalizeOwnerPlan, PLAN_BADGE_CLASSES } from "../../../lib/subscriptions";
 
 type OwnerRow = {
@@ -63,6 +65,22 @@ export default function AdminCreditsPage() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [amountError, setAmountError] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRows, setHistoryRows] = useState<
+    {
+      id: string;
+      event_type: "admin_credit_added" | "credit_used" | "downgrade_credit_added";
+      amount_paise: number;
+      balance_before: number;
+      balance_after: number;
+      note: string | null;
+      payment_order_id: string | null;
+      created_by: string | null;
+      created_at: string;
+    }[]
+  >([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [deletingCreditId, setDeletingCreditId] = useState<string | null>(null);
 
   const fetchOwners = useCallback(async (q: string) => {
     setLoading(true);
@@ -97,6 +115,24 @@ export default function AdminCreditsPage() {
     setNote("");
     setAmountError("");
     setDialogOpen(true);
+  }
+
+  async function openHistory(owner: OwnerRow) {
+    setSelectedOwner(owner);
+    setHistoryLoading(true);
+    setHistoryOpen(true);
+    setHistoryRows([]);
+
+    try {
+      const res = await fetch(`/api/admin/credits/history?ownerId=${owner.id}`);
+      if (!res.ok) throw new Error("Failed to load credit history.");
+      const data = (await res.json()) as { history: typeof historyRows };
+      setHistoryRows(data.history ?? []);
+    } catch {
+      toast.error("Unable to load credit history.");
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   async function handleAddCredits() {
@@ -161,6 +197,59 @@ export default function AdminCreditsPage() {
     }
   }
 
+  async function handleDeleteCredit(creditId: string) {
+    if (!selectedOwner) return;
+    if (
+      !window.confirm(
+        "Delete this admin-added credit adjustment? This will deduct the same amount from the owner's current balance.",
+      )
+    ) {
+      return;
+    }
+
+    setDeletingCreditId(creditId);
+
+    try {
+      const res = await fetch(`/api/admin/credits?creditId=${creditId}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        newBalancePaise?: number;
+        error?: string;
+      };
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error ?? "Failed to delete credit.");
+      }
+
+      toast.success("Admin credit adjustment deleted.");
+      setHistoryRows((prev) => prev.filter((row) => row.id !== creditId));
+      setOwners((prev) =>
+        prev.map((o) =>
+          o.id === selectedOwner.id
+            ? {
+                ...o,
+                unused_credit_paise: data.newBalancePaise ?? o.unused_credit_paise,
+              }
+            : o,
+        ),
+      );
+      setSelectedOwner((prev) =>
+        prev
+          ? {
+              ...prev,
+              unused_credit_paise: data.newBalancePaise ?? prev.unused_credit_paise,
+            }
+          : null,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete credit.");
+    } finally {
+      setDeletingCreditId((current) => (current === creditId ? null : current));
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -189,7 +278,7 @@ export default function AdminCreditsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by name or email…"
-            className="h-10 rounded-xl pl-9 text-sm"
+            className="h-10 rounded-xl pl-9 text-sm  w-[25rem]"
           />
         </div>
         <Button
@@ -262,15 +351,27 @@ export default function AdminCreditsPage() {
                   <span>•</span>
                   <span>{owner.active_tenant_count} tenants</span>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 w-full gap-1.5 rounded-xl text-xs"
-                  onClick={() => openAddCredits(owner)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Credits
-                </Button>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 w-full gap-1.5 rounded-xl text-xs"
+                    onClick={() => openAddCredits(owner)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Credits
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-full gap-1.5 rounded-xl text-xs"
+                    onClick={() => openHistory(owner)}
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    History
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -362,6 +463,107 @@ export default function AdminCreditsPage() {
               disabled={submitting || !amountRupees}
             >
               {submitting ? "Adding…" : "Add Credits"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="w-[min(36rem,100vw)] rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle>Credit history</DialogTitle>
+            <DialogDescription className="text-sm">
+              Recent credit additions and usage for {selectedOwner?.full_name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {historyLoading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              Loading credit history…
+            </div>
+          ) : historyRows.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              No credit history recorded for this owner.
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              {historyRows.map((row) => {
+                let eventLabel = "Credits used";
+                let eventDescription = "Service credit consumption";
+                if (row.event_type === "admin_credit_added") {
+                  eventLabel = "Credits added";
+                  eventDescription = "Admin adjustment";
+                } else if (row.event_type === "downgrade_credit_added") {
+                  eventLabel = "Downgrade credit added";
+                  eventDescription = "Credit generated by downgrade";
+                }
+
+                return (
+                  <div
+                    key={row.id}
+                    className="rounded-2xl border border-border/70 bg-card/80 p-4"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {eventLabel}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {eventDescription}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm font-semibold text-foreground">
+                        {row.event_type === "credit_used"
+                          ? `-${fmt(row.amount_paise)}`
+                          : fmt(row.amount_paise)}
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-2">
+                      <div>Before: {fmt(row.balance_before)}</div>
+                      <div>After: {fmt(row.balance_after)}</div>
+                      {row.payment_order_id ? (
+                        <div>Payment order: {row.payment_order_id}</div>
+                      ) : null}
+                      {row.created_by ? (
+                        <div>Recorded by: {row.created_by}</div>
+                      ) : null}
+                      <div>
+                        Created: {new Date(row.created_at).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    {row.note ? (
+                      <div className="mt-3 text-[11px] text-muted-foreground">
+                        Note: {row.note}
+                      </div>
+                    ) : null}
+                    {row.event_type === "admin_credit_added" ? (
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="rounded-xl"
+                          onClick={() => handleDeleteCredit(row.id)}
+                          disabled={deletingCreditId === row.id}
+                        >
+                          {deletingCreditId === row.id ? "Deleting…" : "Delete"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setHistoryOpen(false)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

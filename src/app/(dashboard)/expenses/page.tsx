@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -47,6 +47,7 @@ import {
 } from "../../../components/ui/dropdown-menu";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { Skeleton } from "../../../components/ui/skeleton";
 import { formatDateInIndia, toIndianDateString } from "../../../lib/date";
 import {
   EXPENSE_CATEGORIES,
@@ -228,6 +229,10 @@ export default function OwnerExpensesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categoryHighlightedIndex, setCategoryHighlightedIndex] = useState(0);
+  const categoryComboRef = useRef<HTMLDivElement | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
@@ -268,6 +273,31 @@ export default function OwnerExpensesPage() {
       if (observer) observer.disconnect();
     };
   }, []);
+
+  const filteredCategoryOptions = useMemo(() => {
+    return EXPENSE_CATEGORIES.filter((category) => {
+      if (!categoryQuery.trim()) return true;
+      const label = EXPENSE_CATEGORY_LABEL[category];
+      return (
+        label.toLowerCase().includes(categoryQuery.toLowerCase()) ||
+        category.toLowerCase().includes(categoryQuery.toLowerCase())
+      );
+    });
+  }, [categoryQuery]);
+
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        categoryComboRef.current &&
+        !categoryComboRef.current.contains(event.target as Node)
+      ) {
+        setCategoryDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [categoryDropdownOpen]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -533,6 +563,8 @@ export default function OwnerExpensesPage() {
       hostel_id: hostels.length === 1 ? hostels[0].id : "",
       expense_date: toInputDate(),
     });
+    setCategoryQuery("");
+    setCategoryDropdownOpen(false);
     setModalOpen(true);
   }
 
@@ -553,6 +585,8 @@ export default function OwnerExpensesPage() {
       recurring_frequency: expense.recurring_frequency ?? "",
       next_due_date: expense.next_due_date ?? "",
     });
+    setCategoryQuery(EXPENSE_CATEGORY_LABEL[expense.category]);
+    setCategoryDropdownOpen(false);
     setModalOpen(true);
   }
 
@@ -560,6 +594,8 @@ export default function OwnerExpensesPage() {
     setModalOpen(false);
     setEditingId(null);
     setDraft(EMPTY_DRAFT);
+    setCategoryQuery("");
+    setCategoryDropdownOpen(false);
   }
 
   function openDeleteDialog(expenseId: string) {
@@ -729,19 +765,19 @@ export default function OwnerExpensesPage() {
             </p>
           </div>
         </div>
-        {hasProperties ? (
+        {!loading && hasProperties ? (
           <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
             <Plus className="h-4 w-4" />
             Add Expense
           </Button>
-        ) : (
+        ) : !loading && !hasProperties ? (
           <Link href="/hostels/new">
             <Button size="sm" className="h-9 gap-1.5">
               <Plus className="h-4 w-4" />
               Add Property
             </Button>
           </Link>
-        )}
+        ) : null}
       </div>
 
       {/* Cards - Current Month, Recurring, and Daily Trend */}
@@ -867,31 +903,37 @@ export default function OwnerExpensesPage() {
         </select>
       </div>
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-72" />
+              </div>
+            </div>
+            <Skeleton className="h-9 w-36 rounded-md" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 rounded-xl" />
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            <Skeleton className="h-9 flex-1 rounded-md" />
+            <Skeleton className="h-9 w-36 rounded-md" />
+            <Skeleton className="h-9 w-36 rounded-md" />
+          </div>
+
+          <div className="space-y-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            ))}
+          </div>
         </div>
       ) : !hasProperties ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Building2 className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Add a property first
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              No property is available yet. Add your first property before recording
-              expenses.
-            </p>
-          </div>
-          <Link href="/hostels/new">
-            <Button size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Add Property
-            </Button>
-          </Link>
-        </div>
-      ) : expenses.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <IndianRupee className="h-6 w-6 text-primary" />
@@ -1022,24 +1064,103 @@ export default function OwnerExpensesPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" ref={categoryComboRef}>
                 <Label className="text-xs font-medium">Category</Label>
-                <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                  value={draft.category}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      category: e.target.value as ExpenseCategory,
-                    }))
-                  }
-                >
-                  {EXPENSE_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {EXPENSE_CATEGORY_LABEL[category]}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <Input
+                    placeholder={
+                      categoryQuery
+                        ? "Search or select category"
+                        : EXPENSE_CATEGORY_LABEL[draft.category] ||
+                          "Search or select category"
+                    }
+                    value={categoryQuery}
+                    onFocus={() => {
+                      setCategoryDropdownOpen(true);
+                      setCategoryHighlightedIndex(0);
+                    }}
+                    onChange={(e) => {
+                      setCategoryQuery(e.target.value);
+                      setCategoryDropdownOpen(true);
+                      setCategoryHighlightedIndex(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setCategoryDropdownOpen(true);
+                        setCategoryHighlightedIndex((prev) =>
+                          Math.min(prev + 1, filteredCategoryOptions.length - 1),
+                        );
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setCategoryDropdownOpen(true);
+                        setCategoryHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                      }
+                      if (e.key === "Enter") {
+                        if (
+                          categoryDropdownOpen &&
+                          filteredCategoryOptions[categoryHighlightedIndex]
+                        ) {
+                          e.preventDefault();
+                          const category =
+                            filteredCategoryOptions[categoryHighlightedIndex];
+                          setDraft((prev) => ({ ...prev, category }));
+                          setCategoryQuery(EXPENSE_CATEGORY_LABEL[category]);
+                          setCategoryDropdownOpen(false);
+                          setCategoryHighlightedIndex(0);
+                        }
+                      }
+                      if (e.key === "Escape") {
+                        setCategoryDropdownOpen(false);
+                      }
+                    }}
+                    className="h-9 w-full"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+                    onClick={() => {
+                      setCategoryDropdownOpen((prev) => !prev);
+                      setCategoryHighlightedIndex(0);
+                    }}
+                  >
+                    ▾
+                  </button>
+                  {categoryDropdownOpen ? (
+                    <div className="absolute left-0 right-0 z-50 mt-1 min-w-full max-h-60 overflow-auto rounded-md border border-border bg-background shadow-lg">
+                      {filteredCategoryOptions.length > 0 ? (
+                        filteredCategoryOptions.map((category, index) => (
+                          <button
+                            key={category}
+                            type="button"
+                            className={
+                              "flex w-full items-center px-3 py-2 text-left text-sm transition-colors " +
+                              (index === categoryHighlightedIndex
+                                ? "bg-muted text-foreground"
+                                : "text-foreground hover:bg-muted")
+                            }
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                            }}
+                            onClick={() => {
+                              setDraft((prev) => ({ ...prev, category }));
+                              setCategoryQuery(EXPENSE_CATEGORY_LABEL[category]);
+                              setCategoryDropdownOpen(false);
+                              setCategoryHighlightedIndex(0);
+                            }}
+                          >
+                            {EXPENSE_CATEGORY_LABEL[category]}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No categories match your search.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div className="space-y-1.5">

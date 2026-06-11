@@ -444,7 +444,7 @@ export default function OwnerTenantsPage() {
   const loadPaymentCoverage = useCallback(async (tenantRows: TenantRow[]) => {
     const activeRows = tenantRows.filter(
       (tenant) =>
-        tenant.status === "active" &&
+        (tenant.status === "active" || tenant.status === "moved_out") &&
         !!tenant.rent_start_date &&
         !!tenant.agreed_rent_amount &&
         tenant.agreed_rent_amount > 0,
@@ -485,8 +485,12 @@ export default function OwnerTenantsPage() {
 
       for (const tenant of activeRows) {
         const coveredTill = latestPaidEndByTenant.get(tenant.id) ?? null;
+        const effectiveEnd =
+          tenant.status === "moved_out" && tenant.move_out_date
+            ? tenant.move_out_date
+            : today;
 
-        if (coveredTill && coveredTill >= today) {
+        if (coveredTill && coveredTill >= effectiveEnd) {
           nextCoverage[tenant.id] = {
             status: "paid",
             coveredTill,
@@ -502,7 +506,7 @@ export default function OwnerTenantsPage() {
           ? addDays(coveredTill, 1)
           : tenant.rent_start_date!;
 
-        if (pendingFrom > today) {
+        if (pendingFrom > effectiveEnd) {
           nextCoverage[tenant.id] = {
             status: "paid",
             coveredTill,
@@ -517,7 +521,7 @@ export default function OwnerTenantsPage() {
         const pendingBreakdown = calculatePendingBreakdown(
           Number(tenant.agreed_rent_amount),
           pendingFrom,
-          today,
+          effectiveEnd,
         );
         const pendingAmount =
           Math.round(
@@ -528,7 +532,7 @@ export default function OwnerTenantsPage() {
           status: pendingAmount > 0 ? "pending" : "paid",
           coveredTill,
           pendingFrom: pendingAmount > 0 ? pendingFrom : null,
-          pendingTo: pendingAmount > 0 ? today : null,
+          pendingTo: pendingAmount > 0 ? effectiveEnd : null,
           pendingAmount: pendingAmount > 0 ? pendingAmount : 0,
           pendingBreakdown: pendingAmount > 0 ? pendingBreakdown : [],
         };
@@ -718,18 +722,23 @@ export default function OwnerTenantsPage() {
       return;
     }
 
-    if (!draft.roomId) {
+    if (draft.status === "active" && !draft.roomId) {
       toast.error("Room assignment is required.");
       return;
     }
 
-    if (!draft.agreedRentAmount) {
+    if (draft.status !== "moved_out" && !draft.agreedRentAmount) {
       toast.error("Agreed rent amount is required.");
       return;
     }
 
-    if (!draft.joinDate) {
+    if (draft.status !== "moved_out" && !draft.joinDate) {
       toast.error("Join date is required.");
+      return;
+    }
+
+    if (draft.status !== "moved_out" && !draft.rentStartDate) {
+      toast.error("Rent start date is required.");
       return;
     }
 
@@ -1393,19 +1402,20 @@ export default function OwnerTenantsPage() {
                               Profile {tenant.profile_completion_percentage}%
                             </span>
 
-                            {tenant.status === "active" && coverage ? (
+                            {coverage ? (
                               <button
                                 type="button"
                                 onClick={() => openPendingInfo(tenant, coverage)}
                                 className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                  "rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap",
                                   coverage.status === "paid"
                                     ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
                                     : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300",
                                 )}
                               >
-                                Rent{" "}
-                                {coverage.status === "paid" ? "Paid" : "Pending"}
+                                {coverage.status === "paid"
+                                  ? "Rent Paid"
+                                  : `Rent Pending ${formatAmount(coverage.pendingAmount)}`}
                               </button>
                             ) : null}
                           </div>
@@ -1426,7 +1436,7 @@ export default function OwnerTenantsPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="h-8 border-r border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-emerald-500/5 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-400"
+                                  className="h-8 border-r border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-emerald-500/5 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-400 whitespace-nowrap"
                                   onClick={() => openRecordPayment(tenant)}
                                   disabled={tenant.status !== "active"}
                                   title={
@@ -1565,7 +1575,10 @@ export default function OwnerTenantsPage() {
                               id={`room-${tenant.id}`}
                               className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                               value={draft.roomId ?? ""}
-                              disabled={savingId === tenant.id}
+                              disabled={
+                                savingId === tenant.id ||
+                                draft.status === "moved_out"
+                              }
                               onChange={(e) =>
                                 updateDraft(
                                   tenant.id,
@@ -1620,7 +1633,10 @@ export default function OwnerTenantsPage() {
                                   )
                                 }
                                 placeholder="Monthly rent"
-                                disabled={savingId === tenant.id}
+                                disabled={
+                                  savingId === tenant.id ||
+                                  draft.status === "moved_out"
+                                }
                                 className="h-9 w-full pl-8 text-sm"
                               />
                             </div>
@@ -1638,7 +1654,10 @@ export default function OwnerTenantsPage() {
                             <DatePicker
                               id={`join-${tenant.id}`}
                               value={draft.joinDate}
-                              disabled={savingId === tenant.id}
+                              disabled={
+                                savingId === tenant.id ||
+                                draft.status === "moved_out"
+                              }
                               onChange={(value) =>
                                 updateDraft(tenant.id, "joinDate", value)
                               }
@@ -1658,7 +1677,10 @@ export default function OwnerTenantsPage() {
                             <DatePicker
                               id={`rentstart-${tenant.id}`}
                               value={draft.rentStartDate}
-                              disabled={savingId === tenant.id}
+                              disabled={
+                                savingId === tenant.id ||
+                                draft.status === "moved_out"
+                              }
                               onChange={(value) =>
                                 updateDraft(tenant.id, "rentStartDate", value)
                               }
@@ -2158,16 +2180,24 @@ export default function OwnerTenantsPage() {
             </div>
           ) : pendingInfoDetail ? (
             <div className="space-y-2 rounded-lg border border-orange-300 bg-orange-50 px-3 py-3 text-sm text-orange-800 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300">
-              <p>Pending Amount: {formatAmount(pendingInfoDetail.pendingAmount)}</p>
-              <p>
-                Pending Period: {formatDate(pendingInfoDetail.pendingFrom)} -{" "}
-                {formatDate(pendingInfoDetail.pendingTo)}
-              </p>
-              {pendingInfoDetail.coveredTill ? (
-                <p>Last Paid Till: {formatDate(pendingInfoDetail.coveredTill)}</p>
-              ) : (
-                <p>No paid period found yet.</p>
-              )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p>
+                    Pending Amount: {formatAmount(pendingInfoDetail.pendingAmount)}
+                  </p>
+                  <p>
+                    Pending Period: {formatDate(pendingInfoDetail.pendingFrom)} -{" "}
+                    {formatDate(pendingInfoDetail.pendingTo)}
+                  </p>
+                  {pendingInfoDetail.coveredTill ? (
+                    <p>
+                      Last Paid Till: {formatDate(pendingInfoDetail.coveredTill)}
+                    </p>
+                  ) : (
+                    <p>No paid period found yet.</p>
+                  )}
+                </div>
+              </div>
 
               {pendingInfoDetail.pendingBreakdown.length > 0 ? (
                 <div className="mt-3 overflow-hidden rounded-md border border-orange-200/70 bg-background/70 dark:border-orange-500/30">

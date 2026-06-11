@@ -34,6 +34,7 @@ import {
   type PaymentStatus,
   type RecordPaymentTenantOption,
 } from "../../../components/payments/RecordPaymentModal";
+import { Badge } from "../../../components/ui/badge";
 import { DatePicker } from "../../../components/ui/DatePicker";
 import { Input } from "../../../components/ui/input";
 import {
@@ -107,6 +108,12 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   upi: "UPI",
   bank_transfer: "Bank Transfer",
   other: "Other",
+};
+
+const STATUS_CHIP: Record<PaymentStatus, string> = {
+  paid: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
+  disputed:
+    "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300",
 };
 
 const columnHelper = createColumnHelper<PaymentRow>();
@@ -393,11 +400,21 @@ export default function OwnerPaymentsPage() {
     }),
     columnHelper.accessor("amount", {
       header: "Paid Amount",
-      cell: (info) => (
-        <span className="text-foreground">
-          {formatAmount(Number(info.getValue()))}
-        </span>
-      ),
+      cell: (info) => {
+        const payment = info.row.original;
+        return (
+          <div className="inline-flex items-center gap-2">
+            <span className="text-foreground">
+              {formatAmount(Number(info.getValue()))}
+            </span>
+            <Badge
+              className={`inline-flex h-6 items-center rounded-full border px-2 text-[11px] font-semibold uppercase ${STATUS_CHIP[payment.status]}`}
+            >
+              {payment.status}
+            </Badge>
+          </div>
+        );
+      },
       enableSorting: true,
     }),
     columnHelper.accessor("paid_on", {

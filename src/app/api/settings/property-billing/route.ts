@@ -5,9 +5,18 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const UPI_ID_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/;
+
 const BillingSchema = z.object({
   gst_number: z.string().max(15).optional().or(z.null()),
   pan_number: z.string().max(10).optional().or(z.null()),
+  upi_id: z.preprocess((value) => {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed === "" ? null : trimmed;
+    }
+    return value;
+  }, z.string().max(64).regex(UPI_ID_REGEX, "Invalid UPI ID format").optional().nullable()),
   business_name: z.string().max(120).optional().or(z.null()),
   billing_address: z.string().max(300).optional().or(z.null()),
 });
@@ -92,6 +101,7 @@ export async function GET() {
         address: formatHostelAddress(hostel),
         gst_number: billing?.gst_number || null,
         pan_number: billing?.pan_number || null,
+        upi_id: billing?.upi_id || null,
         business_name: billing?.business_name || null,
         billing_address: billing?.billing_address || null,
       };

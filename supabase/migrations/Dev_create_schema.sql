@@ -529,6 +529,7 @@ CREATE TABLE public.property_billing (
   hostel_id UUID NOT NULL UNIQUE REFERENCES public.hostels(id) ON DELETE CASCADE,
   gst_number TEXT,
   pan_number TEXT,
+  upi_id TEXT,
   business_name TEXT,
   billing_address TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

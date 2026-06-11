@@ -104,6 +104,14 @@ export default async function SubscriptionsPage() {
     .eq("status", "paid")
     .order("created_at", { ascending: false });
 
+  const { data: creditHistory } = await admin
+    .from("credit_transactions")
+    .select(
+      "id, event_type, amount_paise, balance_before, balance_after, note, payment_order_id, created_by, created_at",
+    )
+    .eq("owner_id", owner.id)
+    .order("created_at", { ascending: false });
+
   const unusedCreditPaise = owner.unused_credit_paise ?? 0;
 
   return (
@@ -195,6 +203,7 @@ export default async function SubscriptionsPage() {
         currentPlan={effectivePlan}
         subscriptionHistory={subscriptionHistory ?? []}
         paymentHistory={paymentHistory ?? []}
+        creditHistory={creditHistory ?? []}
       />
     </div>
   );

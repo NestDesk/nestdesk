@@ -7,6 +7,7 @@ type BillingDataRow = {
   hostel_id: string;
   gst_number: string | null;
   pan_number: string | null;
+  upi_id: string | null;
   billing_address: string | null;
 };
 
@@ -164,7 +165,7 @@ export async function GET(request: NextRequest) {
   );
   const { data: billingData, error: billingError } = await admin
     .from("property_billing")
-    .select("hostel_id, gst_number, pan_number, billing_address")
+    .select("hostel_id, gst_number, pan_number, upi_id, billing_address")
     .in("hostel_id", billingHostelIds);
 
   if (billingError) {
@@ -220,6 +221,7 @@ export async function GET(request: NextRequest) {
       hostel_billing_address: billing?.billing_address ?? null,
       hostel_gst_number: billing?.gst_number ?? null,
       hostel_pan_number: billing?.pan_number ?? null,
+      hostel_upi_id: billing?.upi_id ?? null,
       tenant_name: tenant?.fullName ?? "Tenant",
       room_number: tenant?.roomNumber ?? null,
     };

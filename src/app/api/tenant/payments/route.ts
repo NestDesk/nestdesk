@@ -68,7 +68,7 @@ export async function GET() {
         .maybeSingle(),
       admin
         .from("property_billing")
-        .select("gst_number, pan_number, billing_address")
+        .select("gst_number, pan_number, upi_id, billing_address")
         .eq("hostel_id", tenant.hostel_id)
         .maybeSingle(),
       admin
@@ -90,6 +90,7 @@ export async function GET() {
     hostel_billing_address: billing?.billing_address ?? null,
     hostel_gst_number: billing?.gst_number ?? null,
     hostel_pan_number: billing?.pan_number ?? null,
+    hostel_upi_id: billing?.upi_id ?? null,
   }));
 
   const totalPaid = rows

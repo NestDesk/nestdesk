@@ -322,6 +322,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: ownerUpdateError.message }, { status: 500 });
   }
 
+  const creditUsedPaise =
+    typeof paymentOrder.notes?.credit_used_paise === "number"
+      ? paymentOrder.notes.credit_used_paise
+      : 0;
+
+  if (creditUsedPaise > 0) {
+    const balanceBefore =
+      typeof paymentOrder.notes?.available_credit_paise === "number"
+        ? paymentOrder.notes.available_credit_paise
+        : typeof paymentOrder.notes?.previous_owner_credit_paise === "number"
+          ? paymentOrder.notes.previous_owner_credit_paise
+          : 0;
+
+    const balanceAfter =
+      typeof leftoverCreditAfter === "number" ? leftoverCreditAfter : 0;
+
+    await ownerCtx.admin.from("credit_transactions").insert({
+      owner_id: ownerCtx.owner.id,
+      payment_order_id: paymentOrder.id,
+      event_type: "credit_used",
+      amount_paise: creditUsedPaise,
+      balance_before: balanceBefore,
+      balance_after: balanceAfter,
+      note: paymentOrder.notes?.billing_cycle ?? null,
+      created_by: null,
+      metadata: {
+        payment_order_id: paymentOrder.id,
+        razorpay_order_id: parsed.data.razorpay_order_id,
+      },
+    });
+  }
+
   await ownerCtx.admin.from("audit_logs").insert({
     owner_id: ownerCtx.owner.id,
     action: "subscription_payment_verified",

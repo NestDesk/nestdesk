@@ -124,18 +124,18 @@ export function TopBar({
       subscription.status === "free" || subscription.status === "active"
         ? "Active"
         : subscription.status === "grace_period"
-          ? "Grace"
+          ? "Grace period"
           : "Expired";
 
     const badgeClass =
       status === "Active"
-        ? "bg-emerald-500/15 text-emerald-800"
-        : status === "Grace"
+        ? "bg-emerald-500/15 text-emerald-900 dark:text-emerald-400 ring-1 ring-emerald-500/20 shadow-sm"
+        : status === "Grace period"
           ? "bg-amber-500/15 text-amber-800"
           : "bg-rose-500/15 text-rose-800";
 
     return {
-      plan,
+      planLabel: `Plan: ${plan}`,
       status,
       badgeClass,
     };
@@ -193,7 +193,9 @@ export function TopBar({
         <>
           <ThemeToggle />
           <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-muted/80 px-3 py-1 text-xs text-foreground md:inline-flex">
-            <span className="font-semibold text-foreground">{statusPill.plan}</span>
+            <span className="font-semibold text-foreground">
+              {statusPill.planLabel}
+            </span>
             <span
               className={`rounded-full px-2 py-0.5 uppercase font-semibold ${statusPill.badgeClass}`}
             >
