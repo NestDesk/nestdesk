@@ -16,6 +16,12 @@ The active product flow is:
 
 ## Recent Updates
 
+22. WhatsApp notice delivery via MSG91 was fixed for template param mapping and payload integrity:
+    - Notice broadcast now maps approved template params to ordered component keys `body_1`, `body_2`, `body_3`, and `body_4`.
+    - MSG91 sender no longer replaces the template object with template id, which previously dropped component params.
+    - Outgoing payload logging now captures the exact serialized JSON body sent to MSG91.
+    - Response logging now captures parsed JSON when available and falls back to raw text.
+
 1. Auth shell and login screen theming were simplified for reliable light/dark readability.
 2. Theme selector was added to the auth top navbar so users can switch theme directly on login/register flows.
 

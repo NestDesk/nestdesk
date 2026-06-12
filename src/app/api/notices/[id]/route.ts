@@ -2,6 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { broadcastNoticeWhatsAppToActiveTenants } from "../../../../lib/messaging";
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const startOfMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
+  const startOfNextMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
+  );
+
+  return {
+    start: startOfMonth.toISOString(),
+    end: startOfNextMonth.toISOString(),
+  };
+}
+
+async function countOwnerPublishedNoticesThisMonth(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+) {
+  const { start, end } = getCurrentMonthRange();
+  const { count, error } = await admin
+    .from("notices")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId)
+    .is("is_published", true)
+    .is("deleted_at", null)
+    .gte("published_at", start)
+    .lt("published_at", end);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
+}
 
 async function resolveOwnerAndNotice(noticeId: string) {
   const supabase = await createClient();
@@ -99,17 +136,46 @@ export async function PATCH(
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
+  if (notice.is_published) {
+    return NextResponse.json(
+      {
+        error: "Published notices cannot be edited or unpublished.",
+      },
+      { status: 400 },
+    );
+  }
+
   const updates: Record<string, unknown> = {};
 
   if (parsed.data.title !== undefined) updates.title = parsed.data.title.trim();
   if (parsed.data.body !== undefined) updates.body = parsed.data.body.trim();
 
+  let shouldBroadcastNotice = false;
+
   if (parsed.data.is_published !== undefined) {
-    updates.is_published = parsed.data.is_published;
     if (parsed.data.is_published && !notice.is_published) {
+      try {
+        const publishedCount = await countOwnerPublishedNoticesThisMonth(
+          admin,
+          ctx.ownerId,
+        );
+
+        if (publishedCount >= 4) {
+          return NextResponse.json(
+            {
+              error: "You can publish up to 4 notices per calendar month.",
+            },
+            { status: 400 },
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+
+      updates.is_published = true;
       updates.published_at = new Date().toISOString();
-    } else if (!parsed.data.is_published) {
-      updates.published_at = null;
+      shouldBroadcastNotice = true;
     }
   }
 
@@ -126,6 +192,16 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  if (shouldBroadcastNotice && updated?.hostel_id) {
+    try {
+      await broadcastNoticeWhatsAppToActiveTenants({
+        hostelId: updated.hostel_id,
+        title: updated.title,
+        body: updated.body,
+      });
+    } catch {}
+  }
+
   return NextResponse.json({ notice: updated });
 }
 
@@ -138,6 +214,15 @@ export async function DELETE(
   const ctx = await resolveOwnerAndNotice(id);
   if (ctx.error) return ctx.error;
   const { admin } = ctx;
+
+  if (ctx.notice.is_published) {
+    return NextResponse.json(
+      {
+        error: "Published notices cannot be deleted.",
+      },
+      { status: 400 },
+    );
+  }
 
   const { error } = await admin
     .from("notices")

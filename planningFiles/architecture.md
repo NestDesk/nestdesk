@@ -23,6 +23,13 @@ The app is split into five main layers:
 4. Global providers and hooks under src/providers and src/hooks
 5. Supabase schema and RLS setup under supabase/migrations
 
+## Messaging Notes
+
+1. WhatsApp notice delivery uses MSG91 template messaging through `src/lib/messaging/msg91.ts`.
+2. Notice template params are now sent as ordered MSG91 body components (`body_1` through `body_4`) from `src/lib/messaging/notice.ts`.
+3. Sender logging captures the exact serialized payload posted to MSG91 and parsed/raw provider responses for troubleshooting delivery failures.
+4. For MSG91 bulk WhatsApp API, template name payload format is enforced and template id is treated as metadata-only for diagnostics.
+
 ## Route Groups and Main Screens
 
 ### Public and Auth-facing Screens

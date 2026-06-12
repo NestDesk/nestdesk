@@ -9,6 +9,7 @@ NestDesk currently uses a simple two-file development database workflow:
 ## Migration Files
 
 Theme and auth UI refinements (auth layout + login visual cleanup + theme selector placement) introduced no database schema changes.
+MSG91 WhatsApp payload and template param mapping fixes introduced no database schema changes.
 
 1. Reset script: supabase/migrations/000_dev_drop_all.sql
 2. Full schema bootstrap: supabase/migrations/001_init_simple.sql
@@ -147,13 +148,13 @@ New migrations added in the current implementation phase:
 
 - Adds owners.active_plan_id (UUID) and owners.active_plan_name (TEXT) for direct owner plan snapshot reads.
 - Adds formula parameters on custom_institution_plans:
-   - base_fee_inr
-   - property_fee_inr
-   - tenant_fee_inr
-   - tenant_threshold
-   - pricing_property_count
-   - pricing_tenant_count
-   - formula_version
+  - base_fee_inr
+  - property_fee_inr
+  - tenant_fee_inr
+  - tenant_threshold
+  - pricing_property_count
+  - pricing_tenant_count
+  - formula_version
 - Adds constraint guards for non-negative pricing_property_count and pricing_tenant_count.
 - Backfills owners.active_plan_id and owners.active_plan_name from latest active subscription rows and global subscription catalog rows.
 
@@ -161,8 +162,10 @@ New migrations added in the current implementation phase:
 
 1. owners.plan remains the normalized plan code (free/micro/starter/pro/institution).
 2. owners.active_plan_id stores the purchased plan identity:
+
 - For custom institution purchases: custom_institution_plans.id.
 - For default plans: subscription_plans.id for the matching active global plan code.
+
 3. owners.active_plan_name stores the purchased display name for fast UI access.
 4. subscriptions.custom_plan_id and payment_orders.custom_plan_id remain the historical source for custom-plan purchase tracing.
 

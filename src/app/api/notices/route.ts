@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
+import { broadcastNoticeWhatsAppToActiveTenants } from "../../../lib/messaging";
 
 type OwnerContext = {
   ownerId: string;
@@ -50,6 +51,42 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
     hostelIds: Array.from(hostelMap.keys()),
     hostelMap,
   };
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const startOfMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
+  const startOfNextMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
+  );
+
+  return {
+    start: startOfMonth.toISOString(),
+    end: startOfNextMonth.toISOString(),
+  };
+}
+
+async function countOwnerPublishedNoticesThisMonth(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+) {
+  const { start, end } = getCurrentMonthRange();
+  const { count, error } = await admin
+    .from("notices")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId)
+    .is("is_published", true)
+    .is("deleted_at", null)
+    .gte("published_at", start)
+    .lt("published_at", end);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
 }
 
 // GET /api/notices — Owner lists all notices across owned properties
@@ -130,6 +167,27 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  if (publish) {
+    try {
+      const publishedCount = await countOwnerPublishedNoticesThisMonth(
+        admin,
+        ctx.ownerId,
+      );
+      if (publishedCount >= 4) {
+        return NextResponse.json(
+          {
+            error: "You can publish up to 4 notices per calendar month.",
+          },
+          { status: 400 },
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   const now = new Date().toISOString();
 
   const { data: notice, error } = await admin
@@ -149,6 +207,16 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (publish) {
+    try {
+      await broadcastNoticeWhatsAppToActiveTenants({
+        hostelId: notice.hostel_id,
+        title: notice.title,
+        body: notice.body,
+      });
+    } catch {}
   }
 
   const hostel = ctx.hostelMap.get(notice.hostel_id);
