@@ -24,6 +24,12 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../../components/ui/accordion";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -55,6 +61,7 @@ type PlanRow = {
   pricing_tenant_count: number | null;
   formula_version: string;
   is_active: boolean;
+  account_count: number;
   created_at: string;
 };
 
@@ -73,6 +80,9 @@ export default function AdminPlannerPage() {
   const [assigning, setAssigning] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignPlan, setAssignPlan] = useState<PlanRow | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePlan, setDeletePlan] = useState<PlanRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerQuery, setOwnerQuery] = useState("");
   const [ownerOptions, setOwnerOptions] = useState<
@@ -88,16 +98,18 @@ export default function AdminPlannerPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [baseFeeInr, setBaseFeeInr] = useState(DEFAULT_FORMULA.baseFeeInr);
+  const [baseFeeInr, setBaseFeeInr] = useState(String(DEFAULT_FORMULA.baseFeeInr));
   const [propertyFeeInr, setPropertyFeeInr] = useState(
-    DEFAULT_FORMULA.propertyFeeInr,
+    String(DEFAULT_FORMULA.propertyFeeInr),
   );
-  const [tenantFeeInr, setTenantFeeInr] = useState(DEFAULT_FORMULA.tenantFeeInr);
+  const [tenantFeeInr, setTenantFeeInr] = useState(
+    String(DEFAULT_FORMULA.tenantFeeInr),
+  );
   const [tenantThreshold, setTenantThreshold] = useState(
-    DEFAULT_FORMULA.tenantThreshold,
+    String(DEFAULT_FORMULA.tenantThreshold),
   );
-  const [pricingPropertyCount, setPricingPropertyCount] = useState(4);
-  const [pricingTenantCount, setPricingTenantCount] = useState(200);
+  const [pricingPropertyCount, setPricingPropertyCount] = useState("4");
+  const [pricingTenantCount, setPricingTenantCount] = useState("200");
   const [monthly, setMonthly] = useState(0);
   const [yearly, setYearly] = useState(0);
   const [maxProperties, setMaxProperties] = useState(4);
@@ -159,24 +171,36 @@ export default function AdminPlannerPage() {
     return Number.isNaN(parsed) ? fallback : parsed;
   };
 
+  const normalizeNumericInput = (value: string) =>
+    value.trim().replace(/^0+(?=\d)/, "");
+
+  const pricingPropertyCountValue = parseNumericInput(pricingPropertyCount, 0);
+  const pricingTenantCountValue = parseNumericInput(pricingTenantCount, 0);
+  const tenantThresholdValue = parseNumericInput(tenantThreshold, 0);
+  const baseFeeInrValue = parseNumericInput(baseFeeInr, 0);
+  const propertyFeeInrValue = parseNumericInput(propertyFeeInr, 0);
+  const tenantFeeInrValue = parseNumericInput(tenantFeeInr, 0);
+
   const openCreateDialog = (useCalculator = false) => {
     setSelectedPlanId(null);
     setName("");
     setDescription("");
-    setBaseFeeInr(useCalculator ? baseFeeInr : DEFAULT_FORMULA.baseFeeInr);
+    setBaseFeeInr(useCalculator ? baseFeeInr : String(DEFAULT_FORMULA.baseFeeInr));
     setPropertyFeeInr(
-      useCalculator ? propertyFeeInr : DEFAULT_FORMULA.propertyFeeInr,
+      useCalculator ? propertyFeeInr : String(DEFAULT_FORMULA.propertyFeeInr),
     );
-    setTenantFeeInr(useCalculator ? tenantFeeInr : DEFAULT_FORMULA.tenantFeeInr);
+    setTenantFeeInr(
+      useCalculator ? tenantFeeInr : String(DEFAULT_FORMULA.tenantFeeInr),
+    );
     setTenantThreshold(
-      useCalculator ? tenantThreshold : DEFAULT_FORMULA.tenantThreshold,
+      useCalculator ? tenantThreshold : String(DEFAULT_FORMULA.tenantThreshold),
     );
-    setPricingPropertyCount(useCalculator ? pricingPropertyCount : 1);
-    setPricingTenantCount(useCalculator ? pricingTenantCount : 150);
+    setPricingPropertyCount(useCalculator ? pricingPropertyCount : "1");
+    setPricingTenantCount(useCalculator ? pricingTenantCount : "150");
     setMonthly(useCalculator ? calculatedPrice.monthlyPricePaise / 100 : 0);
     setYearly(useCalculator ? calculatedPrice.yearlyPricePaise / 100 : 0);
-    setMaxProperties(useCalculator ? Math.max(1, pricingPropertyCount) : 1);
-    setMaxTenants(useCalculator ? Math.max(1, pricingTenantCount) : 1);
+    setMaxProperties(useCalculator ? Math.max(1, pricingPropertyCountValue) : 1);
+    setMaxTenants(useCalculator ? Math.max(1, pricingTenantCountValue) : 1);
     setFormulaVersion("v1");
     setIsActive(true);
     setError(null);
@@ -190,12 +214,18 @@ export default function AdminPlannerPage() {
     setSelectedPlanId(plan.id);
     setName(plan.name);
     setDescription(plan.description ?? "");
-    setBaseFeeInr(plan.base_fee_inr ?? DEFAULT_FORMULA.baseFeeInr);
-    setPropertyFeeInr(plan.property_fee_inr ?? DEFAULT_FORMULA.propertyFeeInr);
-    setTenantFeeInr(plan.tenant_fee_inr ?? DEFAULT_FORMULA.tenantFeeInr);
-    setTenantThreshold(plan.tenant_threshold ?? DEFAULT_FORMULA.tenantThreshold);
-    setPricingPropertyCount(plan.pricing_property_count ?? plan.max_properties);
-    setPricingTenantCount(plan.pricing_tenant_count ?? plan.max_tenants);
+    setBaseFeeInr(String(plan.base_fee_inr ?? DEFAULT_FORMULA.baseFeeInr));
+    setPropertyFeeInr(
+      String(plan.property_fee_inr ?? DEFAULT_FORMULA.propertyFeeInr),
+    );
+    setTenantFeeInr(String(plan.tenant_fee_inr ?? DEFAULT_FORMULA.tenantFeeInr));
+    setTenantThreshold(
+      String(plan.tenant_threshold ?? DEFAULT_FORMULA.tenantThreshold),
+    );
+    setPricingPropertyCount(
+      String(plan.pricing_property_count ?? plan.max_properties),
+    );
+    setPricingTenantCount(String(plan.pricing_tenant_count ?? plan.max_tenants));
     setMonthly(plan.monthly_price_paise / 100);
     setYearly(plan.yearly_price_paise / 100);
     setMaxProperties(plan.max_properties);
@@ -209,28 +239,28 @@ export default function AdminPlannerPage() {
   const calculatedPrice = useMemo(
     () =>
       calculateCustomPlanPrice({
-        propertyCount: pricingPropertyCount,
-        tenantCount: pricingTenantCount,
-        baseFeeInr,
-        propertyFeeInr,
-        tenantFeeInr,
-        tenantThreshold,
+        propertyCount: pricingPropertyCountValue,
+        tenantCount: pricingTenantCountValue,
+        baseFeeInr: baseFeeInrValue,
+        propertyFeeInr: propertyFeeInrValue,
+        tenantFeeInr: tenantFeeInrValue,
+        tenantThreshold: tenantThresholdValue,
       }),
     [
-      pricingPropertyCount,
-      pricingTenantCount,
-      baseFeeInr,
-      propertyFeeInr,
-      tenantFeeInr,
-      tenantThreshold,
+      pricingPropertyCountValue,
+      pricingTenantCountValue,
+      baseFeeInrValue,
+      propertyFeeInrValue,
+      tenantFeeInrValue,
+      tenantThresholdValue,
     ],
   );
 
   const resetFormula = () => {
-    setBaseFeeInr(DEFAULT_FORMULA.baseFeeInr);
-    setPropertyFeeInr(DEFAULT_FORMULA.propertyFeeInr);
-    setTenantFeeInr(DEFAULT_FORMULA.tenantFeeInr);
-    setTenantThreshold(DEFAULT_FORMULA.tenantThreshold);
+    setBaseFeeInr(String(DEFAULT_FORMULA.baseFeeInr));
+    setPropertyFeeInr(String(DEFAULT_FORMULA.propertyFeeInr));
+    setTenantFeeInr(String(DEFAULT_FORMULA.tenantFeeInr));
+    setTenantThreshold(String(DEFAULT_FORMULA.tenantThreshold));
   };
 
   const handleSave = async () => {
@@ -263,12 +293,12 @@ export default function AdminPlannerPage() {
           yearlyPricePaise: Math.round(yearly * 100),
           maxProperties,
           maxTenants,
-          baseFeeInr,
-          propertyFeeInr,
-          tenantFeeInr,
-          tenantThreshold,
-          pricingPropertyCount,
-          pricingTenantCount,
+          baseFeeInr: baseFeeInrValue,
+          propertyFeeInr: propertyFeeInrValue,
+          tenantFeeInr: tenantFeeInrValue,
+          tenantThreshold: tenantThresholdValue,
+          pricingPropertyCount: pricingPropertyCountValue,
+          pricingTenantCount: pricingTenantCountValue,
           formulaVersion,
           isActive,
         }),
@@ -287,23 +317,35 @@ export default function AdminPlannerPage() {
     }
   };
 
-  const handleDelete = async (planId: string) => {
-    if (
-      !window.confirm("Delete this custom institution plan? This cannot be undone.")
-    ) {
+  const openDeleteDialog = (plan: PlanRow) => {
+    setDeletePlan(plan);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletePlan) return;
+    if (deletePlan.is_active && deletePlan.account_count > 0) {
+      toast.error(
+        "Cannot delete an active custom plan that is assigned to owner accounts.",
+      );
       return;
     }
 
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/planner/plans?planId=${planId}`, {
+      const res = await fetch(`/api/admin/planner/plans?planId=${deletePlan.id}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete plan.");
       toast.success("Custom institution plan deleted.");
       fetchPlans();
+      setDeleteDialogOpen(false);
+      setDeletePlan(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete plan.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -438,113 +480,162 @@ export default function AdminPlannerPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <Label htmlFor="calc-property-count">Property count</Label>
-              <Input
-                id="calc-property-count"
-                type="number"
-                min={0}
-                value={pricingPropertyCount}
-                onChange={(event) =>
-                  setPricingPropertyCount(parseNumericInput(event.target.value, 0))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="calc-tenant-count">Tenant count</Label>
-              <Input
-                id="calc-tenant-count"
-                type="number"
-                min={0}
-                value={pricingTenantCount}
-                onChange={(event) =>
-                  setPricingTenantCount(parseNumericInput(event.target.value, 0))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="calc-threshold">Tenant threshold</Label>
-              <Input
-                id="calc-threshold"
-                type="number"
-                min={0}
-                value={tenantThreshold}
-                onChange={(event) =>
-                  setTenantThreshold(parseNumericInput(event.target.value, 0))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="calc-base-fee">Base fee (INR)</Label>
-              <Input
-                id="calc-base-fee"
-                type="number"
-                min={0}
-                value={baseFeeInr}
-                onChange={(event) =>
-                  setBaseFeeInr(parseNumericInput(event.target.value, 0))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="calc-property-fee">Per property fee (INR)</Label>
-              <Input
-                id="calc-property-fee"
-                type="number"
-                min={0}
-                value={propertyFeeInr}
-                onChange={(event) =>
-                  setPropertyFeeInr(parseNumericInput(event.target.value, 0))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="calc-tenant-fee">Tenant overage fee (INR)</Label>
-              <Input
-                id="calc-tenant-fee"
-                type="number"
-                min={0}
-                value={tenantFeeInr}
-                onChange={(event) =>
-                  setTenantFeeInr(parseNumericInput(event.target.value, 0))
-                }
-              />
-            </div>
-          </div>
+          <Accordion type="single" collapsible defaultValue="pricing-calculator">
+            <AccordionItem
+              value="pricing-calculator"
+              className="overflow-hidden rounded-3xl border border-border/60 bg-muted/40"
+            >
+              <AccordionTrigger className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-foreground">
+                <span>Pricing calculator</span>
+                <span className="text-xs text-muted-foreground">
+                  Expand to edit inputs
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4 pt-2">
+                <div className="grid gap-6 lg:grid-cols-[minmax(280px,420px)_1fr]">
+                  <div className="space-y-4 rounded-3xl border border-border/70 bg-background/90 p-4">
+                    <div>
+                      <Label htmlFor="calc-property-count">Property count</Label>
+                      <Input
+                        id="calc-property-count"
+                        type="number"
+                        min={0}
+                        value={pricingPropertyCount}
+                        onChange={(event) =>
+                          setPricingPropertyCount(
+                            normalizeNumericInput(event.target.value),
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="calc-tenant-count">Tenant count</Label>
+                      <Input
+                        id="calc-tenant-count"
+                        type="number"
+                        min={0}
+                        value={pricingTenantCount}
+                        onChange={(event) =>
+                          setPricingTenantCount(
+                            normalizeNumericInput(event.target.value),
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="calc-threshold">Tenant threshold</Label>
+                      <Input
+                        id="calc-threshold"
+                        type="number"
+                        min={0}
+                        value={tenantThreshold}
+                        onChange={(event) =>
+                          setTenantThreshold(
+                            normalizeNumericInput(event.target.value),
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="calc-base-fee">Base fee (INR)</Label>
+                      <Input
+                        id="calc-base-fee"
+                        type="number"
+                        min={0}
+                        value={baseFeeInr}
+                        onChange={(event) =>
+                          setBaseFeeInr(normalizeNumericInput(event.target.value))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="calc-property-fee">
+                        Per property fee (INR)
+                      </Label>
+                      <Input
+                        id="calc-property-fee"
+                        type="number"
+                        min={0}
+                        value={propertyFeeInr}
+                        onChange={(event) =>
+                          setPropertyFeeInr(
+                            normalizeNumericInput(event.target.value),
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="calc-tenant-fee">
+                        Tenant overage fee (INR)
+                      </Label>
+                      <Input
+                        id="calc-tenant-fee"
+                        type="number"
+                        min={0}
+                        value={tenantFeeInr}
+                        onChange={(event) =>
+                          setTenantFeeInr(normalizeNumericInput(event.target.value))
+                        }
+                      />
+                    </div>
+                  </div>
 
-          <div className="rounded-2xl border border-border/60 bg-muted/40 p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Formula
-            </p>
-            <p className="mt-2 text-sm text-foreground">
-              price = ₹{baseFeeInr} + ₹{propertyFeeInr} x {pricingPropertyCount} + ₹
-              {tenantFeeInr} x max(0, {pricingTenantCount} - {tenantThreshold})
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <p className="text-sm font-semibold text-foreground">
-                Monthly: ₹
-                {(calculatedPrice.monthlyPricePaise / 100).toLocaleString("en-IN")}
-              </p>
-              <p className="text-sm font-semibold text-foreground">
-                Yearly: ₹
-                {(calculatedPrice.yearlyPricePaise / 100).toLocaleString("en-IN")}
-              </p>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="button" size="sm" onClick={() => openCreateDialog(true)}>
-                Create plan
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={resetFormula}
-              >
-                Reset parameters
-              </Button>
-            </div>
-          </div>
+                  <div className="rounded-3xl border border-border/70 bg-background/90 p-4">
+                    <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                          Formula preview
+                        </p>
+                        <p className="mt-2 text-sm text-foreground">
+                          price = ₹{baseFeeInrValue} + ₹{propertyFeeInrValue} x{" "}
+                          {pricingPropertyCountValue} + ₹{tenantFeeInrValue} x max(0,{" "}
+                          {pricingTenantCountValue} - {tenantThresholdValue})
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-3">
+                      <div className="rounded-2xl bg-muted/80 p-4">
+                        <p className="text-sm font-semibold text-foreground">
+                          Monthly
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-foreground">
+                          ₹
+                          {(calculatedPrice.monthlyPricePaise / 100).toLocaleString(
+                            "en-IN",
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-muted/80 p-4">
+                        <p className="text-sm font-semibold text-foreground">
+                          Yearly
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-foreground">
+                          ₹
+                          {(calculatedPrice.yearlyPricePaise / 100).toLocaleString(
+                            "en-IN",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <Button type="button" onClick={() => openCreateDialog(true)}>
+                        Create plan
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={resetFormula}
+                      >
+                        Reset parameters
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardContent>
       </Card>
 
@@ -581,6 +672,9 @@ export default function AdminPlannerPage() {
                       Pricing
                     </th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Accounts
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                       Limits
                     </th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -612,6 +706,14 @@ export default function AdminPlannerPage() {
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
+                        <p className="font-semibold text-foreground">
+                          {plan.account_count}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          owner account{plan.account_count !== 1 ? "s" : ""}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 align-top">
                         <p className="text-foreground">
                           {plan.max_properties} properties
                         </p>
@@ -631,7 +733,7 @@ export default function AdminPlannerPage() {
                         <span
                           className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${plan.is_active ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"}`}
                         >
-                          {plan.is_active ? "Active" : "Inactive"}
+                          {plan.is_active ? "Active" : "Expired"}
                         </span>
                       </td>
                       <td className="px-4 py-4 align-top text-right">
@@ -673,7 +775,9 @@ export default function AdminPlannerPage() {
                             >
                               <Pencil className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleDelete(plan.id)}>
+                            <DropdownMenuItem
+                              onSelect={() => openDeleteDialog(plan)}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -721,32 +825,7 @@ export default function AdminPlannerPage() {
                 rows={4}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="monthly-price">Monthly price (paise)</Label>
-                <Input
-                  id="monthly-price"
-                  type="number"
-                  min={0}
-                  value={monthly}
-                  onChange={(event) =>
-                    setMonthly(parseNumericInput(event.target.value, 0))
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="yearly-price">Yearly price (paise)</Label>
-                <Input
-                  id="yearly-price"
-                  type="number"
-                  min={0}
-                  value={yearly}
-                  onChange={(event) =>
-                    setYearly(parseNumericInput(event.target.value, 0))
-                  }
-                />
-              </div>
-            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="max-properties">Max properties</Label>
@@ -786,7 +865,7 @@ export default function AdminPlannerPage() {
                   min={0}
                   value={baseFeeInr}
                   onChange={(event) =>
-                    setBaseFeeInr(parseNumericInput(event.target.value, 0))
+                    setBaseFeeInr(normalizeNumericInput(event.target.value))
                   }
                 />
               </div>
@@ -798,7 +877,7 @@ export default function AdminPlannerPage() {
                   min={0}
                   value={propertyFeeInr}
                   onChange={(event) =>
-                    setPropertyFeeInr(parseNumericInput(event.target.value, 0))
+                    setPropertyFeeInr(normalizeNumericInput(event.target.value))
                   }
                 />
               </div>
@@ -810,7 +889,33 @@ export default function AdminPlannerPage() {
                   min={0}
                   value={tenantFeeInr}
                   onChange={(event) =>
-                    setTenantFeeInr(parseNumericInput(event.target.value, 0))
+                    setTenantFeeInr(normalizeNumericInput(event.target.value))
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="monthly-price">Monthly price (INR)</Label>
+                <Input
+                  id="monthly-price"
+                  type="number"
+                  min={0}
+                  value={monthly}
+                  onChange={(event) =>
+                    setMonthly(parseNumericInput(event.target.value, 0))
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="yearly-price">Yearly price (INR)</Label>
+                <Input
+                  id="yearly-price"
+                  type="number"
+                  min={0}
+                  value={yearly}
+                  onChange={(event) =>
+                    setYearly(parseNumericInput(event.target.value, 0))
                   }
                 />
               </div>
@@ -828,6 +933,56 @@ export default function AdminPlannerPage() {
             <Button type="button" onClick={handleSave} disabled={submitting}>
               {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete custom plan</DialogTitle>
+            <DialogDescription>
+              {deletePlan?.is_active && deletePlan?.account_count > 0
+                ? "This active plan is assigned to owner accounts and cannot be deleted. Deactivate it and remove assignments first."
+                : "Delete this custom institution plan. This action cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {deletePlan?.name ?? "Selected plan"}
+              </p>
+              {deletePlan?.is_active && deletePlan?.account_count > 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {deletePlan.account_count} owner account
+                  {deletePlan.account_count !== 1 ? "s" : ""} currently assigned.
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeletePlan(null);
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDelete}
+              disabled={
+                deleting ||
+                (!!deletePlan?.is_active && deletePlan?.account_count > 0)
+              }
+            >
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete plan
             </Button>
           </DialogFooter>
         </DialogContent>

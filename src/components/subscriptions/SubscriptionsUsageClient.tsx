@@ -2,14 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { formatDateInIndia } from "../../lib/date";
-import {
-  formatPlanLabel,
-  normalizeOwnerPlan,
-  type OwnerPlan,
-} from "../../lib/subscriptions";
 
 type SubscriptionsUsageClientProps = {
-  currentPlan: OwnerPlan;
   currentPlanDisplayName?: string;
   propertyCount: number;
   tenantCount: number;
@@ -29,7 +23,6 @@ function formatDate(value: string | null) {
 }
 
 export function SubscriptionsUsageClient({
-  currentPlan,
   currentPlanDisplayName,
   propertyCount,
   tenantCount,
@@ -39,21 +32,20 @@ export function SubscriptionsUsageClient({
   displayExpiresOn,
   downgradeNote,
 }: SubscriptionsUsageClientProps) {
-  const activePlan = normalizeOwnerPlan(currentPlan);
-
   return (
     <div className="space-y-2">
       <Card className="rounded-3xl border border-border/70 py-2 bg-background/90 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Current Plan</CardTitle>
+          <CardTitle className="text-sm font-semibold">
+            Current Plan Limits
+          </CardTitle>
+          {currentPlanDisplayName ? (
+            <p className="text-xs text-muted-foreground">
+              {currentPlanDisplayName}
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">
-            <p className="text-[11px] uppercase text-muted-foreground">Plan</p>
-            <p className="mt-2 text-sm font-semibold text-foreground">
-              {currentPlanDisplayName || formatPlanLabel(activePlan)}
-            </p>
-          </div>
           <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">
             <p className="text-[11px] uppercase  text-muted-foreground">
               Properties

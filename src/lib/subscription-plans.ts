@@ -186,6 +186,35 @@ export async function getPlanLimitsForOwner(
         maxTenants: customPlan.max_tenants,
       };
     }
+
+    const { data: currentSubscription } = await admin
+      .from("subscriptions")
+      .select("custom_plan_id")
+      .eq("owner_id", ownerId)
+      .in("status", ["active", "grace_period"])
+      .order("starts_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ custom_plan_id: string | null }>();
+
+    if (currentSubscription?.custom_plan_id) {
+      const { data: customPlanBySubscription } = await admin
+        .from("custom_institution_plans")
+        .select("max_properties, max_tenants")
+        .eq("id", currentSubscription.custom_plan_id)
+        .maybeSingle<{
+          max_properties: number | null;
+          max_tenants: number | null;
+        }>();
+
+      if (customPlanBySubscription) {
+        return {
+          maxProperties:
+            customPlanBySubscription.max_properties ?? fallbackLimits.maxProperties,
+          maxTenants:
+            customPlanBySubscription.max_tenants ?? fallbackLimits.maxTenants,
+        };
+      }
+    }
   }
 
   const { data: globalPlan, error: globalPlanError } = await admin

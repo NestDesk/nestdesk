@@ -156,7 +156,7 @@ export function PricingPlans({
   const [confirmingUpgrade, setConfirmingUpgrade] = useState(false);
   const [previewData, setPreviewData] = useState<{
     requestedPlan: OwnerPlan;
-    customPlanId?: string;
+    customPlanId?: string | null;
     billingCycle: BillingCycle;
     currentPlan: OwnerPlan;
     currentPlanBillingCycle: BillingCycle;
@@ -316,6 +316,12 @@ export function PricingPlans({
 
     setConfirmingUpgrade(true);
     try {
+      const selectedCustomPlanId =
+        previewData.customPlanId ??
+        planCards.find(
+          (plan) => plan.id === selectedPlanId && plan.customPlanId,
+        )?.customPlanId;
+
       const response = await fetch("/api/create-order", {
         method: "POST",
         headers: {
@@ -325,7 +331,7 @@ export function PricingPlans({
           plan: selectedPlanId,
           billingCycle: previewData.billingCycle,
           confirm: true,
-          customPlanId: previewData.customPlanId ?? undefined,
+          customPlanId: selectedCustomPlanId ?? undefined,
         }),
       });
 

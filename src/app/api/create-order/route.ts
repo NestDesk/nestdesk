@@ -32,6 +32,78 @@ type PlanSnapshot = {
   activePlanName: string;
 };
 
+type CustomPlanPricing = {
+  id: string;
+  name: string;
+  monthly_price_paise: number;
+  yearly_price_paise: number;
+};
+
+async function getAssignedCustomPlanForOwner(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+  customPlanId: string,
+): Promise<CustomPlanPricing | null> {
+  const { data } = await admin
+    .from("owner_custom_institution_plans")
+    .select(
+      "custom_institution_plans!inner(id, name, monthly_price_paise, yearly_price_paise)",
+    )
+    .eq("owner_id", ownerId)
+    .eq("custom_plan_id", customPlanId)
+    .eq("is_active", true)
+    .eq("custom_institution_plans.is_active", true)
+    .maybeSingle();
+
+  const nestedPlan = (data as { custom_institution_plans?: unknown } | null)
+    ?.custom_institution_plans;
+
+  if (Array.isArray(nestedPlan)) {
+    return (nestedPlan[0] as CustomPlanPricing | null) ?? null;
+  }
+
+  return (nestedPlan as CustomPlanPricing | null) ?? null;
+}
+
+async function getActiveAssignedCustomPlanForOwner(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+): Promise<CustomPlanPricing | null> {
+  const { data } = await admin
+    .from("owner_custom_institution_plans")
+    .select(
+      "custom_institution_plans!inner(id, name, monthly_price_paise, yearly_price_paise)",
+    )
+    .eq("owner_id", ownerId)
+    .eq("is_active", true)
+    .eq("custom_institution_plans.is_active", true)
+    .limit(1)
+    .maybeSingle();
+
+  const nestedPlan = (data as { custom_institution_plans?: unknown } | null)
+    ?.custom_institution_plans;
+
+  if (Array.isArray(nestedPlan)) {
+    return (nestedPlan[0] as CustomPlanPricing | null) ?? null;
+  }
+
+  return (nestedPlan as CustomPlanPricing | null) ?? null;
+}
+
+async function getCustomPlanPricingById(
+  admin: ReturnType<typeof createAdminClient>,
+  customPlanId: string,
+): Promise<CustomPlanPricing | null> {
+  const { data } = await admin
+    .from("custom_institution_plans")
+    .select("id, name, monthly_price_paise, yearly_price_paise")
+    .eq("id", customPlanId)
+    .eq("is_active", true)
+    .maybeSingle<CustomPlanPricing>();
+
+  return data ?? null;
+}
+
 async function resolvePlanSnapshot(
   requestedPlan: OwnerPlan,
   customPlan: { id: string; name: string } | null,
@@ -118,76 +190,44 @@ export async function POST(request: NextRequest) {
   const billingCycle = parsed.data.billingCycle === "yearly" ? "yearly" : "monthly";
   const preview = parsed.data.preview === true;
   const confirm = parsed.data.confirm === true;
+  const admin = createAdminClient();
 
-  let customPlan: {
-    id: string;
-    name: string;
-    monthly_price_paise: number;
-    yearly_price_paise: number;
-  } | null = null;
+  let customPlan: CustomPlanPricing | null = null;
   if (requestedPlan === "institution") {
-    const admin = createAdminClient();
     if (parsed.data.customPlanId) {
-      const { data: planRow } = await admin
-        .from("custom_institution_plans")
-        .select("id, name, monthly_price_paise, yearly_price_paise")
-        .eq("id", parsed.data.customPlanId)
-        .eq("is_active", true)
-        .maybeSingle<{
-          id: string;
-          name: string;
-          monthly_price_paise: number;
-          yearly_price_paise: number;
-        }>();
-
-      customPlan = planRow ?? null;
-    } else {
-      const { data: assignmentRow } = await admin
-        .from("owner_custom_institution_plans")
-        .select(
-          "custom_institution_plans!inner(id, name, monthly_price_paise, yearly_price_paise)",
-        )
-        .eq("owner_id", ownerCtx.owner.id)
-        .eq("is_active", true)
-        .eq("custom_institution_plans.is_active", true)
-        .maybeSingle();
-
-      const nestedPlan = (
-        assignmentRow as { custom_institution_plans?: unknown } | null
-      )?.custom_institution_plans;
-
-      if (Array.isArray(nestedPlan)) {
-        customPlan =
-          (nestedPlan[0] as {
-            id: string;
-            name: string;
-            monthly_price_paise: number;
-            yearly_price_paise: number;
-          } | null) ?? null;
-      } else {
-        customPlan =
-          (nestedPlan as {
-            id: string;
-            name: string;
-            monthly_price_paise: number;
-            yearly_price_paise: number;
-          } | null) ?? null;
-      }
-    }
-
-    if (!customPlan) {
-      return NextResponse.json(
-        { error: "Assigned custom institution plan is not available." },
-        { status: 400 },
+      customPlan = await getAssignedCustomPlanForOwner(
+        admin,
+        ownerCtx.owner.id,
+        parsed.data.customPlanId,
       );
+      if (!customPlan) {
+        return NextResponse.json(
+          {
+            error:
+              "The selected custom institution plan is not assigned to your account.",
+          },
+          { status: 400 },
+        );
+      }
+    } else {
+      customPlan = await getActiveAssignedCustomPlanForOwner(
+        admin,
+        ownerCtx.owner.id,
+      );
+      if (!customPlan) {
+        return NextResponse.json(
+          { error: "Assigned custom institution plan is not available." },
+          { status: 400 },
+        );
+      }
     }
   }
 
   const currentOwnerCreditPaise = ownerCtx.owner.unused_credit_paise ?? 0;
 
-  const { data: activeSubscription } = await createAdminClient()
+  const { data: activeSubscription } = await admin
     .from("subscriptions")
-    .select("plan, status, starts_at, ends_at, custom_plan_id")
+    .select("id, plan, status, starts_at, ends_at, custom_plan_id")
     .eq("owner_id", ownerCtx.owner.id)
     .in("status", ["active", "grace_period"])
     .order("starts_at", { ascending: false })
@@ -237,8 +277,12 @@ export async function POST(request: NextRequest) {
   const requestedCustomPlanId = parsed.data.customPlanId ?? null;
   const samePlan =
     requestedPlan === activeSubscriptionPlan &&
-    (requestedPlan !== "institution" ||
-      requestedCustomPlanId === activeCustomPlanId);
+    billingCycle === activeBillingCycle &&
+    (requestedPlan !== "institution"
+      ? true
+      : requestedCustomPlanId
+        ? requestedCustomPlanId === activeCustomPlanId
+        : customPlan?.id === activeCustomPlanId);
 
   if (samePlan && !preview && !confirm) {
     return NextResponse.json(
@@ -247,9 +291,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const currentAmountPaise = hasActiveSubscription
-    ? getPlanAmountPaiseForCycle(activeSubscriptionPlan, activeBillingCycle)
-    : 0;
+  let currentAmountPaise = 0;
+  if (hasActiveSubscription) {
+    if (
+      activeSubscriptionPlan === "institution" &&
+      activeSubscription?.custom_plan_id
+    ) {
+      const activeCustomPricing = await getCustomPlanPricingById(
+        admin,
+        activeSubscription.custom_plan_id,
+      );
+      currentAmountPaise = activeCustomPricing
+        ? activeBillingCycle === "yearly"
+          ? activeCustomPricing.yearly_price_paise
+          : activeCustomPricing.monthly_price_paise
+        : getPlanAmountPaiseForCycle(activeSubscriptionPlan, activeBillingCycle);
+    } else {
+      currentAmountPaise = getPlanAmountPaiseForCycle(
+        activeSubscriptionPlan,
+        activeBillingCycle,
+      );
+    }
+  }
   const newAmountPaise =
     requestedPlan === "institution" && customPlan
       ? billingCycle === "yearly"
@@ -284,6 +347,7 @@ export async function POST(request: NextRequest) {
       preview: true,
       requestedPlan,
       billingCycle,
+      customPlanId: customPlan?.id ?? null,
       currentPlan: activeSubscriptionPlan,
       currentPlanBillingCycle: activeBillingCycle,
       currentPlanAmountPaise: currentAmountPaise,
@@ -322,7 +386,7 @@ export async function POST(request: NextRequest) {
       new Date(now).setMonth(now.getMonth() + (billingCycle === "yearly" ? 12 : 1)),
     ).toISOString();
 
-    const { error: createOrderError } = await createAdminClient()
+    const { data: createdOrder, error: createOrderError } = await admin
       .from("payment_orders")
       .insert({
         owner_id: ownerCtx.owner.id,
@@ -352,27 +416,38 @@ export async function POST(request: NextRequest) {
           amount_due_paise: amountDuePaise,
           is_proration: prorationCreditPaise > 0,
         },
-      });
+      })
+      .select("id")
+      .maybeSingle();
 
-    if (createOrderError) {
-      return NextResponse.json({ error: createOrderError.message }, { status: 500 });
+    if (createOrderError || !createdOrder?.id) {
+      return NextResponse.json(
+        { error: createOrderError?.message ?? "Failed to create order record." },
+        { status: 500 },
+      );
     }
 
-    const { error: expireError } = await createAdminClient()
-      .from("subscriptions")
-      .update({
-        status: "expired",
-        ends_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq("owner_id", ownerCtx.owner.id)
-      .eq("status", "active");
+    const previousSubscriptionId = activeSubscription?.id ?? null;
+    const previousSubscriptionEndsAt = activeSubscription?.ends_at ?? null;
+    const previousSubscriptionStatus = activeSubscription?.status ?? null;
+
+    const { error: expireError } = previousSubscriptionId
+      ? await admin
+          .from("subscriptions")
+          .update({
+            status: "expired",
+            ends_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", previousSubscriptionId)
+      : { error: null };
 
     if (expireError) {
+      await admin.from("payment_orders").delete().eq("id", createdOrder.id);
       return NextResponse.json({ error: expireError.message }, { status: 500 });
     }
 
-    const { error: createSubscriptionError } = await createAdminClient()
+    const { data: createdSubscription, error: createSubscriptionError } = await admin
       .from("subscriptions")
       .insert({
         owner_id: ownerCtx.owner.id,
@@ -382,16 +457,34 @@ export async function POST(request: NextRequest) {
         razorpay_sub_id: null,
         starts_at: nowIso,
         ends_at: newEndsAtIso,
-      });
+      })
+      .select("id")
+      .maybeSingle();
 
-    if (createSubscriptionError) {
+    if (createSubscriptionError || !createdSubscription?.id) {
+      if (previousSubscriptionId) {
+        await admin
+          .from("subscriptions")
+          .update({
+            status: previousSubscriptionStatus,
+            ends_at: previousSubscriptionEndsAt,
+            updated_at: nowIso,
+          })
+          .eq("id", previousSubscriptionId);
+      }
+      await admin.from("payment_orders").delete().eq("id", createdOrder.id);
+
       return NextResponse.json(
-        { error: createSubscriptionError.message },
+        {
+          error:
+            createSubscriptionError?.message ??
+            "Failed to create subscription record.",
+        },
         { status: 500 },
       );
     }
 
-    const { error: ownerUpdateError } = await createAdminClient()
+    const { error: ownerUpdateError } = await admin
       .from("owners")
       .update({
         plan: requestedPlan,
@@ -403,6 +496,19 @@ export async function POST(request: NextRequest) {
       .eq("id", ownerCtx.owner.id);
 
     if (ownerUpdateError) {
+      await admin.from("subscriptions").delete().eq("id", createdSubscription.id);
+      if (previousSubscriptionId) {
+        await admin
+          .from("subscriptions")
+          .update({
+            status: previousSubscriptionStatus,
+            ends_at: previousSubscriptionEndsAt,
+            updated_at: nowIso,
+          })
+          .eq("id", previousSubscriptionId);
+      }
+      await admin.from("payment_orders").delete().eq("id", createdOrder.id);
+
       return NextResponse.json({ error: ownerUpdateError.message }, { status: 500 });
     }
 

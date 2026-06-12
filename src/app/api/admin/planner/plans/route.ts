@@ -57,7 +57,31 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ plans: data ?? [] });
+  const planIds = (data ?? []).map((plan) => plan.id);
+  const { data: assignments, error: assignmentError } = planIds.length
+    ? await admin
+        .from("owner_custom_institution_plans")
+        .select("custom_plan_id")
+        .in("custom_plan_id", planIds)
+        .eq("is_active", true)
+    : { data: [] as Array<{ custom_plan_id: string }>, error: null };
+
+  if (assignmentError) {
+    return NextResponse.json({ error: assignmentError.message }, { status: 500 });
+  }
+
+  const accountCountByPlan = new Map<string, number>();
+  (assignments ?? []).forEach((assignment) => {
+    const current = accountCountByPlan.get(assignment.custom_plan_id) ?? 0;
+    accountCountByPlan.set(assignment.custom_plan_id, current + 1);
+  });
+
+  const plansWithCounts = (data ?? []).map((plan) => ({
+    ...plan,
+    account_count: accountCountByPlan.get(plan.id) ?? 0,
+  }));
+
+  return NextResponse.json({ plans: plansWithCounts });
 }
 
 export async function POST(request: NextRequest) {
@@ -83,20 +107,20 @@ export async function POST(request: NextRequest) {
   const { data: insertedPlan, error } = await admin
     .from("custom_institution_plans")
     .insert({
-    name: parsed.data.name.trim(),
-    description: parsed.data.description,
-    monthly_price_paise: parsed.data.monthlyPricePaise,
-    yearly_price_paise: parsed.data.yearlyPricePaise,
-    max_properties: parsed.data.maxProperties,
-    max_tenants: parsed.data.maxTenants,
-    base_fee_inr: parsed.data.baseFeeInr,
-    property_fee_inr: parsed.data.propertyFeeInr,
-    tenant_fee_inr: parsed.data.tenantFeeInr,
-    tenant_threshold: parsed.data.tenantThreshold,
-    pricing_property_count: parsed.data.pricingPropertyCount ?? null,
-    pricing_tenant_count: parsed.data.pricingTenantCount ?? null,
-    formula_version: parsed.data.formulaVersion,
-    is_active: parsed.data.isActive,
+      name: parsed.data.name.trim(),
+      description: parsed.data.description,
+      monthly_price_paise: parsed.data.monthlyPricePaise,
+      yearly_price_paise: parsed.data.yearlyPricePaise,
+      max_properties: parsed.data.maxProperties,
+      max_tenants: parsed.data.maxTenants,
+      base_fee_inr: parsed.data.baseFeeInr,
+      property_fee_inr: parsed.data.propertyFeeInr,
+      tenant_fee_inr: parsed.data.tenantFeeInr,
+      tenant_threshold: parsed.data.tenantThreshold,
+      pricing_property_count: parsed.data.pricingPropertyCount ?? null,
+      pricing_tenant_count: parsed.data.pricingTenantCount ?? null,
+      formula_version: parsed.data.formulaVersion,
+      is_active: parsed.data.isActive,
     })
     .select("id, name, is_active")
     .maybeSingle<{ id: string; name: string; is_active: boolean }>();

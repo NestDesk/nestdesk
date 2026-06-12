@@ -22,7 +22,7 @@ export function AdminShell({ children }: AdminShellProps) {
           onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         />
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
-          <div key={pathname} className="mx-auto w-full max-w-7xl animate-fade-in">
+          <div key={pathname} className="mx-auto w-full max-w-8xl animate-fade-in">
             {children}
           </div>
         </main>

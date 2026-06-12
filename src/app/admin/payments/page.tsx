@@ -70,7 +70,7 @@ export default async function AdminPaymentsPage() {
     admin
       .from("payments")
       .select(
-        "id, amount, status, method, paid_on, receipt_number, tenant_id, hostel_id, created_at",
+        "id, amount, status, method, paid_on, receipt_number, tenant_id, hostel_id, created_at, hostels!inner(name)",
       )
       .order("created_at", { ascending: false })
       .limit(20),
@@ -345,6 +345,9 @@ export default async function AdminPaymentsPage() {
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Property
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Method
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -367,6 +370,9 @@ export default async function AdminPaymentsPage() {
                       >
                         {p.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      {p.hostels?.[0]?.name ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {p.method ? (METHOD_LABELS[p.method] ?? p.method) : "—"}

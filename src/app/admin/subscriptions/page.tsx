@@ -1,12 +1,12 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { formatDateInIndia } from "../../../lib/date";
+import SubscriptionPlanDetailsClient from "../../../components/admin/SubscriptionPlanDetailsClient";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
-import { Badge } from "../../../components/ui/badge";
 import { CreditCard, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 
 function fmtRupees(paise: number) {
@@ -223,21 +223,8 @@ export default async function AdminSubscriptionsPage() {
               Subscriptions by plan
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 pb-5">
-            {Object.entries(planCounts).map(([plan, count]) => (
-              <div
-                key={plan}
-                className="flex items-center justify-between gap-4 rounded-2xl bg-muted/50 p-4"
-              >
-                <div>
-                  <p className="font-medium text-foreground">{plan}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {count} subscriptions
-                  </p>
-                </div>
-                <Badge variant="secondary">{count}</Badge>
-              </div>
-            ))}
+          <CardContent className="pb-5">
+            <SubscriptionPlanDetailsClient planCounts={planCounts} />
           </CardContent>
         </Card>
 

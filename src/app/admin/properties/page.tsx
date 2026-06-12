@@ -1,7 +1,7 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
-import { formatDateInIndia } from "../../../lib/date";
 import { Card, CardContent } from "../../../components/ui/card";
-import { Building2, CheckCircle2, XCircle, Users, MapPin } from "lucide-react";
+import { Building2, CheckCircle2, XCircle } from "lucide-react";
+import AdminPropertiesTable from "./PropertiesTableClient";
 
 const TYPE_LABELS: Record<string, string> = {
   pg: "PG",
@@ -32,7 +32,7 @@ export default async function AdminPropertiesPage() {
     admin
       .from("hostels")
       .select(
-        "id, name, property_type, address, city, state, pincode, total_rooms, is_active, created_at, owner_id, owners!inner(full_name, email, plan)",
+        "id, name, property_type, address, city, state, pincode, total_rooms, is_active, created_at, owner_id, owners!inner(full_name, email, phone, plan)",
         { count: "exact" },
       )
       .order("created_at", { ascending: false })
@@ -129,130 +129,13 @@ export default async function AdminPropertiesPage() {
       {/* Properties table */}
       <Card className="rounded-2xl border border-border/60 shadow-sm">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/60 bg-muted/30">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Property
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Owner
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Rooms
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Tenants
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Created
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {(hostels ?? []).length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-10 text-center text-sm text-muted-foreground"
-                    >
-                      No properties found.
-                    </td>
-                  </tr>
-                ) : (
-                  (hostels ?? []).map((hostel) => {
-                    const rooms = roomsByHostel.get(hostel.id);
-                    const activeTenants = tenantsByHostel.get(hostel.id) ?? 0;
-                    const owner = hostel.owners as unknown as {
-                      full_name: string;
-                      email: string | null;
-                      plan: string;
-                    };
-
-                    return (
-                      <tr
-                        key={hostel.id}
-                        className="group hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-foreground">
-                            {hostel.name}
-                          </p>
-                          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            {hostel.city}, {hostel.state}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-foreground">
-                            {owner?.full_name ?? "—"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {owner?.email ?? "—"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${TYPE_COLORS[hostel.property_type] ?? "bg-muted"}`}
-                          >
-                            {TYPE_LABELS[hostel.property_type] ??
-                              hostel.property_type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {rooms ? (
-                            <div className="text-xs">
-                              <p className="font-semibold text-foreground">
-                                {rooms.total}
-                              </p>
-                              <p className="text-muted-foreground">
-                                {rooms.occupied} occ · {rooms.vacant} vacant
-                              </p>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="flex items-center justify-end gap-1 font-medium text-foreground">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                            {activeTenants}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {hostel.is_active ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                              <XCircle className="h-3 w-3" />
-                              Inactive
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right text-xs text-muted-foreground">
-                          {formatDateInIndia(hostel.created_at, {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AdminPropertiesTable
+            hostels={hostels ?? []}
+            roomsByHostel={Object.fromEntries(
+              Array.from(roomsByHostel.entries()).map(([id, stats]) => [id, stats]),
+            )}
+            tenantsByHostel={Object.fromEntries(tenantsByHostel.entries())}
+          />
         </CardContent>
       </Card>
     </div>

@@ -33,12 +33,12 @@ async function resolvePlanSnapshot(
   customPlanId: string | null,
   notes: Record<string, unknown> | null,
 ): Promise<PlanSnapshot> {
-  const notePlanId = typeof notes?.purchased_plan_id === "string"
-    ? notes.purchased_plan_id
-    : null;
-  const notePlanName = typeof notes?.purchased_plan_name === "string"
-    ? notes.purchased_plan_name.trim()
-    : "";
+  const notePlanId =
+    typeof notes?.purchased_plan_id === "string" ? notes.purchased_plan_id : null;
+  const notePlanName =
+    typeof notes?.purchased_plan_name === "string"
+      ? notes.purchased_plan_name.trim()
+      : "";
 
   if (notePlanName) {
     return {
@@ -337,21 +337,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: expireError.message }, { status: 500 });
   }
 
-  const { error: createSubscriptionError } = await ownerCtx.admin
-    .from("subscriptions")
-    .insert({
-      owner_id: ownerCtx.owner.id,
-      plan,
-      custom_plan_id: paymentOrder.custom_plan_id ?? null,
-      status: "active",
-      razorpay_sub_id: parsed.data.razorpay_payment_id,
-      starts_at: startsAtIso,
-      ends_at: endsAtIso,
-    });
+  const { data: createdSubscription, error: createSubscriptionError } =
+    await ownerCtx.admin
+      .from("subscriptions")
+      .insert({
+        owner_id: ownerCtx.owner.id,
+        plan,
+        custom_plan_id: paymentOrder.custom_plan_id ?? null,
+        status: "active",
+        razorpay_sub_id: parsed.data.razorpay_payment_id,
+        starts_at: startsAtIso,
+        ends_at: endsAtIso,
+      })
+      .select("id")
+      .maybeSingle();
 
-  if (createSubscriptionError) {
+  if (createSubscriptionError || !createdSubscription?.id) {
+    await ownerCtx.admin
+      .from("payment_orders")
+      .update({ status: "created" })
+      .eq("id", paymentOrder.id);
+
     return NextResponse.json(
-      { error: createSubscriptionError.message },
+      {
+        error:
+          createSubscriptionError?.message ??
+          "Failed to create subscription record.",
+      },
       { status: 500 },
     );
   }
@@ -386,6 +398,16 @@ export async function POST(request: NextRequest) {
     .eq("id", ownerCtx.owner.id);
 
   if (ownerUpdateError) {
+    await ownerCtx.admin
+      .from("subscriptions")
+      .delete()
+      .eq("id", createdSubscription.id);
+
+    await ownerCtx.admin
+      .from("payment_orders")
+      .update({ status: "created" })
+      .eq("id", paymentOrder.id);
+
     return NextResponse.json({ error: ownerUpdateError.message }, { status: 500 });
   }
 

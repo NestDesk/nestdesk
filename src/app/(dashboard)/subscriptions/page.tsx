@@ -160,7 +160,6 @@ export default async function SubscriptionsPage() {
           </div>
 
           <SubscriptionsUsageClient
-            currentPlan={effectivePlan}
             currentPlanDisplayName={currentPlanLabel}
             propertyCount={propertyCount ?? 0}
             tenantCount={tenantCount ?? 0}

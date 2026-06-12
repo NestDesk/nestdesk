@@ -1,7 +1,10 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
-import { computeSubscriptionEndDate, normalizeOwnerPlan } from "../../../../lib/subscriptions";
+import {
+  computeSubscriptionEndDate,
+  normalizeOwnerPlan,
+} from "../../../../lib/subscriptions";
 
 type RazorpayWebhookPayload = {
   event?: string;
@@ -101,7 +104,9 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: paymentOrder, error: orderFetchError } = await admin
     .from("payment_orders")
-    .select("id, owner_id, plan, status, amount_paise, currency")
+    .select(
+      "id, owner_id, plan, status, amount_paise, currency, custom_plan_id, notes",
+    )
     .eq("razorpay_order_id", razorpayOrderId)
     .maybeSingle();
 
@@ -171,27 +176,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: expireError.message }, { status: 500 });
   }
 
-  const { error: createSubscriptionError } = await admin
+  const { data: createdSubscription, error: createSubscriptionError } = await admin
     .from("subscriptions")
     .insert({
       owner_id: paymentOrder.owner_id,
       plan,
+      custom_plan_id: paymentOrder.custom_plan_id ?? null,
       status: "active",
       razorpay_sub_id: razorpayPaymentId,
       starts_at: startsAtIso,
       ends_at: endsAtIso,
-    });
+    })
+    .select("id")
+    .maybeSingle();
 
-  if (createSubscriptionError) {
+  if (createSubscriptionError || !createdSubscription?.id) {
     return NextResponse.json(
-      { error: createSubscriptionError.message },
+      {
+        error:
+          createSubscriptionError?.message ??
+          "Failed to create subscription record.",
+      },
       { status: 500 },
     );
   }
 
+  const ownerUpdates: Record<string, unknown> = {
+    plan,
+    updated_at: startsAtIso,
+  };
+
+  if (paymentOrder.custom_plan_id) {
+    const { data: customPlan } = await admin
+      .from("custom_institution_plans")
+      .select("id, name")
+      .eq("id", paymentOrder.custom_plan_id)
+      .maybeSingle<{ id: string; name: string | null }>();
+
+    ownerUpdates.active_plan_id = customPlan?.id ?? paymentOrder.custom_plan_id;
+    ownerUpdates.active_plan_name = customPlan?.name?.trim() || "Institution";
+  }
+
   const { error: ownerUpdateError } = await admin
     .from("owners")
-    .update({ plan, updated_at: startsAtIso })
+    .update(ownerUpdates)
     .eq("id", paymentOrder.owner_id);
 
   if (ownerUpdateError) {
