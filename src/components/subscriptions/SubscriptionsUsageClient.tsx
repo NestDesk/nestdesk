@@ -4,15 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { formatDateInIndia } from "../../lib/date";
 import {
   formatPlanLabel,
-  getPlanConfig,
   normalizeOwnerPlan,
   type OwnerPlan,
 } from "../../lib/subscriptions";
 
 type SubscriptionsUsageClientProps = {
   currentPlan: OwnerPlan;
+  currentPlanDisplayName?: string;
   propertyCount: number;
   tenantCount: number;
+  maxProperties: number;
+  maxTenants: number;
   unusedCreditPaise?: number;
   displayExpiresOn?: string | null;
   downgradeNote?: string | null;
@@ -28,14 +30,16 @@ function formatDate(value: string | null) {
 
 export function SubscriptionsUsageClient({
   currentPlan,
+  currentPlanDisplayName,
   propertyCount,
   tenantCount,
+  maxProperties,
+  maxTenants,
   unusedCreditPaise = 0,
   displayExpiresOn,
   downgradeNote,
 }: SubscriptionsUsageClientProps) {
   const activePlan = normalizeOwnerPlan(currentPlan);
-  const planConfig = getPlanConfig(activePlan);
 
   return (
     <div className="space-y-2">
@@ -47,7 +51,7 @@ export function SubscriptionsUsageClient({
           <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">
             <p className="text-[11px] uppercase text-muted-foreground">Plan</p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {formatPlanLabel(activePlan)}
+              {currentPlanDisplayName || formatPlanLabel(activePlan)}
             </p>
           </div>
           <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">
@@ -55,13 +59,13 @@ export function SubscriptionsUsageClient({
               Properties
             </p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {propertyCount}/{planConfig.maxProperties}
+              {propertyCount}/{maxProperties}
             </p>
           </div>
           <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">
             <p className="text-[11px] uppercase  text-muted-foreground">Tenants</p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {tenantCount}/{planConfig.maxTenants}
+              {tenantCount}/{maxTenants}
             </p>
           </div>
           <div className="rounded-3xl border border-border/70 bg-muted/70 p-3">

@@ -2,8 +2,37 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Users, Search, RefreshCw, Building2, IndianRupee } from "lucide-react";
+import {
+  Users,
+  Search,
+  RefreshCw,
+  Building2,
+  IndianRupee,
+  MoreVertical,
+} from "lucide-react";
 import { Card, CardContent } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/ui/select";
+import { Label } from "../../../components/ui/label";
 
 export const dynamic = "force-dynamic";
 import { Button } from "../../../components/ui/button";
@@ -24,11 +53,23 @@ type OwnerRow = {
   created_at: string;
 };
 
+type CustomPlanOption = {
+  id: string;
+  name: string;
+};
+
 export default function AdminOwnersPage() {
   const [owners, setOwners] = useState<OwnerRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState<OwnerRow | null>(null);
+  const [customPlans, setCustomPlans] = useState<CustomPlanOption[]>([]);
+  const [selectedCustomPlanId, setSelectedCustomPlanId] = useState<string | null>(
+    null,
+  );
+  const [savingAssignment, setSavingAssignment] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [offset, setOffset] = useState(0);
   const limit = 50;
@@ -53,15 +94,61 @@ export default function AdminOwnersPage() {
     }
   }, []);
 
+  const fetchCustomPlans = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/planner/plans");
+      if (!res.ok) throw new Error("Failed to load plans");
+      const data = (await res.json()) as {
+        plans: Array<{ id: string; name: string }>;
+      };
+      setCustomPlans(data.plans.map((plan) => ({ id: plan.id, name: plan.name })));
+    } catch {
+      toast.error("Failed to load custom plans.");
+    }
+  }, []);
+
   useEffect(() => {
     fetchOwners("", 0);
-  }, [fetchOwners]);
+    fetchCustomPlans();
+  }, [fetchOwners, fetchCustomPlans]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
     setOffset(0);
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => fetchOwners(value, 0), 400);
+  }
+
+  function openAssignDialog(owner: OwnerRow) {
+    setSelectedOwner(owner);
+    setSelectedCustomPlanId(null);
+    setAssignModalOpen(true);
+  }
+
+  async function assignPlanToOwner() {
+    if (!selectedOwner || !selectedCustomPlanId) return;
+    setSavingAssignment(true);
+
+    try {
+      const res = await fetch(`/api/admin/owners/${selectedOwner.id}/assign-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customPlanId: selectedCustomPlanId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to assign plan.");
+      }
+
+      toast.success("Custom plan assigned successfully.");
+      setAssignModalOpen(false);
+      fetchOwners(search, offset);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to assign plan.");
+    } finally {
+      setSavingAssignment(false);
+    }
   }
 
   return (
@@ -136,13 +223,16 @@ export default function AdminOwnersPage() {
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Joined
                   </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {loading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 7 }).map((__, j) => (
+                      {Array.from({ length: 8 }).map((__, j) => (
                         <td key={j} className="px-4 py-3">
                           <div className="h-4 animate-pulse rounded bg-muted" />
                         </td>
@@ -152,7 +242,7 @@ export default function AdminOwnersPage() {
                 ) : owners.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                     >
                       No owners found.
@@ -219,6 +309,27 @@ export default function AdminOwnersPage() {
                             year: "numeric",
                           })}
                         </td>
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Owner actions"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onClick={() => openAssignDialog(owner)}
+                              >
+                                Assign subscription plan
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
                       </tr>
                     );
                   })
@@ -226,6 +337,63 @@ export default function AdminOwnersPage() {
               </tbody>
             </table>
           </div>
+
+          <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Assign custom subscription plan</DialogTitle>
+                <DialogDescription>
+                  Select the custom institution plan that should be shown to the
+                  owner on their subscription and usage pages.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label htmlFor="owner-name">Owner</Label>
+                  <Input
+                    id="owner-name"
+                    value={selectedOwner?.full_name ?? ""}
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="custom-plan-select">Custom plan</Label>
+                  <Select
+                    value={selectedCustomPlanId ?? ""}
+                    onValueChange={(value) => setSelectedCustomPlanId(value)}
+                  >
+                    <SelectTrigger id="custom-plan-select">
+                      <SelectValue placeholder="Select a plan..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customPlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAssignModalOpen(false)}
+                  disabled={savingAssignment}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={assignPlanToOwner}
+                  disabled={savingAssignment || !selectedCustomPlanId}
+                >
+                  {savingAssignment ? "Saving…" : "Assign plan"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Pagination */}
           {total > limit && (

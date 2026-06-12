@@ -40,6 +40,9 @@ export interface PlanDisplayConfig extends Pick<
   ctaLabel: string;
   ctaHref: string;
   highlighted: boolean;
+  customPlanId?: string;
+  maxProperties?: number;
+  maxTenants?: number;
 }
 
 const PLAN_CONFIG: Record<OwnerPlan, PlanConfig> = {
@@ -216,7 +219,7 @@ export const PLAN_BADGE_CLASSES: Record<OwnerPlan, string> = {
 };
 
 export function isPaidPlan(plan: OwnerPlan): boolean {
-  return plan !== "free" && plan !== "institution";
+  return plan !== "free";
 }
 
 export function normalizeOwnerPlan(plan: string | null | undefined): OwnerPlan {

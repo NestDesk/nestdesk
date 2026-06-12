@@ -4,11 +4,11 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 import {
-  normalizeOwnerPlan,
-  getPlanConfig,
   getEffectivePlan,
+  type OwnerPlan,
   type SubscriptionRecord,
 } from "../../../../lib/subscriptions";
+import { getPlanLimitsForOwner } from "../../../../lib/subscription-plans";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
@@ -45,7 +45,7 @@ function getRoomStatusFromActiveCount(
 type OwnerContext = {
   ownerId: string;
   userId: string;
-  ownerPlan: string;
+  ownerPlan: OwnerPlan;
 };
 
 async function createSignedUrl(
@@ -282,7 +282,11 @@ export async function PATCH(
     }
 
     if (tenant.status !== "active") {
-      const planConfig = getPlanConfig(normalizeOwnerPlan(ctx.ownerPlan));
+      const planLimits = await getPlanLimitsForOwner(
+        admin,
+        ctx.ownerPlan,
+        ctx.ownerId,
+      );
       const { count: activeTenantCount, error: tenantCountError } = await admin
         .from("tenants")
         .select("id", { count: "exact", head: true })
@@ -297,10 +301,10 @@ export async function PATCH(
         );
       }
 
-      if ((activeTenantCount ?? 0) >= planConfig.maxTenants) {
+      if ((activeTenantCount ?? 0) >= planLimits.maxTenants) {
         return NextResponse.json(
           {
-            error: `Your current plan allows up to ${planConfig.maxTenants} active tenants. Upgrade your plan to activate more tenants.`,
+            error: `Your current plan allows up to ${planLimits.maxTenants} active tenants. Upgrade your plan to activate more tenants.`,
           },
           { status: 403 },
         );

@@ -4,6 +4,7 @@ import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   computeSubscriptionEndDate,
+  getPlanConfig,
   getPlanRank,
   isPaidPlan,
   normalizeOwnerPlan,
@@ -20,6 +21,59 @@ const verifySchema = z.object({
   razorpay_signature: z.string().min(1),
   plan: z.enum(OWNER_PLANS),
 });
+
+type PlanSnapshot = {
+  activePlanId: string | null;
+  activePlanName: string;
+};
+
+async function resolvePlanSnapshot(
+  admin: ReturnType<typeof createAdminClient>,
+  plan: OwnerPlan,
+  customPlanId: string | null,
+  notes: Record<string, unknown> | null,
+): Promise<PlanSnapshot> {
+  const notePlanId = typeof notes?.purchased_plan_id === "string"
+    ? notes.purchased_plan_id
+    : null;
+  const notePlanName = typeof notes?.purchased_plan_name === "string"
+    ? notes.purchased_plan_name.trim()
+    : "";
+
+  if (notePlanName) {
+    return {
+      activePlanId: notePlanId,
+      activePlanName: notePlanName,
+    };
+  }
+
+  if (plan === "institution" && customPlanId) {
+    const { data: customPlan } = await admin
+      .from("custom_institution_plans")
+      .select("id, name")
+      .eq("id", customPlanId)
+      .maybeSingle<{ id: string; name: string | null }>();
+
+    return {
+      activePlanId: customPlan?.id ?? customPlanId,
+      activePlanName: customPlan?.name?.trim() || getPlanConfig(plan).name,
+    };
+  }
+
+  const { data: globalPlan } = await admin
+    .from("subscription_plans")
+    .select("id, name")
+    .eq("code", plan)
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; name: string | null }>();
+
+  return {
+    activePlanId: globalPlan?.id ?? null,
+    activePlanName: globalPlan?.name?.trim() || getPlanConfig(plan).name,
+  };
+}
 
 type RazorpayPaymentDetails = {
   order_id: string;
@@ -140,7 +194,9 @@ export async function POST(request: NextRequest) {
 
   const { data: paymentOrder, error: orderFetchError } = await ownerCtx.admin
     .from("payment_orders")
-    .select("id, plan, status, amount_paise, razorpay_payment_id, notes")
+    .select(
+      "id, plan, status, amount_paise, razorpay_payment_id, custom_plan_id, notes",
+    )
     .eq("owner_id", ownerCtx.owner.id)
     .eq("razorpay_order_id", parsed.data.razorpay_order_id)
     .maybeSingle();
@@ -286,6 +342,7 @@ export async function POST(request: NextRequest) {
     .insert({
       owner_id: ownerCtx.owner.id,
       plan,
+      custom_plan_id: paymentOrder.custom_plan_id ?? null,
       status: "active",
       razorpay_sub_id: parsed.data.razorpay_payment_id,
       starts_at: startsAtIso,
@@ -303,6 +360,16 @@ export async function POST(request: NextRequest) {
     plan,
     updated_at: startsAtIso,
   };
+
+  const purchasedPlanSnapshot = await resolvePlanSnapshot(
+    ownerCtx.admin,
+    plan,
+    paymentOrder.custom_plan_id ?? null,
+    (paymentOrder.notes ?? null) as Record<string, unknown> | null,
+  );
+
+  ownerUpdates.active_plan_id = purchasedPlanSnapshot.activePlanId;
+  ownerUpdates.active_plan_name = purchasedPlanSnapshot.activePlanName;
 
   const leftoverCreditAfter =
     typeof paymentOrder.notes?.unused_credit_paise_after === "number"

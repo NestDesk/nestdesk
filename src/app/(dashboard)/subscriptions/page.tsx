@@ -9,6 +9,10 @@ import {
   normalizeOwnerPlan,
   type SubscriptionStatus,
 } from "../../../lib/subscriptions";
+import {
+  getActivePlanCatalog,
+  getPlanLimitsForOwner,
+} from "../../../lib/subscription-plans";
 import { SubscriptionsUsageClient } from "../../../components/subscriptions/SubscriptionsUsageClient";
 import { SubscriptionHistoryClient } from "../../../components/subscriptions/SubscriptionHistoryClient";
 import { PricingPlans } from "../../../components/layout/PricingPlans";
@@ -16,6 +20,7 @@ import { PricingPlans } from "../../../components/layout/PricingPlans";
 type SubscriptionRow = {
   id: string;
   plan: string;
+  custom_plan_id: string | null;
   status: SubscriptionStatus;
   starts_at: string;
   ends_at: string | null;
@@ -34,7 +39,7 @@ export default async function SubscriptionsPage() {
 
   const { data: owner } = await admin
     .from("owners")
-    .select("id, plan, unused_credit_paise")
+    .select("id, plan, active_plan_name, unused_credit_paise")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -42,13 +47,26 @@ export default async function SubscriptionsPage() {
 
   const { data: subscription } = await admin
     .from("subscriptions")
-    .select("id, plan, status, starts_at, ends_at, razorpay_sub_id")
+    .select("id, plan, custom_plan_id, status, starts_at, ends_at, razorpay_sub_id")
     .eq("owner_id", owner.id)
     .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle<SubscriptionRow>();
 
+  const { data: subscriptionCustomPlan } = subscription?.custom_plan_id
+    ? await admin
+        .from("custom_institution_plans")
+        .select("name")
+        .eq("id", subscription.custom_plan_id)
+        .maybeSingle<{ name: string | null }>()
+    : { data: null };
+
+  const customPlanDisplayName =
+    subscriptionCustomPlan?.name?.trim() || owner.active_plan_name?.trim() || null;
+
   const effectivePlan = getEffectivePlan(subscription ?? null);
+  const planLimits = await getPlanLimitsForOwner(admin, effectivePlan, owner.id);
+  const planCatalog = await getActivePlanCatalog(admin, owner.id);
   const currentSubscriptionPlan = subscription
     ? normalizeOwnerPlan(subscription.plan)
     : null;
@@ -63,7 +81,7 @@ export default async function SubscriptionsPage() {
     effectivePlan === "free" ? null : (subscription?.ends_at ?? null);
 
   const downgradeNote = isDowngradedToFreeAfterExpiry
-    ? `${formatPlanLabel(currentSubscriptionPlan ?? "free")} expired on ${formatDateInIndia(
+    ? `${currentSubscriptionPlan === "institution" && customPlanDisplayName ? customPlanDisplayName : formatPlanLabel(currentSubscriptionPlan ?? "free")} expired on ${formatDateInIndia(
         subscription?.ends_at ?? new Date().toISOString(),
         {
           day: "2-digit",
@@ -73,7 +91,10 @@ export default async function SubscriptionsPage() {
       )}. Your account has been downgraded to Free Plan.`
     : null;
 
-  const currentPlanLabel = formatPlanLabel(effectivePlan);
+  const currentPlanLabel =
+    effectivePlan === "institution" && customPlanDisplayName
+      ? customPlanDisplayName
+      : formatPlanLabel(effectivePlan);
   const currentPlanDisplayLabel = downgradeNote
     ? `${currentPlanLabel} (downgraded)`
     : currentPlanLabel;
@@ -115,7 +136,7 @@ export default async function SubscriptionsPage() {
   const unusedCreditPaise = owner.unused_credit_paise ?? 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 pb-10">
+    <div className="mx-auto  px-4 sm:px-6 pb-10">
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <div className="rounded-[28px] border border-border/70 bg-background/80 p-6 shadow-sm">
@@ -140,8 +161,11 @@ export default async function SubscriptionsPage() {
 
           <SubscriptionsUsageClient
             currentPlan={effectivePlan}
+            currentPlanDisplayName={currentPlanLabel}
             propertyCount={propertyCount ?? 0}
             tenantCount={tenantCount ?? 0}
+            maxProperties={planLimits.maxProperties}
+            maxTenants={planLimits.maxTenants}
             unusedCreditPaise={unusedCreditPaise}
             displayExpiresOn={displayExpiresOn}
             downgradeNote={downgradeNote}
@@ -194,6 +218,8 @@ export default async function SubscriptionsPage() {
         <PricingPlans
           isLoggedIn
           currentPlan={effectivePlan}
+          currentCustomPlanId={subscription?.custom_plan_id ?? null}
+          initialPlans={planCatalog}
           ctaText="Buy"
           title=""
           description=""

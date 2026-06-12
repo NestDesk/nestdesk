@@ -27,18 +27,100 @@ import {
   listPlanDisplayConfigs,
   type BillingCycle,
   type OwnerPlan,
+  type PlanDisplayConfig,
 } from "../../lib/subscriptions";
 
 function formatINR(n: number): string {
   return n.toLocaleString("en-IN");
 }
 
-function getCtaLabel(cta: string, ctaText: string, planId: string) {
-  if (planId === "institution") return cta;
+function getCtaLabel(
+  cta: string,
+  ctaText: string,
+  planId: string,
+  isCustom: boolean,
+  isAssignedCustom: boolean,
+) {
+  if (planId === "institution") {
+    return isAssignedCustom ? ctaText : cta;
+  }
   if (cta.startsWith("Choose")) {
     return cta.replace(/^Choose/, ctaText);
   }
   return cta;
+}
+
+type AssignedCustomPlanPayload = {
+  id?: string;
+  name?: string;
+  description?: string | null;
+  monthly_price_paise?: number;
+  max_properties?: number;
+  max_tenants?: number;
+};
+
+function mergeAssignedCustomPlan(
+  plans: PlanDisplayConfig[],
+  assignedCustomPlan?: AssignedCustomPlanPayload | null,
+): PlanDisplayConfig[] {
+  if (!assignedCustomPlan?.id) {
+    return plans;
+  }
+
+  const institutionBase = listPlanDisplayConfigs().find(
+    (plan) => plan.id === "institution",
+  );
+  if (!institutionBase) {
+    return plans;
+  }
+
+  const assignedPlan: PlanDisplayConfig = {
+    ...institutionBase,
+    name: assignedCustomPlan.name?.trim() || institutionBase.name,
+    description:
+      assignedCustomPlan.description?.trim() || institutionBase.description,
+    amountPaise:
+      typeof assignedCustomPlan.monthly_price_paise === "number"
+        ? assignedCustomPlan.monthly_price_paise
+        : institutionBase.amountPaise,
+    isCustom: true,
+    customPlanId: assignedCustomPlan.id,
+    maxProperties:
+      typeof assignedCustomPlan.max_properties === "number"
+        ? assignedCustomPlan.max_properties
+        : institutionBase.maxProperties,
+    maxTenants:
+      typeof assignedCustomPlan.max_tenants === "number"
+        ? assignedCustomPlan.max_tenants
+        : institutionBase.maxTenants,
+  };
+
+  const withoutSameCustomPlan = plans.filter(
+    (plan) => !(plan.id === "institution" && plan.customPlanId === assignedPlan.id),
+  );
+
+  const freeIndex = withoutSameCustomPlan.findIndex((plan) => plan.id === "free");
+  const institutionIndex = withoutSameCustomPlan.findIndex(
+    (plan) => plan.id === "institution" && !plan.customPlanId,
+  );
+
+  if (freeIndex >= 0) {
+    return [
+      ...withoutSameCustomPlan.slice(0, freeIndex + 1),
+      assignedPlan,
+      ...withoutSameCustomPlan.slice(freeIndex + 1),
+    ];
+  }
+
+  if (institutionIndex >= 0) {
+    return [
+      ...withoutSameCustomPlan.slice(0, institutionIndex + 1),
+      assignedPlan,
+      ...withoutSameCustomPlan.slice(institutionIndex + 1),
+    ];
+  }
+
+  return [...withoutSameCustomPlan, assignedPlan];
 }
 
 type PricingPlansProps = {
@@ -48,6 +130,8 @@ type PricingPlansProps = {
   description?: string;
   id?: string;
   currentPlan?: OwnerPlan;
+  currentCustomPlanId?: string | null;
+  initialPlans?: PlanDisplayConfig[];
 };
 
 export function PricingPlans({
@@ -57,7 +141,13 @@ export function PricingPlans({
   description,
   id,
   currentPlan,
+  currentCustomPlanId = null,
+  initialPlans,
 }: PricingPlansProps) {
+  const fallbackPlans = listPlanDisplayConfigs();
+  const [planCards, setPlanCards] = useState<PlanDisplayConfig[]>(
+    initialPlans && initialPlans.length > 0 ? initialPlans : fallbackPlans,
+  );
   const [isYearly, setIsYearly] = useState(false);
   const [isCheckoutScriptReady, setIsCheckoutScriptReady] = useState(false);
   const [isBuyingPlan, setIsBuyingPlan] = useState<string | null>(null);
@@ -66,6 +156,7 @@ export function PricingPlans({
   const [confirmingUpgrade, setConfirmingUpgrade] = useState(false);
   const [previewData, setPreviewData] = useState<{
     requestedPlan: OwnerPlan;
+    customPlanId?: string;
     billingCycle: BillingCycle;
     currentPlan: OwnerPlan;
     currentPlanBillingCycle: BillingCycle;
@@ -179,7 +270,11 @@ export function PricingPlans({
     razorpay.open();
   }
 
-  async function previewUpgrade(planId: string, planName: string) {
+  async function previewUpgrade(
+    planId: string,
+    planName: string,
+    customPlanId?: string,
+  ) {
     if (isBuyingPlan || !isLoggedIn) return;
     setIsBuyingPlan(planId);
     setSelectedPlanId(planId);
@@ -196,6 +291,7 @@ export function PricingPlans({
           plan: planId,
           billingCycle,
           preview: true,
+          customPlanId,
         }),
       });
 
@@ -229,6 +325,7 @@ export function PricingPlans({
           plan: selectedPlanId,
           billingCycle: previewData.billingCycle,
           confirm: true,
+          customPlanId: previewData.customPlanId ?? undefined,
         }),
       });
 
@@ -283,6 +380,41 @@ export function PricingPlans({
   };
 
   useEffect(() => {
+    let isMounted = true;
+
+    fetch("/api/subscription-plans", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load plans");
+        }
+
+        const payload = (await response.json()) as {
+          plans?: PlanDisplayConfig[];
+          assignedCustomPlan?: AssignedCustomPlanPayload | null;
+        };
+
+        if (!isMounted || !payload.plans || payload.plans.length === 0) {
+          return;
+        }
+
+        setPlanCards(
+          mergeAssignedCustomPlan(payload.plans, payload.assignedCustomPlan),
+        );
+      })
+      .catch(() => {
+        if (isMounted) {
+          setPlanCards((existing) =>
+            existing.length > 0 ? existing : listPlanDisplayConfigs(),
+          );
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     updateScrollButtons();
     const carousel = carouselRef.current;
     if (!carousel) return;
@@ -298,7 +430,7 @@ export function PricingPlans({
 
   return (
     <section id={id} className="bg-muted/30 py-10">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="w-full px-4 sm:px-6">
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="afterInteractive"
@@ -347,7 +479,7 @@ export function PricingPlans({
           {isYearly && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
               <Tag className="h-3 w-3" />
-              Save an extra 10% with yearly billing
+              Yearly billing preview
             </span>
           )}
         </div>
@@ -368,17 +500,26 @@ export function PricingPlans({
 
           <div
             ref={carouselRef}
-            className="flex gap-4 overflow-x-auto pb-3 pr-3 pt-3 ml-4 snap-x snap-mandatory scroll-smooth"
+            className="flex gap-4 overflow-x-auto pb-3 pr-3 pt-3 snap-x snap-mandatory scroll-smooth"
           >
-            {listPlanDisplayConfigs().map((plan) => {
+            {planCards.map((plan) => {
               const planId = plan.id;
               const name = plan.name;
-              const planDescription = plan.description;
               const planFeatures = plan.features;
               const cta = plan.ctaLabel;
               const ctaHref = plan.ctaHref;
               const highlighted = plan.highlighted;
-              const isCurrent = isLoggedIn && currentPlan === planId;
+              const isAssignedCustomInstitution = !!(
+                planId === "institution" && plan.isCustom && plan.customPlanId
+              );
+              const isCurrent =
+                isLoggedIn &&
+                currentPlan === planId &&
+                (planId !== "institution"
+                  ? true
+                  : plan.customPlanId
+                    ? currentCustomPlanId === plan.customPlanId
+                    : !currentCustomPlanId);
               const planRank = getPlanRank(planId);
               const currentPlanRank = currentPlan ? getPlanRank(currentPlan) : 0;
               const isDowngrade =
@@ -388,16 +529,31 @@ export function PricingPlans({
                 currentPlan !== "free";
               const monthly = plan.amountPaise > 0 ? plan.amountPaise / 100 : null;
               const isPaid = monthly !== null;
+              const usesCustomYearly = Boolean(plan.customPlanId);
               const activePrice =
-                isYearly && monthly ? Math.round(monthly * 0.9) : monthly;
+                isYearly && monthly
+                  ? usesCustomYearly
+                    ? monthly
+                    : Math.round(monthly * 0.9)
+                  : monthly;
               const yearlyTotal =
-                isYearly && monthly ? Math.round(monthly * 0.9) * 12 : null;
+                isYearly && monthly
+                  ? usesCustomYearly
+                    ? monthly * 12
+                    : Math.round(monthly * 0.9) * 12
+                  : null;
               const ctaLinkHref = ctaHref.startsWith("tel:")
                 ? ctaHref
                 : isLoggedIn
                   ? "/dashboard/subscriptions"
                   : `${ctaHref}?plan=${planId}`;
-              const buttonText = getCtaLabel(cta, ctaText, planId);
+              const buttonText = getCtaLabel(
+                cta,
+                ctaText,
+                planId,
+                plan.isCustom,
+                isAssignedCustomInstitution,
+              );
               const currentButtonText = isCurrent
                 ? "Current plan"
                 : isDowngrade
@@ -406,7 +562,7 @@ export function PricingPlans({
 
               return (
                 <div
-                  key={name}
+                  key={`${name}-${plan.customPlanId ?? planId}`}
                   className={`relative flex min-w-[80vw] flex-col rounded-2xl border p-5 snap-start sm:min-w-[68vw] md:min-w-[20rem] xl:min-w-[22rem] ${
                     highlighted
                       ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
@@ -420,20 +576,26 @@ export function PricingPlans({
                   )}
 
                   <div className="mb-3">
-                    <h3
-                      className={`text-base font-semibold ${
-                        highlighted ? "text-white" : "text-foreground"
-                      }`}
-                    >
-                      {name}
-                    </h3>
-                    <p
-                      className={`mt-1 h-6 text-[11px] leading-4 ${
-                        highlighted ? "text-white/70" : "text-muted-foreground"
-                      }`}
-                    >
-                      {planDescription}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3
+                        className={`text-base font-semibold ${
+                          highlighted ? "text-white" : "text-foreground"
+                        }`}
+                      >
+                        {name}
+                      </h3>
+                      {plan.customPlanId ? (
+                        <span
+                          className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                            highlighted
+                              ? "border-white/30 bg-white/10 text-white"
+                              : "border-primary/30 bg-primary/10 text-primary"
+                          }`}
+                        >
+                          Assigned plan
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mb-4">
@@ -459,26 +621,28 @@ export function PricingPlans({
                     ) : (
                       <>
                         <div className="mb-2 space-y-2">
-                          <div className="flex items-center gap-2 text-[18px] font-semibold">
-                            <span
-                              className={`line-through ${
-                                highlighted
-                                  ? "text-white/60"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              Rs.{monthly ? formatINR(monthly * 2 + 1) : ""}
-                            </span>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                                highlighted
-                                  ? "bg-white/15 text-white"
-                                  : "bg-emerald-100 text-emerald-700"
-                              }`}
-                            >
-                              50% off
-                            </span>
-                          </div>
+                          {!usesCustomYearly ? (
+                            <div className="flex items-center gap-2 text-[18px] font-semibold">
+                              <span
+                                className={`line-through ${
+                                  highlighted
+                                    ? "text-white/60"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                Rs.{monthly ? formatINR(monthly * 2 + 1) : ""}
+                              </span>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                                  highlighted
+                                    ? "bg-white/15 text-white"
+                                    : "bg-emerald-100 text-emerald-700"
+                                }`}
+                              >
+                                50% off
+                              </span>
+                            </div>
+                          ) : null}
 
                           <div className="flex items-baseline gap-1">
                             <span
@@ -509,6 +673,18 @@ export function PricingPlans({
                             Rs.{formatINR(yearlyTotal)} billed yearly
                           </p>
                         )}
+                        {plan.customPlanId &&
+                        plan.maxProperties != null &&
+                        plan.maxTenants != null ? (
+                          <p
+                            className={`text-sm ${
+                              highlighted ? "text-white/70" : "text-muted-foreground"
+                            }`}
+                          >
+                            Allowed {plan.maxProperties} properties ·{" "}
+                            {plan.maxTenants} tenants
+                          </p>
+                        ) : null}
                       </>
                     )}
                   </div>
@@ -533,16 +709,58 @@ export function PricingPlans({
                   </ul>
 
                   {planId === "institution" ? (
-                    <Button
-                      type="button"
-                      className={`w-full rounded-xl ${
-                        highlighted ? "bg-white text-primary hover:bg-white/90" : ""
-                      }`}
-                      variant={highlighted ? "secondary" : "default"}
-                      onClick={() => setIsLeadDialogOpen(true)}
-                    >
-                      {buttonText}
-                    </Button>
+                    isCurrent ? (
+                      <Button
+                        type="button"
+                        className={`w-full rounded-xl ${
+                          highlighted ? "bg-white text-primary" : ""
+                        }`}
+                        variant={highlighted ? "secondary" : "default"}
+                        disabled
+                      >
+                        {currentButtonText}
+                      </Button>
+                    ) : isAssignedCustomInstitution ? (
+                      <Button
+                        type="button"
+                        className={`w-full rounded-xl ${
+                          highlighted
+                            ? "bg-white text-primary hover:bg-white/90"
+                            : ""
+                        }`}
+                        variant={highlighted ? "secondary" : "default"}
+                        size="sm"
+                        disabled={isBuyingPlan === planId}
+                        onClick={() =>
+                          previewUpgrade(planId, name, plan.customPlanId)
+                        }
+                      >
+                        {isBuyingPlan === planId ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="h-4 w-4" />
+                            {buttonText}
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        className={`w-full rounded-xl ${
+                          highlighted
+                            ? "bg-white text-primary hover:bg-white/90"
+                            : ""
+                        }`}
+                        variant={highlighted ? "secondary" : "default"}
+                        onClick={() => setIsLeadDialogOpen(true)}
+                      >
+                        {buttonText}
+                      </Button>
+                    )
                   ) : isCurrent ? (
                     <Button
                       type="button"
@@ -580,7 +798,7 @@ export function PricingPlans({
                       variant={highlighted ? "secondary" : "default"}
                       size="sm"
                       disabled={isBuyingPlan === planId}
-                      onClick={() => previewUpgrade(planId, name)}
+                      onClick={() => previewUpgrade(planId, name, plan.customPlanId)}
                     >
                       {isBuyingPlan === planId ? (
                         <>

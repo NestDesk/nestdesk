@@ -170,6 +170,66 @@ The app is split into five main layers:
 - Owner-authenticated API to fetch current plan and latest subscription snapshot
 - Used by topbar avatar menu and subscriptions/dashboard surfaces
 
+18. src/app/api/subscription-plans/route.ts
+
+- Public API to return active subscription plan catalog from subscription_plans for pricing surfaces.
+
+19. src/lib/subscription-plans.ts
+
+- Server-only helper to read active plan catalog and owner-aware plan limits from subscription_plans.
+- Used by property and tenant plan-cap enforcement to apply max_properties and max_tenants from DB values.
+
+20. src/app/admin/planner/page.tsx
+
+- Admin Custom Plans console on route /admin/planner.
+- Includes pricing calculator section with editable formula parameters:
+   - base fee
+   - property fee
+   - tenant fee
+   - tenant threshold
+   - property count
+   - tenant count
+- Computes monthly and yearly rates (yearly = monthly x 12), supports apply-to-form workflow.
+- Includes curated plans section for edit/delete, activate/deactivate, and assign-by-email actions.
+
+21. src/app/api/admin/planner/plans/route.ts
+
+- CRUD API for custom institution plans now includes formula metadata columns.
+- Supports plan activation/deactivation through PATCH payload updates.
+- Writes audit logs for create/update/activate/deactivate/delete actions.
+
+22. src/app/api/create-order/route.ts
+
+- Custom-plan aware order creation now stores purchased plan snapshot metadata in payment order notes.
+- Zero-cost confirmation path now updates owners.plan plus owners.active_plan_id and owners.active_plan_name.
+
+23. src/app/api/verify-payment/route.ts
+
+- Payment verification now loads custom_plan_id from payment_orders and resolves purchased plan snapshot.
+- On successful verification updates owners.plan plus owners.active_plan_id and owners.active_plan_name.
+- Institution custom plan purchase path is treated as paid verification eligible.
+
+24. src/components/admin/AdminSidebar.tsx
+
+- Admin navigation label changed from Subscription Planner to Custom Plans.
+- Route remains /admin/planner for compatibility.
+
+25. src/app/api/admin/owners/[ownerId]/assign-plan/route.ts
+
+- Assigns active custom plans to owners by owner id.
+- Deactivates previous active assignment before insert.
+- Writes assignment audit logs with previous and new custom plan snapshots.
+
+26. src/app/(dashboard)/subscriptions/page.tsx
+
+- Subscription usage header now resolves and displays custom institution plan names when applicable.
+- Keeps fallback to normalized plan labels for non-custom plans.
+
+27. src/components/layout/PricingPlans.tsx
+
+- Yearly pricing preview for assigned custom plans now uses monthly x 12 without generic discount banner semantics.
+- Maintains existing promotional display behavior for standard non-custom plans.
+
 14. src/app/api/owner/phone-otp/request/route.ts
 
 - Owner-authenticated API to request WhatsApp OTP for phone verification

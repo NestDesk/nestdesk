@@ -5,10 +5,10 @@ import { createAdminClient } from "../../../lib/supabase/admin";
 import {
   BILLING_CYCLES,
   buildOrderReceipt,
+  getPlanConfig,
   getPlanAmountPaiseForCycle,
   getPlanRank,
   inferBillingCycleFromSubscription,
-  isPaidPlan,
   normalizeOwnerPlan,
   OWNER_PLANS,
   type BillingCycle,
@@ -21,10 +21,42 @@ const RAZORPAY_CURRENCY = "INR" as const;
 const createOrderSchema = z.object({
   receipt: z.string().max(80).optional(),
   plan: z.enum(OWNER_PLANS).optional(),
+  customPlanId: z.string().uuid().optional(),
   billingCycle: z.enum(BILLING_CYCLES).optional(),
   preview: z.boolean().optional(),
   confirm: z.boolean().optional(),
 });
+
+type PlanSnapshot = {
+  activePlanId: string | null;
+  activePlanName: string;
+};
+
+async function resolvePlanSnapshot(
+  requestedPlan: OwnerPlan,
+  customPlan: { id: string; name: string } | null,
+): Promise<PlanSnapshot> {
+  if (requestedPlan === "institution" && customPlan) {
+    return {
+      activePlanId: customPlan.id,
+      activePlanName: customPlan.name,
+    };
+  }
+
+  const { data: globalPlan } = await createAdminClient()
+    .from("subscription_plans")
+    .select("id, name")
+    .eq("code", requestedPlan)
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; name: string | null }>();
+
+  return {
+    activePlanId: globalPlan?.id ?? null,
+    activePlanName: globalPlan?.name?.trim() || getPlanConfig(requestedPlan).name,
+  };
+}
 
 async function getOwnerContext() {
   const supabase = await createClient();
@@ -87,23 +119,75 @@ export async function POST(request: NextRequest) {
   const preview = parsed.data.preview === true;
   const confirm = parsed.data.confirm === true;
 
-  if (!isPaidPlan(requestedPlan)) {
-    return NextResponse.json(
-      {
-        error:
-          requestedPlan === "free"
-            ? "Free plan does not require an online payment order."
-            : "Institution plan is custom. Please contact the sales team.",
-      },
-      { status: 400 },
-    );
+  let customPlan: {
+    id: string;
+    name: string;
+    monthly_price_paise: number;
+    yearly_price_paise: number;
+  } | null = null;
+  if (requestedPlan === "institution") {
+    const admin = createAdminClient();
+    if (parsed.data.customPlanId) {
+      const { data: planRow } = await admin
+        .from("custom_institution_plans")
+        .select("id, name, monthly_price_paise, yearly_price_paise")
+        .eq("id", parsed.data.customPlanId)
+        .eq("is_active", true)
+        .maybeSingle<{
+          id: string;
+          name: string;
+          monthly_price_paise: number;
+          yearly_price_paise: number;
+        }>();
+
+      customPlan = planRow ?? null;
+    } else {
+      const { data: assignmentRow } = await admin
+        .from("owner_custom_institution_plans")
+        .select(
+          "custom_institution_plans!inner(id, name, monthly_price_paise, yearly_price_paise)",
+        )
+        .eq("owner_id", ownerCtx.owner.id)
+        .eq("is_active", true)
+        .eq("custom_institution_plans.is_active", true)
+        .maybeSingle();
+
+      const nestedPlan = (
+        assignmentRow as { custom_institution_plans?: unknown } | null
+      )?.custom_institution_plans;
+
+      if (Array.isArray(nestedPlan)) {
+        customPlan =
+          (nestedPlan[0] as {
+            id: string;
+            name: string;
+            monthly_price_paise: number;
+            yearly_price_paise: number;
+          } | null) ?? null;
+      } else {
+        customPlan =
+          (nestedPlan as {
+            id: string;
+            name: string;
+            monthly_price_paise: number;
+            yearly_price_paise: number;
+          } | null) ?? null;
+      }
+    }
+
+    if (!customPlan) {
+      return NextResponse.json(
+        { error: "Assigned custom institution plan is not available." },
+        { status: 400 },
+      );
+    }
   }
 
   const currentOwnerCreditPaise = ownerCtx.owner.unused_credit_paise ?? 0;
 
   const { data: activeSubscription } = await createAdminClient()
     .from("subscriptions")
-    .select("plan, status, starts_at, ends_at")
+    .select("plan, status, starts_at, ends_at, custom_plan_id")
     .eq("owner_id", ownerCtx.owner.id)
     .in("status", ["active", "grace_period"])
     .order("starts_at", { ascending: false })
@@ -149,7 +233,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (requestedPlan === activeSubscriptionPlan && !preview && !confirm) {
+  const activeCustomPlanId = activeSubscription?.custom_plan_id ?? null;
+  const requestedCustomPlanId = parsed.data.customPlanId ?? null;
+  const samePlan =
+    requestedPlan === activeSubscriptionPlan &&
+    (requestedPlan !== "institution" ||
+      requestedCustomPlanId === activeCustomPlanId);
+
+  if (samePlan && !preview && !confirm) {
     return NextResponse.json(
       { error: "You are already on this plan." },
       { status: 400 },
@@ -159,7 +250,12 @@ export async function POST(request: NextRequest) {
   const currentAmountPaise = hasActiveSubscription
     ? getPlanAmountPaiseForCycle(activeSubscriptionPlan, activeBillingCycle)
     : 0;
-  const newAmountPaise = getPlanAmountPaiseForCycle(requestedPlan, billingCycle);
+  const newAmountPaise =
+    requestedPlan === "institution" && customPlan
+      ? billingCycle === "yearly"
+        ? customPlan.yearly_price_paise
+        : customPlan.monthly_price_paise
+      : getPlanAmountPaiseForCycle(requestedPlan, billingCycle);
 
   let prorationCreditPaise = 0;
   let remainingDays = 0;
@@ -218,6 +314,7 @@ export async function POST(request: NextRequest) {
   const receipt =
     parsed.data.receipt?.trim() ||
     buildOrderReceipt(ownerCtx.owner.id, requestedPlan);
+  const purchasedPlanSnapshot = await resolvePlanSnapshot(requestedPlan, customPlan);
 
   if (amountDuePaise === 0 && confirm) {
     const nowIso = now.toISOString();
@@ -230,6 +327,7 @@ export async function POST(request: NextRequest) {
       .insert({
         owner_id: ownerCtx.owner.id,
         plan: requestedPlan,
+        custom_plan_id: customPlan?.id ?? null,
         status: "paid",
         amount_paise: 0,
         currency: RAZORPAY_CURRENCY,
@@ -240,6 +338,8 @@ export async function POST(request: NextRequest) {
           owner_id: ownerCtx.owner.id,
           owner_email: ownerCtx.user.email ?? "",
           plan: requestedPlan,
+          purchased_plan_id: purchasedPlanSnapshot.activePlanId,
+          purchased_plan_name: purchasedPlanSnapshot.activePlanName,
           billing_cycle: billingCycle,
           current_plan: activeSubscriptionPlan,
           current_plan_billing_cycle: activeBillingCycle,
@@ -277,6 +377,7 @@ export async function POST(request: NextRequest) {
       .insert({
         owner_id: ownerCtx.owner.id,
         plan: requestedPlan,
+        custom_plan_id: customPlan?.id ?? null,
         status: "active",
         razorpay_sub_id: null,
         starts_at: nowIso,
@@ -294,6 +395,8 @@ export async function POST(request: NextRequest) {
       .from("owners")
       .update({
         plan: requestedPlan,
+        active_plan_id: purchasedPlanSnapshot.activePlanId,
+        active_plan_name: purchasedPlanSnapshot.activePlanName,
         unused_credit_paise: leftoverCreditPaise,
         updated_at: nowIso,
       })
@@ -350,6 +453,8 @@ export async function POST(request: NextRequest) {
         owner_email: ownerCtx.user.email ?? "",
         plan: requestedPlan,
         billing_cycle: billingCycle,
+        purchased_plan_id: purchasedPlanSnapshot.activePlanId,
+        purchased_plan_name: purchasedPlanSnapshot.activePlanName,
         current_plan: activeSubscriptionPlan,
         current_plan_billing_cycle: activeBillingCycle,
         current_plan_ends_at: currentPlanEndsAt,
@@ -403,6 +508,7 @@ export async function POST(request: NextRequest) {
     .insert({
       owner_id: ownerCtx.owner.id,
       plan: requestedPlan,
+      custom_plan_id: customPlan?.id ?? null,
       status: "created",
       amount_paise: responseJson.amount ?? amountDuePaise,
       currency: responseJson.currency ?? currency,
@@ -412,6 +518,9 @@ export async function POST(request: NextRequest) {
         owner_id: ownerCtx.owner.id,
         owner_email: ownerCtx.user.email ?? "",
         plan: requestedPlan,
+        custom_plan_id: customPlan?.id ?? null,
+        purchased_plan_id: purchasedPlanSnapshot.activePlanId,
+        purchased_plan_name: purchasedPlanSnapshot.activePlanName,
         billing_cycle: billingCycle,
         current_plan: activeSubscriptionPlan,
         current_plan_billing_cycle: activeBillingCycle,

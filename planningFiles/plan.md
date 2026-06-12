@@ -183,6 +183,30 @@ The active product flow is:
 - Reduced paid plan prices to micro = 5, starter = 7, and pro = 11.
 - Replaced the old business card with a custom institution plan that routes users to sales instead of checkout.
 
+27. Subscription limits and plan listing are now database-driven:
+
+- Added server-side plan catalog loading from public.subscription_plans for active global plans.
+- Pricing cards now fetch plans from /api/subscription-plans and render database plan names, descriptions, and monthly prices.
+- Owner plan restrictions for property creation and tenant activation now read max_properties and max_tenants from subscription_plans (with fallback to static config if table rows are unavailable).
+
+28. Custom plan curation and owner plan snapshot implementation was started:
+
+- Added migration 20260616_create_subscription_plans_table.sql to create public.subscription_plans with indexes and idempotent seed inserts for free/starter/micro/pro/institution.
+- Added migration 20260617_add_owner_plan_snapshot_and_custom_formula_fields.sql to add owners.active_plan_id and owners.active_plan_name and formula metadata columns for custom_institution_plans.
+- Added migration backfill logic to populate owners.active_plan_id and owners.active_plan_name from latest active subscriptions and global plan catalog.
+- Updated order creation and payment verification flows to persist owners.active_plan_id and owners.active_plan_name at purchase activation time.
+- Updated paid-plan classification so institution custom purchases can complete via the same checkout verification flow.
+- Reworked admin planner into a custom plans workflow with pricing calculator (editable formula parameters), curated plan list management, activate/deactivate, and assign-by-email actions.
+- Updated admin sidebar label from Subscription Planner to Custom Plans while keeping route path /admin/planner stable.
+
+29. Subscription UX and admin audit regression slice is now completed:
+
+- Owner subscription and usage screen now surfaces custom institution plan names in current-plan display and summary cards.
+- Pricing cards yearly preview now avoids misleading discount messaging for assigned custom institution plans and reflects yearly billing as monthly x 12 for those custom cards.
+- Admin custom plan API now writes audit logs for plan create, update, activate/deactivate, and delete actions.
+- Owner custom plan assignment API now writes audit logs with old/new assignment payloads for traceability.
+- Subscription and middleware paths passed project lint regression checks after these updates.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management

@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Coins,
   BarChart3,
+  Tag,
 } from "lucide-react";
 import {
   Tooltip,
@@ -28,6 +29,7 @@ const navItems = [
   { label: "Properties", href: "/admin/properties", icon: Building2 },
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
   { label: "Subscriptions", href: "/admin/subscriptions", icon: BarChart3 },
+  { label: "Custom Plans", href: "/admin/planner", icon: Tag },
   { label: "Credits", href: "/admin/credits", icon: Coins },
   { label: "Leads", href: "/admin/leads", icon: TrendingUp },
   { label: "Maintenance", href: "/admin/maintenance", icon: Wrench },

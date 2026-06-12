@@ -83,6 +83,7 @@ This is important because the application code depends on owners.user_id in:
 7. audit_logs
    - Stores app audit events.
    - Currently written for onboarding create/update, property creation, and property activation.
+   - Also written for admin custom plan lifecycle actions (create/update/activate/deactivate/delete) and owner custom plan assignment changes.
 
 8. phone_otp_challenges
 9. maintenance_request_comments
@@ -128,8 +129,42 @@ Subscriptions are now wired for owner payments:
 4. POST /api/verify-payment validates HMAC signature and only activates plan on a valid signature.
 5. Successful verification writes a new subscriptions row and updates owners.plan.
 6. The latest plan/status is exposed through GET /api/owner/subscription/current for owner UI surfaces.
+7. Plan catalog display and owner capacity limits now read from subscription_plans (active global rows) using code-based matching.
 
 The legacy test and business plan values are normalized away in the app layer, and the institution plan is treated as a sales-assisted custom option.
+
+## Latest Subscription and Custom Plan Schema Updates
+
+New migrations added in the current implementation phase:
+
+1. supabase/migrations/20260616_create_subscription_plans_table.sql
+
+- Creates public.subscription_plans if missing.
+- Adds global and owner-specific uniqueness indexes plus active/rank lookup indexes.
+- Adds idempotent seed rows for free, starter, micro, pro, and institution plans.
+
+2. supabase/migrations/20260617_add_owner_plan_snapshot_and_custom_formula_fields.sql
+
+- Adds owners.active_plan_id (UUID) and owners.active_plan_name (TEXT) for direct owner plan snapshot reads.
+- Adds formula parameters on custom_institution_plans:
+   - base_fee_inr
+   - property_fee_inr
+   - tenant_fee_inr
+   - tenant_threshold
+   - pricing_property_count
+   - pricing_tenant_count
+   - formula_version
+- Adds constraint guards for non-negative pricing_property_count and pricing_tenant_count.
+- Backfills owners.active_plan_id and owners.active_plan_name from latest active subscription rows and global subscription catalog rows.
+
+### Practical Ownership Snapshot Rules
+
+1. owners.plan remains the normalized plan code (free/micro/starter/pro/institution).
+2. owners.active_plan_id stores the purchased plan identity:
+- For custom institution purchases: custom_institution_plans.id.
+- For default plans: subscription_plans.id for the matching active global plan code.
+3. owners.active_plan_name stores the purchased display name for fast UI access.
+4. subscriptions.custom_plan_id and payment_orders.custom_plan_id remain the historical source for custom-plan purchase tracing.
 
 ## Important Constraints and Design Choices
 

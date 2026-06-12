@@ -4,10 +4,10 @@ import { z } from "zod";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
 import {
-  getPlanConfig,
   getEffectivePlan,
   type SubscriptionRecord,
 } from "../../../lib/subscriptions";
+import { getPlanLimitsForOwner } from "../../../lib/subscription-plans";
 
 const createHostelSchema = z.object({
   hostelName: z.string().min(2).max(200),
@@ -225,7 +225,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle<SubscriptionRecord>();
 
   const effectivePlan = getEffectivePlan(currentSubscription ?? null);
-  const ownerPlanConfig = getPlanConfig(effectivePlan);
+  const ownerPlanLimits = await getPlanLimitsForOwner(
+    admin,
+    effectivePlan,
+    ownerId,
+  );
   const { count: existingHostelCount, error: hostelCountError } = await admin
     .from("hostels")
     .select("id", { count: "exact", head: true })
@@ -235,11 +239,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: hostelCountError.message }, { status: 500 });
   }
 
-  if ((existingHostelCount ?? 0) >= ownerPlanConfig.maxProperties) {
+  if ((existingHostelCount ?? 0) >= ownerPlanLimits.maxProperties) {
     return NextResponse.json(
       {
-        error: `Your current plan allows up to ${ownerPlanConfig.maxProperties} propert${
-          ownerPlanConfig.maxProperties === 1 ? "y" : "ies"
+        error: `Your current plan allows up to ${ownerPlanLimits.maxProperties} propert${
+          ownerPlanLimits.maxProperties === 1 ? "y" : "ies"
         }. Upgrade your plan to add more properties.`,
       },
       { status: 403 },
