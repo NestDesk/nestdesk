@@ -187,6 +187,8 @@ CREATE TABLE public.tenants (
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'active', 'moved_out', 'rejected')),
   agreed_rent_amount NUMERIC(10,2),
+  security_deposit NUMERIC(10,2),
+  security_deposit_returned NUMERIC(10,2),
   gender TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

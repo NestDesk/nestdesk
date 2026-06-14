@@ -7,7 +7,6 @@ export interface SendNoticeWhatsAppInput {
     { parameter_name?: string; type: "text"; value: string }
   >;
   templateName?: string;
-  templateId?: string;
   languageCode?: string;
 }
 
@@ -17,7 +16,6 @@ export async function sendNoticeWhatsApp(
   await sendWhatsAppViaMsg91({
     phoneE164: input.phoneE164,
     templateName: input.templateName,
-    templateId: input.templateId,
     languageCode: input.languageCode,
     templateComponents: input.templateComponents,
   });

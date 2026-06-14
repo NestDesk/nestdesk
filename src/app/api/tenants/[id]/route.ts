@@ -26,21 +26,12 @@ const updateTenantSchema = z.object({
   status: z.enum(["pending", "active", "moved_out", "rejected"]).optional(),
   roomId: z.string().uuid().nullable().optional(),
   agreedRentAmount: z.number().positive().max(1000000).nullable().optional(),
+  securityDeposit: z.number().positive().max(1000000).nullable().optional(),
+  securityDepositReturned: z.number().min(0).max(1000000).nullable().optional(),
   joinDate: z.string().date().nullable().optional(),
   rentStartDate: z.string().date().nullable().optional(),
   moveOutDate: z.string().date().nullable().optional(),
 });
-
-type RoomOccupancyStatus = "vacant" | "occupied" | "occupied_partial";
-
-function getRoomStatusFromActiveCount(
-  activeCount: number,
-  capacity: number,
-): RoomOccupancyStatus {
-  if (activeCount <= 0) return "vacant";
-  if (activeCount >= capacity) return "occupied";
-  return "occupied_partial";
-}
 
 type OwnerContext = {
   ownerId: string;
@@ -69,6 +60,15 @@ async function createSignedUrl(
 
 function todayDateString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function getRoomStatusFromActiveCount(
+  activeCount: number,
+  capacity: number,
+): "vacant" | "occupied" | "occupied_partial" {
+  if (activeCount <= 0) return "vacant";
+  if (activeCount >= capacity) return "occupied";
+  return "occupied_partial";
 }
 
 async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
@@ -136,7 +136,7 @@ export async function GET(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, full_name, email, phone, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state)",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state)",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -189,6 +189,8 @@ export async function GET(
       profile_completion_percentage: completion.percentage,
       profile_completion_missing: completion.missingFields,
       agreed_rent_amount: tenant.agreed_rent_amount,
+      security_deposit: tenant.security_deposit,
+      security_deposit_returned: tenant.security_deposit_returned,
       join_date: tenant.join_date,
       move_out_date: tenant.move_out_date,
       first_activated_at: tenant.first_activated_at,
@@ -232,7 +234,7 @@ export async function PATCH(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -254,6 +256,14 @@ export async function PATCH(
     input.agreedRentAmount === undefined
       ? tenant.agreed_rent_amount
       : input.agreedRentAmount;
+  const nextSecurityDeposit =
+    input.securityDeposit === undefined
+      ? tenant.security_deposit
+      : input.securityDeposit;
+  const nextSecurityDepositReturned =
+    input.securityDepositReturned === undefined
+      ? tenant.security_deposit_returned
+      : input.securityDepositReturned;
   let nextJoinDate =
     input.joinDate === undefined ? tenant.join_date : input.joinDate;
   const nextRentStartDate =
@@ -325,6 +335,15 @@ export async function PATCH(
         { status: 400 },
       );
     }
+    if (!nextSecurityDeposit || nextSecurityDeposit <= 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Add a security deposit amount before setting tenant status to active.",
+        },
+        { status: 400 },
+      );
+    }
     if (!nextJoinDate) {
       nextJoinDate = todayDateString();
     }
@@ -345,18 +364,30 @@ export async function PATCH(
       );
     }
     nextRoomId = null;
-    if (!nextMoveOutDate) {
-      nextMoveOutDate = todayDateString();
+    if (nextSecurityDepositReturned === null) {
+      return NextResponse.json(
+        {
+          error: "Security deposit returned amount is required when moving out.",
+        },
+        { status: 400 },
+      );
     }
-  }
-
-  if (nextStatus === "pending" || nextStatus === "rejected") {
-    nextRoomId = null;
-    nextMoveOutDate = null;
-  }
-
-  if (nextStatus !== "moved_out") {
-    nextMoveOutDate = null;
+    if (!nextMoveOutDate) {
+      return NextResponse.json(
+        {
+          error: "Move-out date is required when moving out.",
+        },
+        { status: 400 },
+      );
+    }
+    if (nextJoinDate && nextMoveOutDate && nextMoveOutDate < nextJoinDate) {
+      return NextResponse.json(
+        {
+          error: "Move-out date cannot be earlier than join date.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   let nextRoomCapacity = 0;
@@ -420,6 +451,8 @@ export async function PATCH(
     status: string;
     room_id: string | null;
     agreed_rent_amount: number | null;
+    security_deposit: number | null;
+    security_deposit_returned: number | null;
     join_date: string | null;
     rent_start_date: string | null;
     move_out_date: string | null;
@@ -429,6 +462,8 @@ export async function PATCH(
     status: nextStatus,
     room_id: nextRoomId,
     agreed_rent_amount: nextAgreedRentAmount,
+    security_deposit: nextSecurityDeposit,
+    security_deposit_returned: nextSecurityDepositReturned,
     join_date: nextJoinDate,
     rent_start_date: nextRentStartDate,
     move_out_date: nextMoveOutDate,
@@ -519,6 +554,8 @@ export async function PATCH(
       status: nextStatus,
       room_id: nextRoomId,
       agreed_rent_amount: nextAgreedRentAmount,
+      security_deposit: nextSecurityDeposit,
+      security_deposit_returned: nextSecurityDepositReturned,
       join_date: nextJoinDate,
       rent_start_date: nextRentStartDate,
       move_out_date: nextMoveOutDate,
@@ -529,7 +566,7 @@ export async function PATCH(
   const { data: updatedTenant, error: fetchError } = await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, first_activated_at, created_at, updated_at",
+      "id, hostel_id, room_id, full_name, email, phone, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, first_activated_at, created_at, updated_at",
     )
     .eq("id", tenant.id)
     .maybeSingle();

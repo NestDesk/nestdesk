@@ -72,8 +72,7 @@ export async function broadcastNoticeWhatsAppToActiveTenants(
       try {
         await sendNoticeWhatsApp({
           phoneE164: normalizedPhone,
-          templateName: input.templateName,
-          templateId: input.templateId,
+          templateName: "notices",
           templateComponents: {
             body_1: {
               parameter_name: "tenant_name",

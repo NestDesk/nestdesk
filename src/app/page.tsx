@@ -141,7 +141,7 @@ const testimonials = [
 ];
 
 const trustBadges = [
-  { icon: BadgeCheck, label: "Property setup in 10 minutes" },
+  { icon: BadgeCheck, label: "Property setup in 2 minutes" },
   { icon: Zap, label: "Fast rent tracking" },
   { icon: Users, label: "Owner + tenant portals" },
   { icon: Building2, label: "Live occupancy visibility" },

@@ -54,6 +54,9 @@ const STATUS_CHIP_CLASS: Record<string, string> = {
 export default function TenantMaintenancePage() {
   const router = useRouter();
   const [requests, setRequests] = useState<Request[]>([]);
+  const [maintenanceLimit, setMaintenanceLimit] = useState(3);
+  const [requestsRaised, setRequestsRaised] = useState(0);
+  const [requestsRemaining, setRequestsRemaining] = useState(3);
   const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
@@ -68,9 +71,24 @@ export default function TenantMaintenancePage() {
 
   async function loadRequests() {
     const response = await fetch("/api/tenant/maintenance");
-    const json = (await response.json()) as { requests?: Request[]; error?: string };
+    const json = (await response.json()) as {
+      requests?: Request[];
+      maintenanceLimit?: number;
+      requestsRaised?: number;
+      requestsRemaining?: number;
+      error?: string;
+    };
     if (json.requests) {
       setRequests(json.requests);
+    }
+    if (typeof json.maintenanceLimit === "number") {
+      setMaintenanceLimit(json.maintenanceLimit);
+    }
+    if (typeof json.requestsRaised === "number") {
+      setRequestsRaised(json.requestsRaised);
+    }
+    if (typeof json.requestsRemaining === "number") {
+      setRequestsRemaining(json.requestsRemaining);
     }
   }
 
@@ -101,6 +119,8 @@ export default function TenantMaintenancePage() {
         toast.error(json.error ?? "Failed to submit request.");
         return;
       }
+      setRequestsRaised((prev) => prev + 1);
+      setRequestsRemaining((prev) => Math.max(0, prev - 1));
       toast.success("Maintenance request submitted.");
       setTitle("");
       setDescription("");
@@ -206,6 +226,8 @@ export default function TenantMaintenancePage() {
       }
 
       setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setRequestsRaised((prev) => Math.max(0, prev - 1));
+      setRequestsRemaining((prev) => Math.min(maintenanceLimit, prev + 1));
       if (editingId === requestId) {
         cancelEditing();
       }
@@ -228,6 +250,9 @@ export default function TenantMaintenancePage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Raise and track maintenance requests for your room.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Requests raised: {requestsRaised}/{maintenanceLimit} (remaining: {requestsRemaining})
           </p>
         </div>
         <Button
@@ -260,6 +285,9 @@ export default function TenantMaintenancePage() {
               </p>
               <p className="text-[11px] text-muted-foreground">
                 Describe the issue and we&apos;ll notify your property manager.
+              </p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                You have {requestsRemaining} of {maintenanceLimit} maintenance requests left.
               </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3 p-3">
@@ -296,7 +324,7 @@ export default function TenantMaintenancePage() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting || !title.trim()}
+                  disabled={submitting || !title.trim() || requestsRemaining <= 0}
                   className="h-8 rounded-lg px-3 text-xs font-medium"
                 >
                   {submitting ? (

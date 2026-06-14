@@ -67,6 +67,8 @@ type TenantRow = {
   profile_photo_url: string | null;
   profile_completion_percentage: number;
   agreed_rent_amount: number | null;
+  security_deposit: number | null;
+  security_deposit_returned: number | null;
   join_date: string | null;
   rent_start_date: string | null;
   move_out_date: string | null;
@@ -107,6 +109,8 @@ type TenantDraft = {
   status: TenantStatus;
   roomId: string | null;
   agreedRentAmount: string;
+  securityDeposit: string;
+  securityDepositReturned: string;
   joinDate: string;
   rentStartDate: string;
   moveOutDate: string;
@@ -147,6 +151,7 @@ type TenantProfileDetail = {
   profile_completion_percentage: number;
   profile_completion_missing: string[];
   agreed_rent_amount: number | null;
+  security_deposit: number | null;
   join_date: string | null;
   rent_start_date: string | null;
   move_out_date: string | null;
@@ -158,6 +163,7 @@ type TenantProfileDetail = {
 type ApprovalDraft = {
   roomId: string;
   agreedRentAmount: string;
+  securityDeposit: string;
   joinDate: string;
   rentStartDate: string;
 };
@@ -410,6 +416,7 @@ export default function OwnerTenantsPage() {
   const [approvalDraft, setApprovalDraft] = useState<ApprovalDraft>({
     roomId: "",
     agreedRentAmount: "",
+    securityDeposit: "",
     joinDate: "",
     rentStartDate: "",
   });
@@ -647,8 +654,14 @@ export default function OwnerTenantsPage() {
           status: tenant.status,
           roomId: tenant.room_id,
           agreedRentAmount:
-            tenant.agreed_rent_amount !== null
+            tenant.agreed_rent_amount != null
               ? String(tenant.agreed_rent_amount)
+              : "",
+          securityDeposit:
+            tenant.security_deposit != null ? String(tenant.security_deposit) : "",
+          securityDepositReturned:
+            tenant.security_deposit_returned != null
+              ? String(tenant.security_deposit_returned)
               : "",
           joinDate,
           rentStartDate,
@@ -727,6 +740,31 @@ export default function OwnerTenantsPage() {
       return;
     }
 
+    if (draft.status === "active" && !draft.securityDeposit) {
+      toast.error("Security deposit amount is required to activate a tenant.");
+      return;
+    }
+
+    if (draft.status === "moved_out" && draft.securityDepositReturned === "") {
+      toast.error("Security deposit returned amount is required when moving out.");
+      return;
+    }
+
+    if (draft.status === "moved_out" && !draft.moveOutDate) {
+      toast.error("Move-out date is required when moving out.");
+      return;
+    }
+
+    if (
+      draft.status === "moved_out" &&
+      draft.moveOutDate &&
+      draft.joinDate &&
+      draft.moveOutDate < draft.joinDate
+    ) {
+      toast.error("Move-out date cannot be before join date.");
+      return;
+    }
+
     if (draft.status !== "moved_out" && !draft.agreedRentAmount) {
       toast.error("Agreed rent amount is required.");
       return;
@@ -753,6 +791,13 @@ export default function OwnerTenantsPage() {
         agreedRentAmount: draft.agreedRentAmount
           ? Number(draft.agreedRentAmount)
           : null,
+        securityDeposit: draft.securityDeposit
+          ? Number(draft.securityDeposit)
+          : null,
+        securityDepositReturned:
+          draft.status === "moved_out" && draft.securityDepositReturned !== ""
+            ? Number(draft.securityDepositReturned)
+            : null,
         joinDate: draft.joinDate || null,
         rentStartDate: draft.rentStartDate || null,
         moveOutDate: draft.status === "moved_out" ? draft.moveOutDate || null : null,
@@ -778,6 +823,7 @@ export default function OwnerTenantsPage() {
               status: TenantStatus;
               first_activated_at: string | null;
               agreed_rent_amount: number | null;
+              security_deposit: number | null;
               join_date: string | null;
               rent_start_date: string | null;
               move_out_date: string | null;
@@ -811,6 +857,7 @@ export default function OwnerTenantsPage() {
                 (roomsByHostel[row.hostel_id] ?? []).find(
                   (room) => room.id === payload.roomId,
                 )?.room_number ?? null,
+              security_deposit: payload.securityDeposit,
               join_date: payload.joinDate,
               rent_start_date: payload.rentStartDate,
               move_out_date: payload.moveOutDate,
@@ -832,6 +879,7 @@ export default function OwnerTenantsPage() {
               (roomsByHostel[row.hostel_id] ?? []).find(
                 (room) => room.id === updatedTenant.room_id,
               )?.room_number ?? null,
+            security_deposit: updatedTenant.security_deposit,
             join_date: updatedTenant.join_date,
             rent_start_date: updatedTenant.rent_start_date,
             move_out_date: updatedTenant.move_out_date,
@@ -889,6 +937,8 @@ export default function OwnerTenantsPage() {
       roomId: tenant.room_id ?? "",
       agreedRentAmount:
         tenant.agreed_rent_amount !== null ? String(tenant.agreed_rent_amount) : "",
+      securityDeposit:
+        tenant.security_deposit !== null ? String(tenant.security_deposit) : "",
       joinDate: tenant.join_date ?? "",
       rentStartDate: tenant.rent_start_date ?? "",
     });
@@ -920,6 +970,10 @@ export default function OwnerTenantsPage() {
           profile.agreed_rent_amount !== null
             ? String(profile.agreed_rent_amount)
             : prev.agreedRentAmount,
+        securityDeposit:
+          profile.security_deposit !== null
+            ? String(profile.security_deposit)
+            : prev.securityDeposit,
         joinDate: profile.join_date ?? prev.joinDate,
         rentStartDate: profile.rent_start_date ?? prev.rentStartDate,
       }));
@@ -1555,7 +1609,20 @@ export default function OwnerTenantsPage() {
                               }
                             >
                               {STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
+                                <option
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={
+                                    option.value === "active" &&
+                                    !draft.securityDeposit
+                                  }
+                                  title={
+                                    option.value === "active" &&
+                                    !draft.securityDeposit
+                                      ? "Fill security deposit before activating"
+                                      : undefined
+                                  }
+                                >
                                   {option.label}
                                 </option>
                               ))}
@@ -1642,6 +1709,36 @@ export default function OwnerTenantsPage() {
                             </div>
                           </div>
 
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor={`security-${tenant.id}`}
+                              className="text-xs font-medium"
+                            >
+                              Security Deposit
+                              <span className="ml-1 text-rose-500">*</span>
+                            </Label>
+                            <div className="relative">
+                              <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                id={`security-${tenant.id}`}
+                                value={draft.securityDeposit}
+                                onChange={(e) =>
+                                  updateDraft(
+                                    tenant.id,
+                                    "securityDeposit",
+                                    normalizeRentInput(e.target.value),
+                                  )
+                                }
+                                placeholder="Security deposit"
+                                disabled={
+                                  savingId === tenant.id ||
+                                  draft.status === "moved_out"
+                                }
+                                className="h-9 w-full pl-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
                           {/* Join Date */}
                           <div className="space-y-1.5">
                             <Label
@@ -1699,13 +1796,14 @@ export default function OwnerTenantsPage() {
                             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/80">
                               Move-out
                             </p>
-                            <div className="sm:max-w-xs">
+                            <div className="grid gap-3 sm:grid-cols-4">
                               <div className="space-y-1.5">
                                 <Label
                                   htmlFor={`moveout-${tenant.id}`}
                                   className="text-xs font-medium"
                                 >
                                   Move-out Date
+                                  <span className="ml-1 text-rose-500">*</span>
                                 </Label>
                                 <DatePicker
                                   id={`moveout-${tenant.id}`}
@@ -1715,8 +1813,34 @@ export default function OwnerTenantsPage() {
                                     updateDraft(tenant.id, "moveOutDate", value)
                                   }
                                   placeholder="Select move-out date"
-                                  className="h-9 text-sm"
+                                  className="h-9 text-sm w-full"
                                 />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label
+                                  htmlFor={`security-returned-${tenant.id}`}
+                                  className="text-xs font-medium"
+                                >
+                                  Security deposit returned
+                                  <span className="ml-1 text-rose-500">*</span>
+                                </Label>
+                                <div className="relative">
+                                  <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                  <Input
+                                    id={`security-returned-${tenant.id}`}
+                                    value={draft.securityDepositReturned}
+                                    onChange={(e) =>
+                                      updateDraft(
+                                        tenant.id,
+                                        "securityDepositReturned",
+                                        normalizeRentInput(e.target.value),
+                                      )
+                                    }
+                                    placeholder="Amount returned"
+                                    disabled={savingId === tenant.id}
+                                    className="h-9 w-full pl-8 text-sm"
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>

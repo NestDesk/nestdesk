@@ -39,17 +39,8 @@ function getMsg91Config(input: { templateName?: string; templateId?: string }) {
   const authKey = process.env.MSG91_AUTH_KEY;
   const baseUrl = process.env.MSG91_BASE_URL?.trim() || "https://control.msg91.com";
   const integratedNumber = process.env.MSG91_INTEGRATED_NUMBER?.trim();
-  const resolvedTemplateId =
-    input.templateId?.trim() ||
-    process.env.MSG91_WHATSAPP_NOTICE_TEMPLATE_ID?.trim() ||
-    process.env.MSG91_NOTICE_TEMPLATE_ID?.trim() ||
-    process.env.MSG91_WHATSAPP_TEMPLATE_ID?.trim() ||
-    process.env.MSG91_OTP_TEMPLATE_ID?.trim();
-  const resolvedTemplateName =
-    input.templateName?.trim() ||
-    process.env.MSG91_WHATSAPP_NOTICE_TEMPLATE_NAME?.trim() ||
-    process.env.MSG91_WHATSAPP_TEMPLATE_NAME?.trim() ||
-    "notices";
+  const resolvedTemplateId = input.templateId?.trim();
+  const resolvedTemplateName = input.templateName?.trim() || "notices";
 
   if (!authKey) {
     throw new Error("MSG91_AUTH_KEY is missing.");
@@ -59,10 +50,8 @@ function getMsg91Config(input: { templateName?: string; templateId?: string }) {
     throw new Error("MSG91_INTEGRATED_NUMBER is missing.");
   }
 
-  if (!resolvedTemplateId && !resolvedTemplateName) {
-    throw new Error(
-      "MSG91_WHATSAPP_NOTICE_TEMPLATE_ID, MSG91_WHATSAPP_TEMPLATE_NAME, or MSG91_WHATSAPP_TEMPLATE_ID is missing.",
-    );
+  if (!resolvedTemplateName) {
+    throw new Error("MSG91 template name is missing.");
   }
 
   return {
