@@ -31,6 +31,7 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
+  ReceiptText,
   Wrench,
   X,
 } from "lucide-react";
@@ -133,6 +134,29 @@ interface MaintenanceKPI {
   open: number;
   avgResolutionDays: number;
   completed: number;
+}
+interface ExpensesKPI {
+  totalExpenses: number;
+  paidExpenses: number;
+  pendingExpenses: number;
+  disputedExpenses: number;
+}
+interface ExpensesChartRow {
+  month: string;
+  amount: number;
+}
+interface ExpensesRow {
+  id: string;
+  title: string;
+  category: string;
+  hostel_name: string;
+  amount: number;
+  expense_date: string;
+  status: string;
+  payment_mode: string;
+  vendor_name: string;
+  bill_number: string;
+  notes: string;
 }
 interface MaintenanceChartRow {
   property: string;
@@ -774,6 +798,94 @@ function DefaultersTab({ isDark }: { isDark: boolean }) {
   );
 }
 
+// ─── TAB 2.5: Expenses & Spend ──────────────────────────────────────────────
+
+const expCol = createColumnHelper<ExpensesRow>();
+const expCols = [
+  expCol.accessor("title", { header: "Title" }),
+  expCol.accessor("category", { header: "Category" }),
+  expCol.accessor("hostel_name", { header: "Property" }),
+  expCol.accessor("amount", {
+    header: "Amount",
+    cell: (c) => fmt(c.getValue()),
+    sortingFn: "basic",
+  }),
+  expCol.accessor("expense_date", { header: "Date" }),
+  expCol.accessor("status", {
+    header: "Status",
+    cell: (c) => <StatusBadge status={c.getValue()} />,
+  }),
+  expCol.accessor("payment_mode", { header: "Payment Mode" }),
+  expCol.accessor("vendor_name", { header: "Vendor" }),
+  expCol.accessor("bill_number", { header: "Bill No." }),
+];
+
+function ExpensesTab({ isDark }: { isDark: boolean }) {
+  const { filters } = useFilters();
+  const [loading, setLoading] = useState(false);
+  const [kpis, setKpis] = useState<ExpensesKPI | null>(null);
+  const [chart, setChart] = useState<ExpensesChartRow[]>([]);
+  const [rows, setRows] = useState<ExpensesRow[]>([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = (await fetchReport("expenses", filters)) as {
+        data: {
+          kpis: ExpensesKPI;
+          chart: ExpensesChartRow[];
+          table: ExpensesRow[];
+        };
+      };
+      setKpis(res.data.kpis);
+      setChart(res.data.chart);
+      setRows(res.data.table);
+    } catch {
+      toast.error("Failed to load expenses report");
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KPICard label="Total Expenses" value={fmt(kpis?.totalExpenses ?? 0)} icon={IndianRupee} sub="All recorded expenses" />
+        <KPICard label="Paid" value={fmt(kpis?.paidExpenses ?? 0)} icon={TrendingUp} sub="Completed payments" />
+        <KPICard label="Pending" value={fmt(kpis?.pendingExpenses ?? 0)} icon={CalendarDays} sub="Still outstanding" />
+        <KPICard label="Disputed" value={fmt(kpis?.disputedExpenses ?? 0)} icon={TrendingDown} sub="Needs review" />
+      </div>
+
+      {chart.length > 0 && (
+        <div className="rounded-xl border bg-card shadow-sm p-4">
+          <p className="text-sm font-semibold mb-3">Monthly Expense Spend</p>
+          <ReportChart
+            id="exp-chart"
+            type="bar"
+            isDark={isDark}
+            categories={chart.map((c) => monthLabel(c.month))}
+            series={[{ name: "Expenses", data: chart.map((c) => c.amount) }]}
+            colors={["#f59e0b"]}
+            yFormatter={fmt}
+          />
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <ReportTable columns={expCols} data={rows} fileName="expenses-report" />
+      )}
+    </div>
+  );
+}
+
 // ─── TAB 4: Maintenance & Operations ─────────────────────────────────────────
 
 const mntCol = createColumnHelper<MaintenanceRow>();
@@ -884,6 +996,7 @@ function MaintenanceTab({ isDark }: { isDark: boolean }) {
 
 const TABS = [
   { id: "financial", label: "Cash Flow", icon: IndianRupee },
+  { id: "expenses", label: "Expenses", icon: ReceiptText },
   { id: "occupancy", label: "Occupancy", icon: Building2 },
   { id: "defaulters", label: "Defaulters", icon: Users },
   { id: "maintenance", label: "Maintenance", icon: Wrench },
@@ -1052,6 +1165,7 @@ function ReportsShell() {
         </div>
 
         {activeTab === "financial" && <FinancialTab isDark={isDark} />}
+        {activeTab === "expenses" && <ExpensesTab isDark={isDark} />}
         {activeTab === "occupancy" && <OccupancyTab isDark={isDark} />}
         {activeTab === "defaulters" && <DefaultersTab isDark={isDark} />}
         {activeTab === "maintenance" && <MaintenanceTab isDark={isDark} />}
