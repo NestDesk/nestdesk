@@ -6,8 +6,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "../ui/accordion";
+import { Button } from "../ui/button";
+import { FileDown } from "lucide-react";
 import { formatDateInIndia } from "../../lib/date";
 import { formatPlanLabel, type OwnerPlan } from "../../lib/subscriptions";
+import { printInvoice, type InvoicePayment } from "../../lib/invoice";
 
 type SubscriptionEntry = {
   id: string;
@@ -51,11 +54,21 @@ type CreditTransactionEntry = {
   created_at: string;
 };
 
+type OwnerProfile = {
+  full_name?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+};
+
 type SubscriptionHistoryClientProps = {
   currentPlan: OwnerPlan;
   subscriptionHistory: SubscriptionEntry[];
   paymentHistory: PaymentOrderEntry[];
   creditHistory: CreditTransactionEntry[];
+  ownerProfile: OwnerProfile | null;
 };
 
 function formatDate(value: string | null) {
@@ -74,11 +87,47 @@ function formatAmountPaise(amountPaise: number) {
   }).format(amountPaise / 100);
 }
 
+function joinAddress(ownerProfile: OwnerProfile | null) {
+  if (!ownerProfile) return "";
+  return [ownerProfile.address_line1, ownerProfile.address_line2]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function buildSubscriptionInvoice(
+  order: PaymentOrderEntry,
+  ownerProfile: OwnerProfile | null,
+): InvoicePayment {
+  const planLabel = formatPlanLabel(order.plan);
+  const billingCycle = order.notes?.billing_cycle ?? "monthly";
+  const address = joinAddress(ownerProfile);
+
+  return {
+    receipt_number: order.receipt || order.razorpay_order_id,
+    paid_on: order.created_at,
+    hostel_name: `NestDesk Subscription - ${planLabel}`,
+    hostel_address: address || undefined,
+    hostel_city: ownerProfile?.city ?? undefined,
+    hostel_state: ownerProfile?.state ?? undefined,
+    hostel_pincode: ownerProfile?.pincode ?? undefined,
+    tenant_name: ownerProfile?.full_name ?? "Owner",
+    amount: order.amount_paise / 100,
+    month: billingCycle,
+    billing_start: order.created_at,
+    billing_end: order.created_at,
+    status: order.status,
+    method: "Razorpay",
+    notes:
+      `Subscription plan: ${planLabel}\nPayment ID: ${order.razorpay_payment_id ?? "Pending"}\nOrder ID: ${order.razorpay_order_id}`,
+  };
+}
+
 export function SubscriptionHistoryClient({
   currentPlan,
   subscriptionHistory,
   paymentHistory,
   creditHistory,
+  ownerProfile,
 }: SubscriptionHistoryClientProps) {
   const activePlanName = formatPlanLabel(currentPlan);
   const filteredPaymentHistory = paymentHistory.filter((order) => {
@@ -243,6 +292,30 @@ export function SubscriptionHistoryClient({
                           ) : null}
                         </div>
                       )}
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 p-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          Razorpay payment receipts are available for paid transactions.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            entry.order.razorpay_payment_id &&
+                            entry.order.amount_paise > 0 &&
+                            printInvoice(
+                              buildSubscriptionInvoice(entry.order, ownerProfile),
+                            )
+                          }
+                          disabled={
+                            !entry.order.razorpay_payment_id || entry.order.amount_paise <= 0
+                          }
+                          className="h-8 gap-1.5"
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                          Download invoice
+                        </Button>
+                      </div>
                       <div className="mt-2 grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-2">
                         <div>
                           Order ID:{" "}

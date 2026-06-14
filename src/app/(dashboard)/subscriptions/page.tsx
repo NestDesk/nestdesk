@@ -39,7 +39,9 @@ export default async function SubscriptionsPage() {
 
   const { data: owner } = await admin
     .from("owners")
-    .select("id, plan, active_plan_name, unused_credit_paise")
+    .select(
+      "id, plan, active_plan_name, unused_credit_paise, full_name, address_line1, address_line2, city, state, pincode",
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -229,6 +231,7 @@ export default async function SubscriptionsPage() {
         subscriptionHistory={subscriptionHistory ?? []}
         paymentHistory={paymentHistory ?? []}
         creditHistory={creditHistory ?? []}
+        ownerProfile={owner ?? null}
       />
     </div>
   );
