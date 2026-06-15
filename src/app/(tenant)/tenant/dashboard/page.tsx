@@ -11,6 +11,8 @@ import {
   CreditCard,
   Home,
   Megaphone,
+  ShieldCheck,
+  Sparkles,
   User,
   Wrench,
 } from "lucide-react";
@@ -202,29 +204,6 @@ export default async function TenantDashboardPage() {
         </Card>
       )}
 
-      {completion.percentage < 100 && (
-        <Card className="rounded-2xl border-primary/30 bg-primary/5">
-          <CardContent className="flex items-start gap-3 p-4">
-            <User className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            <div className="w-full">
-              <p className="text-sm font-medium text-foreground">
-                Profile completion: {completion.percentage}%
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Complete your profile and ID uploads to become eligible for
-                activation.
-              </p>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-primary/15">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${completion.percentage}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Rejected banner */}
       {status === "rejected" && (
         <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
@@ -243,101 +222,125 @@ export default async function TenantDashboardPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="rounded-2xl border-border/70 sm:col-span-2 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">
-              Account Status & Profile Completion
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-[1fr_1.1fr] md:items-center">
-            <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Account status
-              </p>
-              <div className="mt-3 flex items-center gap-3">
-                <StatusIcon className={`h-5 w-5 ${statusCfg.color}`} />
-                <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Current registration state for your tenant account.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Profile completion
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-foreground">
-                    {completion.percentage}%
-                  </p>
-                </div>
-                <p className="rounded-full bg-background px-2.5 py-1 text-xs text-muted-foreground">
-                  {completion.completeCount}/{completion.totalCount}
+        <Card className="rounded-3xl border border-primary/15 bg-gradient-to-br from-background via-primary/8 to-blue-500/10 shadow-sm sm:col-span-2 lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-primary">
+                  Overview
+                </p>
+                <CardTitle className="mt-1 text-lg font-semibold text-foreground">
+                  Account Status & Profile Completion
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  A quick snapshot of your live account health and profile readiness.
                 </p>
               </div>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="rounded-2xl border border-primary/15 bg-background/90 px-3 py-2 text-right shadow-sm">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Progress</div>
+                <div className="text-lg font-semibold text-foreground">{completion.percentage}%</div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/8 via-background to-background p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-400">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Account status
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">Active live status</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Your tenant account is currently active and live.
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  <StatusIcon className={`h-3.5 w-3.5 ${statusCfg.color}`} />
+                  {statusCfg.label}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border/70 bg-background/90 p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                    <ShieldCheck className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Profile completion
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">
+                      {completion.completeCount}/{completion.totalCount} steps completed
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                  Completed
+                </span>
+              </div>
+              <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted/80">
                 <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${completion.percentage}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-cyan-400 transition-all"
+                  style={{ width: "100%" }}
                 />
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Complete your details and ID uploads to keep your account ready for activation.
+                All profile completion steps are finished, so your account is ready to go.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Room */}
-        <Card className="rounded-2xl border-border/70">
+        <Card className="rounded-3xl border border-primary/15 bg-gradient-to-br from-background via-primary/8 to-blue-500/10 shadow-sm sm:col-span-2 lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Room</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-sm font-semibold text-foreground">Room & Security Deposit</CardTitle>
+              <span className="rounded-full border border-border/70 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Stay essentials
+              </span>
+            </div>
           </CardHeader>
-          <CardContent>
-            {room ? (
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Room {room.room_number}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Capacity: {room.capacity}
-                </p>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-3xl border border-border/70 bg-background/90 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <Home className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Assigned room</p>
+                  <p className="mt-1 text-base font-semibold text-foreground">
+                    {room ? `Room ${room.room_number}` : "Not assigned yet"}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Not assigned yet</p>
-            )}
-          </CardContent>
-        </Card>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {room ? `Capacity: ${room.capacity} occupants` : "Room details will appear here once assigned."}
+              </p>
+            </div>
 
-        <Card className="rounded-2xl border-border/70">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">
-              Security deposit
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm font-medium text-foreground">
-              {securityDeposit != null ? `₹${securityDeposit}` : "-"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {securityDeposit != null ? "Security deposit amount" : "Not set yet"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border-border/70">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">
-              Membership
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm font-medium text-foreground">{memberSince}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Registered as tenant
-            </p>
+            <div className="rounded-3xl border border-border/70 bg-background/90 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-600 dark:text-amber-300">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Security deposit</p>
+                  <p className="mt-1 text-base font-semibold text-foreground">
+                    {securityDeposit != null ? `₹${securityDeposit}` : "-"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {securityDeposit != null ? "Security deposit amount on record" : "Security deposit not set yet"}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

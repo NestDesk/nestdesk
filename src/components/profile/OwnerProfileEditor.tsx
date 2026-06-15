@@ -8,15 +8,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../ui/dialog";
+import { Dialog, DialogTrigger } from "../ui/dialog";
+import { OtpVerificationDialog } from "../ui/otp-verification-dialog";
 import { formatDateInIndia } from "../../lib/date";
 
 type OwnerProfileEditorProps = {
@@ -60,6 +53,7 @@ export function OwnerProfileEditor({
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [phoneVerifiedForEdit, setPhoneVerifiedForEdit] = useState(displayValues.phoneVerified);
   const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false);
   const [pincodeLookupError, setPincodeLookupError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initial);
@@ -72,10 +66,14 @@ export function OwnerProfileEditor({
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (key === "phone") {
+      setPhoneVerifiedForEdit(false);
+    }
   }
 
   function resetForm() {
     setForm(initial);
+    setPhoneVerifiedForEdit(displayValues.phoneVerified);
     setPincodeLookupError(null);
     setPincodeLookupLoading(false);
     setEditing(false);
@@ -89,6 +87,12 @@ export function OwnerProfileEditor({
 
     if (!/^\d{10}$/.test(form.phone)) {
       toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    const phoneChanged = form.phone !== initial.phone;
+    if (phoneChanged && !phoneVerifiedForEdit) {
+      toast.error("Verify your updated phone number before saving the profile.");
       return;
     }
 
@@ -138,11 +142,6 @@ export function OwnerProfileEditor({
   async function handleSendOtp() {
     if (!/^\d{10}$/.test(form.phone)) {
       toast.error("Enter a valid 10-digit phone number.");
-      return;
-    }
-
-    if (editing && form.phone !== initial.phone) {
-      toast.error("Save profile first, then verify the updated phone number.");
       return;
     }
 
@@ -212,6 +211,7 @@ export function OwnerProfileEditor({
       }
 
       toast.success("Phone number verified successfully.");
+      setPhoneVerifiedForEdit(true);
       setOtpCode("");
       setOtpSent(false);
       setVerifyDialogOpen(false);
@@ -260,160 +260,116 @@ export function OwnerProfileEditor({
 
   if (!editing) {
     return (
-      <div className="sm:col-span-2 space-y-4">
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Full Name</p>
-          <p className="text-sm font-medium text-foreground">{initial.fullName}</p>
-        </div>
+      <div className="sm:col-span-2 space-y-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <article className="rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Full Name</p>
+            <p className="mt-2 text-base font-semibold text-foreground">{initial.fullName}</p>
+          </article>
 
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Status</p>
-          <Badge
-            variant={displayValues.onboardingCompleted ? "default" : "secondary"}
-          >
-            {displayValues.onboardingCompleted
-              ? "Onboarding Completed"
-              : "Onboarding Pending"}
-          </Badge>
-        </div>
-
-        <div className="space-y-1">
-          <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Mail className="h-3.5 w-3.5" /> Email
-          </p>
-          <p className="text-sm font-medium text-foreground">
-            {displayValues.email ?? "-"}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Phone className="h-3.5 w-3.5" /> Phone
-              </p>
-              <p className="text-sm font-medium text-foreground">{initial.phone}</p>
-            </div>
-
-            {!displayValues.phoneVerified ? (
-              <Dialog
-                open={verifyDialogOpen}
-                onOpenChange={(open) => {
-                  setVerifyDialogOpen(open);
-                  if (!open) {
-                    setOtpSent(false);
-                    setOtpCode("");
-                  }
-                }}
+          <article className="rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+            <div className="mt-2">
+              <Badge
+                variant={displayValues.onboardingCompleted ? "default" : "secondary"}
+                className="rounded-full px-3 py-1"
               >
-                <DialogTrigger asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={sendingOtp}
+                {displayValues.onboardingCompleted
+                  ? "Onboarding Completed"
+                  : "Onboarding Pending"}
+              </Badge>
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm md:col-span-2">
+            <p className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              <Mail className="h-3.5 w-3.5" /> Email
+            </p>
+            <p className="mt-2 text-sm font-medium text-foreground">{displayValues.email ?? "-"}</p>
+          </article>
+
+          <article className="rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm md:col-span-2">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5" /> Phone
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">{initial.phone || "Not added"}</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant={displayValues.phoneVerified ? "default" : "secondary"}
+                  className="rounded-full px-3 py-1"
+                >
+                  {displayValues.phoneVerified
+                    ? verificationDate
+                      ? `Verified on ${verificationDate}`
+                      : "Verified"
+                    : "Not Verified"}
+                </Badge>
+                {!displayValues.phoneVerified && (
+                  <Dialog
+                    open={verifyDialogOpen}
+                    onOpenChange={(open) => {
+                      setVerifyDialogOpen(open);
+                      if (!open) {
+                        setOtpSent(false);
+                        setOtpCode("");
+                      }
+                    }}
                   >
-                    {sendingOtp ? (
-                      <>
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        Sending
-                      </>
-                    ) : (
-                      "Verify"
-                    )}
-                  </Button>
-                </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={sendingOtp}
+                        className="rounded-xl border-primary/20 bg-background/90 shadow-sm hover:bg-primary/5"
+                      >
+                        {sendingOtp ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            Sending
+                          </>
+                        ) : (
+                          "Verify WhatsApp"
+                        )}
+                      </Button>
+                    </DialogTrigger>
 
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Verify phone number</DialogTitle>
-                    <DialogDescription className="text-sm leading-6">
-                      Enter the OTP sent to your WhatsApp number to verify your
-                      phone. For development, any OTP is accepted.
-                    </DialogDescription>
-                  </DialogHeader>
+                    <OtpVerificationDialog
+                      open={verifyDialogOpen}
+                      onOpenChange={(open) => {
+                        setVerifyDialogOpen(open);
+                        if (!open) {
+                          setOtpSent(false);
+                          setOtpCode("");
+                        }
+                      }}
+                      phone={normalizePhone(form.phone)}
+                      otpCode={otpCode}
+                      onOtpChange={setOtpCode}
+                      onVerify={handleVerifyOtp}
+                      onResend={handleSendOtp}
+                      sendingOtp={sendingOtp}
+                      verifyingOtp={verifyingOtp}
+                      otpSent={otpSent}
+                    />
+                  </Dialog>
+                )}
+              </div>
+            </div>
+          </article>
 
-                  <div className="grid gap-4 py-4">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleSendOtp}
-                      disabled={sendingOtp}
-                    >
-                      {sendingOtp ? (
-                        <>
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          Sending OTP
-                        </>
-                      ) : otpSent ? (
-                        "Resend OTP"
-                      ) : (
-                        "Send OTP"
-                      )}
-                    </Button>
-
-                    {otpSent ? (
-                      <div className="grid gap-2">
-                        <Input
-                          value={otpCode}
-                          onChange={(e) =>
-                            setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                          }
-                          placeholder="Enter 6-digit OTP"
-                          disabled={verifyingOtp}
-                          className="h-9 w-full"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleVerifyOtp}
-                          disabled={verifyingOtp || !otpCode}
-                        >
-                          {verifyingOtp ? (
-                            <>
-                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                              Verifying
-                            </>
-                          ) : (
-                            "Verify OTP"
-                          )}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <DialogFooter className="gap-2">
-                    <DialogDescription className="flex-1 text-xs text-muted-foreground">
-                      Close this dialog at any time and reopen it later.
-                    </DialogDescription>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setVerifyDialogOpen(false)}
-                    >
-                      Close
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            ) : null}
-          </div>
-
-          <Badge variant={displayValues.phoneVerified ? "default" : "secondary"}>
-            {displayValues.phoneVerified
-              ? verificationDate
-                ? `Verified on ${verificationDate}`
-                : "Verified"
-              : "Not Verified"}
-          </Badge>
-        </div>
-
-        <div className="space-y-1">
-          <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" /> Address
-          </p>
-          <p className="whitespace-pre-line text-sm font-medium text-foreground">
-            {displayValues.addressText}
-          </p>
+          <article className="rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm md:col-span-2">
+            <p className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" /> Address
+            </p>
+            <p className="mt-2 whitespace-pre-line text-sm font-medium text-foreground">
+              {displayValues.addressText}
+            </p>
+          </article>
         </div>
       </div>
     );
@@ -447,6 +403,35 @@ export function OwnerProfileEditor({
             placeholder="10-digit number"
             className="h-9 w-full"
           />
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {form.phone !== initial.phone ? (
+              phoneVerifiedForEdit ? (
+                <Badge variant="default" className="rounded-full px-3 py-1">
+                  Phone verified
+                </Badge>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={async () => {
+                    if (!/^\d{10}$/.test(form.phone)) {
+                      toast.error("Enter a valid 10-digit phone number first.");
+                      return;
+                    }
+
+                    await handleSendOtp();
+                    setVerifyDialogOpen(true);
+                  }}
+                  disabled={saving || !/^\d{10}$/.test(form.phone) || sendingOtp}
+                >
+                  {sendingOtp ? "Sending OTP..." : "Send OTP"}
+                </Button>
+              )
+            ) : (
+              <span className="text-xs text-muted-foreground">Current phone number is already verified.</span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
@@ -560,6 +545,25 @@ export function OwnerProfileEditor({
           </Button>
         </div>
       </div>
+
+      <OtpVerificationDialog
+        open={verifyDialogOpen}
+        onOpenChange={(open) => {
+          setVerifyDialogOpen(open);
+          if (!open) {
+            setOtpSent(false);
+            setOtpCode("");
+          }
+        }}
+        phone={normalizePhone(form.phone)}
+        otpCode={otpCode}
+        onOtpChange={setOtpCode}
+        onVerify={handleVerifyOtp}
+        onResend={handleSendOtp}
+        sendingOtp={sendingOtp}
+        verifyingOtp={verifyingOtp}
+        otpSent={otpSent}
+      />
     </div>
   );
 }

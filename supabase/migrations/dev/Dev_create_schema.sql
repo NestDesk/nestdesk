@@ -170,6 +170,8 @@ CREATE TABLE public.tenants (
   full_name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
+  phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  phone_verified_at TIMESTAMPTZ,
   aadhar_last4 TEXT,
   aadhar_number TEXT,
   aadhar_number_hash TEXT,

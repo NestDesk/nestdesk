@@ -30,6 +30,7 @@ import { Navbar, NavbarLogo } from "../../../components/layout/Navbar";
 import { ThemeToggle } from "../../../components/layout/ThemeToggle";
 import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../lib/aadhaar";
 import { TenantConsentLink } from "../../../components/legal/TenantConsentLink";
+import { OtpVerificationDialog } from "../../../components/ui/otp-verification-dialog";
 import { cn } from "../../../lib/utils";
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -236,6 +237,12 @@ function TenantRegisterPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   // Validate token + fetch hostel info
   useEffect(() => {
@@ -282,7 +289,84 @@ function TenantRegisterPageContent() {
     return () => sub.unsubscribe();
   }, [watch]);
 
+  async function handleSendOtp() {
+    const phoneValue = normalizePhoneNumber(watch("phone") ?? "");
+    if (!/^\d{10}$/.test(phoneValue)) {
+      toast.error("Enter a valid 10-digit phone number before requesting OTP.");
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/tenant/phone-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneValue }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send OTP.");
+        return;
+      }
+
+      setOtpSent(true);
+      setOtpCode("");
+      setPhoneVerified(false);
+      setOtpDialogOpen(true);
+      toast.success(json.message ?? "OTP sent to your WhatsApp number.");
+      if (json.devOtpHint) {
+        toast.success(`DEV OTP: ${json.devOtpHint}`);
+      }
+    } catch {
+      toast.error("Network error while sending OTP.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    const phoneValue = normalizePhoneNumber(watch("phone") ?? "");
+    if (!/^\d{10}$/.test(phoneValue)) {
+      toast.error("Enter a valid 10-digit phone number first.");
+      return;
+    }
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit OTP code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await fetch("/api/tenant/phone-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneValue, otpCode }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "OTP verification failed.");
+        return;
+      }
+
+      setPhoneVerified(true);
+      setOtpCode("");
+      setOtpDialogOpen(false);
+      toast.success("Phone number verified successfully.");
+    } catch {
+      toast.error("Network error while verifying OTP.");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
   async function onSubmit(data: TenantRegisterForm) {
+    if (!phoneVerified) {
+      toast.error("Verify your phone number before creating the tenant account.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/tenant/register", {
         method: "POST",
@@ -293,6 +377,7 @@ function TenantRegisterPageContent() {
           fullName: data.fullName,
           email: data.email,
           phone: data.phone,
+          phoneVerified,
           password: data.password,
           occupationType: data.occupationType,
           institutionName: data.institutionName,
@@ -442,6 +527,30 @@ function TenantRegisterPageContent() {
                 {errors.phone && (
                   <p className="text-xs text-red-400">{errors.phone.message}</p>
                 )}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {phoneVerified ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Phone verified
+                    </span>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleSendOtp}
+                        disabled={sendingOtp || !watch("phone") || !/^\d{10}$/.test(normalizePhoneNumber(watch("phone") ?? ""))}
+                      >
+                        Verify phone number
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Use the OTP dialog to send and verify your code.
+                      </span>
+                    </>
+                  )}
+                </div>
+
               </div>
 
               {/* Occupation */}
@@ -650,7 +759,7 @@ function TenantRegisterPageContent() {
               {/* Submit */}
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !phoneVerified}
                 className="w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:brightness-110"
               >
                 {isSubmitting ? (
@@ -676,6 +785,24 @@ function TenantRegisterPageContent() {
           </CardContent>
         </Card>
       </div>
+
+      <OtpVerificationDialog
+        open={otpDialogOpen}
+        onOpenChange={(open) => {
+          setOtpDialogOpen(open);
+          if (!open) {
+            setOtpCode("");
+          }
+        }}
+        phone={normalizePhoneNumber(watch("phone") ?? "")}
+        otpCode={otpCode}
+        onOtpChange={setOtpCode}
+        onVerify={handleVerifyOtp}
+        onResend={handleSendOtp}
+        sendingOtp={sendingOtp}
+        verifyingOtp={verifyingOtp}
+        otpSent={otpSent}
+      />
     </div>
   );
 }

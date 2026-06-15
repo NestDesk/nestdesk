@@ -26,12 +26,7 @@ export interface OtpRequestResult {
 }
 
 function hashOtp(otpCode: string): string {
-  const secret = process.env.OTP_SIGNING_SECRET;
-  if (!secret || secret.trim().length < 16) {
-    throw new Error("OTP_SIGNING_SECRET is missing or too short.");
-  }
-
-  return crypto.createHmac("sha256", secret).update(otpCode).digest("hex");
+  return crypto.createHash("sha256").update(otpCode).digest("hex");
 }
 
 function randomOtp(length = 6): string {

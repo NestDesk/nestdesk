@@ -30,6 +30,7 @@ const bodySchema = z.object({
     .regex(/^\d{10}$/, "Enter a valid 10-digit phone number.")
     .optional()
     .or(z.literal("")),
+  phoneVerified: z.boolean().optional().default(false),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters.")
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
     fullName,
     email,
     phone,
+    phoneVerified,
     password,
     occupationType,
     institutionName,
@@ -188,6 +190,8 @@ export async function POST(request: NextRequest) {
     full_name: fullName,
     email,
     phone: phone || null,
+    phone_verified: phoneVerified && Boolean(phone),
+    phone_verified_at: phoneVerified && Boolean(phone) ? new Date().toISOString() : null,
     occupation_type: occupationType,
     institution_name: institutionName,
     gender,

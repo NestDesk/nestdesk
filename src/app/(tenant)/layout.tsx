@@ -73,7 +73,7 @@ export default async function TenantLayout({
       <Navbar
         left={
           <>
-            <NavbarLogo href="/tenant/dashboard" subtitle="Tenant Portal" />
+            <NavbarLogo href="/" subtitle="Tenant Portal" />
           </>
         }
         right={

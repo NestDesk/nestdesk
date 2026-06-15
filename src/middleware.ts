@@ -52,7 +52,9 @@ function shouldBypassAuthCheck(pathname: string) {
     pathname.startsWith("/api/join/") ||
     pathname.startsWith("/api/admin/") ||
     pathname.startsWith("/api/cron/") ||
-    pathname === "/api/tenant/register"
+    pathname === "/api/tenant/register" ||
+    pathname.startsWith("/api/tenant/phone-otp/") ||
+    pathname.startsWith("/api/owner/phone-otp/")
   );
 }
 
@@ -67,7 +69,9 @@ function isPublic(pathname: string) {
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/join/") ||
     pathname.startsWith("/api/cron/") ||
-    pathname === "/api/tenant/register"
+    pathname === "/api/tenant/register" ||
+    pathname.startsWith("/api/tenant/phone-otp/") ||
+    pathname.startsWith("/api/owner/phone-otp/")
   );
 }
 
