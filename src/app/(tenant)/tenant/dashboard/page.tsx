@@ -23,7 +23,6 @@ import {
   CardTitle,
 } from "../../../../components/ui/card";
 import { formatDateInIndia } from "../../../../lib/date";
-import { Badge } from "../../../../components/ui/badge";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 
 const STATUS_CONFIG = {
