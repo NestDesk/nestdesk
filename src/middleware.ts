@@ -1,6 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
+import { validateSupabaseEnv } from "./lib/supabase/env-check";
+import { createAdminClient } from "./lib/supabase/admin";
+import {
+  getEffectivePlan,
+  normalizeOwnerPlan,
+  type SubscriptionRecord,
+} from "./lib/subscriptions";
+
+const COMPANY_ADMIN_EMAIL = "support@nestdesk.in";
 
 const PUBLIC_PATHS = [
   "/",
@@ -15,9 +23,26 @@ const PUBLIC_PATHS = [
 const AUTH_ONLY_PATHS = [
   "/login",
   "/register",
+  "/verify-email",
   "/forgot-password",
   "/tenant/register",
 ];
+
+const FREE_PLAN_ALLOWED_PATHS = [
+  "/dashboard",
+  "/dashboard/tenants",
+  "/dashboard/payments",
+  "/dashboard/subscriptions",
+  "/dashboard/hostels",
+  "/dashboard/profile",
+  "/dashboard/settings",
+];
+
+function isFreePlanAllowedPath(pathname: string) {
+  return FREE_PLAN_ALLOWED_PATHS.some(
+    (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`),
+  );
+}
 
 function shouldBypassAuthCheck(pathname: string) {
   return (
@@ -25,7 +50,11 @@ function shouldBypassAuthCheck(pathname: string) {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/join/") ||
-    pathname === "/api/tenant/register"
+    pathname.startsWith("/api/admin/") ||
+    pathname.startsWith("/api/cron/") ||
+    pathname === "/api/tenant/register" ||
+    pathname.startsWith("/api/tenant/phone-otp/") ||
+    pathname.startsWith("/api/owner/phone-otp/")
   );
 }
 
@@ -39,7 +68,10 @@ function isPublic(pathname: string) {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/join/") ||
-    pathname === "/api/tenant/register"
+    pathname.startsWith("/api/cron/") ||
+    pathname === "/api/tenant/register" ||
+    pathname.startsWith("/api/tenant/phone-otp/") ||
+    pathname.startsWith("/api/owner/phone-otp/")
   );
 }
 
@@ -80,11 +112,67 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth-only pages
   if (isLoggedIn && AUTH_ONLY_PATHS.includes(pathname)) {
-    // /tenant/register → send to tenant portal; others → owner dashboard
-    const dest = pathname.startsWith("/tenant/")
-      ? "/tenant/dashboard"
-      : "/dashboard";
+    let dest: string;
+    if (pathname.startsWith("/tenant/")) {
+      dest = "/tenant/dashboard";
+    } else if (user.email === COMPANY_ADMIN_EMAIL) {
+      dest = "/admin";
+    } else {
+      dest = "/dashboard";
+    }
     return NextResponse.redirect(new URL(dest, request.url));
+  }
+
+  // Company admin: redirect away from owner/tenant areas into /admin
+  if (isLoggedIn && user.email === COMPANY_ADMIN_EMAIL) {
+    if (
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/tenant") ||
+      pathname.startsWith("/onboarding") ||
+      pathname.startsWith("/subscriptions")
+    ) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+  }
+
+  // Non-admin: block access to /admin
+  if (
+    isLoggedIn &&
+    user.email !== COMPANY_ADMIN_EMAIL &&
+    pathname.startsWith("/admin")
+  ) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (
+    isLoggedIn &&
+    user.email !== COMPANY_ADMIN_EMAIL &&
+    pathname.startsWith("/dashboard") &&
+    !isFreePlanAllowedPath(pathname)
+  ) {
+    const admin = createAdminClient();
+    const { data: owner } = await admin
+      .from("owners")
+      .select("id, plan")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (owner) {
+      const { data: subscription } = await admin
+        .from("subscriptions")
+        .select("plan, status, ends_at")
+        .eq("owner_id", owner.id)
+        .in("status", ["active", "grace_period"])
+        .order("starts_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<SubscriptionRecord>();
+
+      const effectivePlan = getEffectivePlan(subscription ?? null);
+
+      if (normalizeOwnerPlan(effectivePlan) === "free") {
+        return NextResponse.redirect(new URL("/subscriptions", request.url));
+      }
+    }
   }
 
   // Protect non-public routes

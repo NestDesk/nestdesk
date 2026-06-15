@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { createClient } from "../../../../../lib/supabase/server";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),

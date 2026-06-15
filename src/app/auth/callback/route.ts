@@ -5,10 +5,12 @@
  * It exchanges the one-time auth payload for a live session and redirects the user.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  applySupabaseCookies,
+  exchangeAuthForSession,
+  resolveUserRedirectPath,
+} from "../../../lib/auth";
 
 const RESET_PASSWORD_PATH = "/reset-password";
 
@@ -34,36 +36,17 @@ export async function GET(request: NextRequest) {
   const nextPath = sanitizeNextPath(searchParams.get("next"));
   const isRecoveryFlow = otpType === "recovery" || nextPath === RESET_PASSWORD_PATH;
 
-  if (!code && !(tokenHash && otpType === "recovery")) {
+  if (!code && !(tokenHash && otpType)) {
     return isRecoveryFlow
       ? buildErrorRedirect(origin, "/forgot-password", "invalid_or_expired_link")
       : buildErrorRedirect(origin, "/login", "missing_code");
   }
 
-  const { url, anonKey } = validateSupabaseEnv();
-  const cookiesToSet: Array<{
-    name: string;
-    value: string;
-    options: Record<string, unknown>;
-  }> = [];
-
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookies) {
-        cookiesToSet.push(...cookies);
-      },
-    },
+  const { data, error, cookiesToSet } = await exchangeAuthForSession(request, {
+    code: code ?? undefined,
+    tokenHash: tokenHash ?? undefined,
+    otpType,
   });
-
-  const authResult =
-    tokenHash && otpType === "recovery"
-      ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type: otpType })
-      : await supabase.auth.exchangeCodeForSession(code as string);
-
-  const { data, error } = authResult;
 
   if (error || !data.session) {
     return isRecoveryFlow
@@ -76,45 +59,19 @@ export async function GET(request: NextRequest) {
       `${origin}${RESET_PASSWORD_PATH}`,
     );
 
-    cookiesToSet.forEach(({ name, value, options }) => {
-      recoveryResponse.cookies.set(
-        name,
-        value,
-        options as Parameters<typeof recoveryResponse.cookies.set>[2],
-      );
-    });
+    applySupabaseCookies(recoveryResponse, cookiesToSet);
 
     return recoveryResponse;
   }
 
-  // Check role to send user to the right place
-  const admin = createAdminClient();
-  const { data: owner } = await admin
-    .from("owners")
-    .select("onboarding_completed")
-    .eq("user_id", data.session.user.id)
-    .maybeSingle();
+  const redirectPath =
+    nextPath && nextPath !== RESET_PASSWORD_PATH
+      ? nextPath
+      : await resolveUserRedirectPath(data.session.user.id);
 
-  let redirectPath: string;
-  if (owner) {
-    redirectPath = owner.onboarding_completed ? "/dashboard" : "/onboarding";
-  } else {
-    const { data: tenant } = await admin
-      .from("tenants")
-      .select("id")
-      .eq("auth_user_id", data.session.user.id)
-      .maybeSingle();
-    redirectPath = tenant ? "/tenant/dashboard" : "/onboarding";
-  }
   const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);
 
-  cookiesToSet.forEach(({ name, value, options }) => {
-    finalResponse.cookies.set(
-      name,
-      value,
-      options as Parameters<typeof finalResponse.cookies.set>[2],
-    );
-  });
+  applySupabaseCookies(finalResponse, cookiesToSet);
 
   return finalResponse;
 }

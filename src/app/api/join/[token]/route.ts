@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
 const paramsSchema = z.object({
   token: z.string().min(1).max(64),

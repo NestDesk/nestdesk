@@ -5,6 +5,7 @@ export type TenantProfileCompletionInput = {
   occupation_type?: string | null;
   institution_name?: string | null;
   aadhar_number?: string | null;
+  aadhar_last4?: string | null;
   profile_photo_path?: string | null;
   aadhar_front_path?: string | null;
   aadhar_back_path?: string | null;
@@ -53,7 +54,8 @@ const REQUIREMENTS: Requirement[] = [
   {
     key: "aadhar_number",
     label: "Aadhaar number",
-    isComplete: (input) => Boolean(input.aadhar_number?.trim()),
+    isComplete: (input) =>
+      Boolean(input.aadhar_last4?.trim() || input.aadhar_number?.trim()),
   },
   {
     key: "profile_photo_path",

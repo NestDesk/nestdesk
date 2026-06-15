@@ -1,6 +1,6 @@
 "use client";
 
-import { useIdleTimeout } from "@/hooks/use-idle-timeout";
+import { useIdleTimeout } from "../../hooks/use-idle-timeout";
 
 /**
  * Invisible client component that enforces the 30-min idle session timeout.

@@ -16,12 +16,21 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { formatDateInIndia } from "../../../lib/date";
+import { cn } from "../../../lib/utils";
 
 type NoticeRow = {
   id: string;
@@ -59,7 +68,7 @@ const EMPTY_DRAFT: NoticeDraft = {
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
+  return formatDateInIndia(iso, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -88,6 +97,9 @@ export default function OwnerNoticesPage() {
   // Delete confirm
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmPublishNotice, setConfirmPublishNotice] = useState<NoticeRow | null>(
+    null,
+  );
 
   // Publish toggle
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -158,14 +170,33 @@ export default function OwnerNoticesPage() {
     });
   }, [notices, filterHostelId, filterStatus, searchQuery]);
 
-  const publishedCount = useMemo(
-    () => notices.filter((n) => n.is_published).length,
-    [notices],
-  );
   const draftCount = useMemo(
     () => notices.filter((n) => !n.is_published).length,
     [notices],
   );
+
+  const MONTHLY_PUBLISHED_LIMIT = 4;
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const currentMonthPublishedCount = notices.filter((n) => {
+    if (!n.is_published || !n.published_at) return false;
+    const publishedDate = new Date(n.published_at);
+    return publishedDate >= currentMonthStart && publishedDate <= currentMonthEnd;
+  }).length;
+
+  const currentMonthRangeLabel = `${formatDateInIndia(currentMonthStart, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })} – ${formatDateInIndia(currentMonthEnd, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })}`;
+
+  const publishLimitReached = currentMonthPublishedCount >= MONTHLY_PUBLISHED_LIMIT;
 
   function openCreateModal(preselectedHostelId?: string) {
     setModalMode("create");
@@ -212,20 +243,37 @@ export default function OwnerNoticesPage() {
       return;
     }
 
+    if (
+      draft.publish &&
+      (!editingId || !notices.find((n) => n.id === editingId)?.is_published) &&
+      publishLimitReached
+    ) {
+      toast.error("You can publish up to 4 notices per calendar month.");
+      return;
+    }
+
     setSaving(true);
     try {
       if (modalMode === "create") {
+        const createPayload = {
+          hostel_id: draft.hostel_id,
+          title: titleTrimmed,
+          body: bodyTrimmed,
+          publish: draft.publish,
+        };
+        console.info("Creating notice", createPayload);
+        console.log("Notice create payload", createPayload);
         const res = await fetch("/api/notices", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            hostel_id: draft.hostel_id,
-            title: titleTrimmed,
-            body: bodyTrimmed,
-            publish: draft.publish,
-          }),
+          body: JSON.stringify(createPayload),
         });
         const json = await res.json();
+        console.info("Create notice response", {
+          status: res.status,
+          ok: res.ok,
+          body: json,
+        });
         if (!res.ok) {
           toast.error(json.error ?? "Could not create notice.");
           return;
@@ -263,12 +311,19 @@ export default function OwnerNoticesPage() {
           return;
         }
 
+        console.info("Updating notice", { noticeId: editingId, payload });
+        console.log("Notice update payload", payload);
         const res = await fetch(`/api/notices/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         const json = await res.json();
+        console.info("Update notice response", {
+          status: res.status,
+          ok: res.ok,
+          body: json,
+        });
         if (!res.ok) {
           toast.error(json.error ?? "Could not update notice.");
           return;
@@ -299,15 +354,28 @@ export default function OwnerNoticesPage() {
   }
 
   async function togglePublish(notice: NoticeRow) {
+    if (notice.is_published) return;
+    if (publishLimitReached) {
+      toast.error("You can publish up to 4 notices per calendar month.");
+      return;
+    }
     setTogglingId(notice.id);
     try {
-      const next = !notice.is_published;
+      const togglePayload = { is_published: true };
+      console.info("Publishing notice", { noticeId: notice.id });
+      console.log("Notice publish payload", togglePayload);
       const res = await fetch(`/api/notices/${notice.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_published: next }),
+        body: JSON.stringify(togglePayload),
       });
       const json = await res.json();
+      console.info("Toggle publish response", {
+        noticeId: notice.id,
+        status: res.status,
+        ok: res.ok,
+        body: json,
+      });
       if (!res.ok) {
         toast.error(json.error ?? "Could not update notice.");
         return;
@@ -324,12 +392,26 @@ export default function OwnerNoticesPage() {
             : n,
         ),
       );
-      toast.success(next ? "Notice published to tenants." : "Notice unpublished.");
+      toast.success("Notice published to tenants.");
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
       setTogglingId(null);
     }
+  }
+
+  function openPublishConfirm(notice: NoticeRow) {
+    if (publishLimitReached) {
+      toast.error("You can publish up to 4 notices per calendar month.");
+      return;
+    }
+    setConfirmPublishNotice(notice);
+  }
+
+  async function confirmPublishNoticeAction() {
+    if (!confirmPublishNotice) return;
+    await togglePublish(confirmPublishNotice);
+    setConfirmPublishNotice(null);
   }
 
   async function handleDelete(noticeId: string) {
@@ -388,7 +470,10 @@ export default function OwnerNoticesPage() {
               Published
             </p>
             <p className="mt-1 text-xl font-bold text-emerald-700 dark:text-emerald-300">
-              {publishedCount}
+              {currentMonthPublishedCount}/{MONTHLY_PUBLISHED_LIMIT}
+            </p>
+            <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">
+              {currentMonthRangeLabel}
             </p>
           </div>
           <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
@@ -555,72 +640,73 @@ export default function OwnerNoticesPage() {
 
                   {/* Actions */}
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {/* Publish / Unpublish */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1 px-2.5 text-xs"
-                      onClick={() => togglePublish(notice)}
-                      disabled={togglingId === notice.id}
-                    >
-                      {togglingId === notice.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : notice.is_published ? (
-                        <EyeOff className="h-3.5 w-3.5" />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5" />
-                      )}
-                      {notice.is_published ? "Unpublish" : "Publish"}
-                    </Button>
-
-                    {/* Edit */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => openEditModal(notice)}
-                      title="Edit notice"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-
-                    {/* Delete */}
-                    {confirmDeleteId === notice.id ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">Sure?</span>
+                    {!notice.is_published ? (
+                      <>
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-xs"
-                          disabled={deletingId === notice.id}
-                          onClick={() => handleDelete(notice.id)}
+                          className="h-8 gap-1 px-2.5 text-xs"
+                          onClick={() => openPublishConfirm(notice)}
+                          disabled={togglingId === notice.id || publishLimitReached}
                         >
-                          {deletingId === notice.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                          {togglingId === notice.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            "Yes"
+                            <Eye className="h-3.5 w-3.5" />
                           )}
+                          Publish
                         </Button>
+
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => setConfirmDeleteId(null)}
+                          className="h-8 w-8 p-0"
+                          onClick={() => openEditModal(notice)}
+                          title="Edit notice"
                         >
-                          No
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/50 dark:hover:text-rose-400"
-                        onClick={() => setConfirmDeleteId(notice.id)}
-                        title="Delete notice"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+
+                        {confirmDeleteId === notice.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              Sure?
+                            </span>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              disabled={deletingId === notice.id}
+                              onClick={() => handleDelete(notice.id)}
+                            >
+                              {deletingId === notice.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Yes"
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              No
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/50 dark:hover:text-rose-400"
+                            onClick={() => setConfirmDeleteId(notice.id)}
+                            title="Delete notice"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </CardContent>
@@ -707,24 +793,56 @@ export default function OwnerNoticesPage() {
               </div>
 
               {/* Publish toggle */}
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/70 p-3 hover:bg-muted/40">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 cursor-pointer accent-primary"
-                  checked={draft.publish}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, publish: e.target.checked }))
-                  }
-                />
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Publish immediately
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Tenants will see this notice right away.
-                  </p>
-                </div>
-              </label>
+              <div className="space-y-2">
+                {(() => {
+                  const currentNotice = editingId
+                    ? notices.find((n) => n.id === editingId)
+                    : undefined;
+                  const isPublished = Boolean(currentNotice?.is_published);
+
+                  return (
+                    <>
+                      <label
+                        className={cn(
+                          "flex cursor-pointer items-center gap-3 rounded-xl border p-3",
+                          isPublished
+                            ? "border-border/70 bg-slate-100 text-muted-foreground"
+                            : "border-border/70 hover:bg-muted/40",
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 cursor-pointer accent-primary"
+                          checked={draft.publish}
+                          disabled={isPublished || publishLimitReached}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, publish: e.target.checked }))
+                          }
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            Publish immediately
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Tenants will see this notice right away.
+                          </p>
+                        </div>
+                      </label>
+                      {isPublished && (
+                        <p className="text-xs text-muted-foreground">
+                          This notice is already published and cannot be unpublished.
+                        </p>
+                      )}
+                      {!isPublished && publishLimitReached && (
+                        <p className="text-xs text-rose-600 dark:text-rose-400">
+                          Monthly publish limit reached. Save as draft and publish
+                          next month.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -753,6 +871,58 @@ export default function OwnerNoticesPage() {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={Boolean(confirmPublishNotice)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmPublishNotice(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Confirm Publish Notice</DialogTitle>
+            <DialogDescription>
+              This notice will be published for all tenants of the property and a
+              WhatsApp message will be sent to them.
+            </DialogDescription>
+          </DialogHeader>
+
+          {confirmPublishNotice ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border/70 bg-card/70 p-4">
+                <p className="text-sm font-medium text-foreground">Notice title</p>
+                <p className="mt-1 text-sm text-foreground">
+                  {confirmPublishNotice.title}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-card/70 p-4">
+                <p className="text-sm font-medium text-foreground">Notice content</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {confirmPublishNotice.body}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPublishNotice(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmPublishNoticeAction}
+              disabled={
+                !confirmPublishNotice || togglingId === confirmPublishNotice?.id
+              }
+              className="gap-1.5"
+            >
+              {togglingId === confirmPublishNotice?.id ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Confirm Publish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { generatePropertyCode } from "@/lib/property-code";
+import { createAdminClient } from "../../../../../lib/supabase/admin";
+import { createClient } from "../../../../../lib/supabase/server";
+import { generatePropertyCode } from "../../../../../lib/property-code";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -43,7 +43,7 @@ export async function POST(
 
   const ownerResult = await admin
     .from("owners")
-    .select("id")
+    .select("id, phone_verified")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -51,10 +51,21 @@ export async function POST(
     return NextResponse.json({ error: ownerResult.error.message }, { status: 500 });
   }
 
-  const ownerId = ownerResult.data?.id;
+  const ownerRecord = ownerResult.data;
+  const ownerId = ownerRecord?.id;
   if (!ownerId) {
     return NextResponse.json(
       { error: "Complete onboarding before managing properties." },
+      { status: 409 },
+    );
+  }
+
+  if (!ownerRecord.phone_verified) {
+    return NextResponse.json(
+      {
+        error:
+          "Phone number not verified. Please verify your WhatsApp phone number from My Profile before activating any property.",
+      },
       { status: 409 },
     );
   }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "../../../../components/ui/badge";
+import { Card, CardContent } from "../../../../components/ui/card";
 import { CreditCard, Download, IndianRupee, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
-import { printInvoice } from "@/lib/invoice";
-import { cn } from "@/lib/utils";
+import { formatDateInIndia } from "../../../../lib/date";
+import { printInvoice } from "../../../../lib/invoice";
+import { cn } from "../../../../lib/utils";
 
 type PaymentRow = {
   hostel_name: string;
@@ -15,6 +16,8 @@ type PaymentRow = {
   id: string;
   amount: number;
   month: string;
+  billing_start?: string | null;
+  billing_end?: string | null;
   status: "paid" | "disputed";
   method: string | null;
   receipt_number: string | null;
@@ -56,18 +59,26 @@ function formatAmount(n: number) {
 }
 
 function formatMonth(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     month: "long",
     year: "numeric",
   });
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+}
+
+function formatBillingPeriod(payment: PaymentRow) {
+  const parts: string[] = [];
+  if (payment.billing_start) parts.push(formatDate(payment.billing_start));
+  if (payment.billing_end) parts.push(formatDate(payment.billing_end));
+  if (parts.length > 0) return parts.join(" - ");
+  return formatMonth(payment.month);
 }
 
 export default function TenantPaymentsPage() {
@@ -199,6 +210,9 @@ export default function TenantPaymentsPage() {
                               Paid on {formatDate(p.paid_on)}
                             </p>
                           )}
+                          <p className="text-xs text-muted-foreground">
+                            Billing period: {formatBillingPeriod(p)}
+                          </p>
                           {p.notes && (
                             <p className="text-xs text-muted-foreground">
                               Note: {p.notes}

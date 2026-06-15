@@ -1,14 +1,17 @@
 import { UserCircle2, Building2, CalendarDays } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { OwnerProfileCard } from "@/components/profile/OwnerProfileCard";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Separator } from "../../../components/ui/separator";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { formatDateInIndia } from "../../../lib/date";
+import { OwnerProfileCard } from "../../../components/profile/OwnerProfileCard";
 
 type OwnerProfile = {
   id: string;
   full_name: string | null;
   phone: string | null;
+  phone_verified: boolean;
+  phone_verified_at: string | null;
   address_line1: string | null;
   address_line2: string | null;
   landmark: string | null;
@@ -20,10 +23,7 @@ type OwnerProfile = {
 };
 
 function formatDate(value: string | null) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleDateString("en-IN", {
+  return formatDateInIndia(value, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -59,7 +59,7 @@ export default async function OwnerProfilePage() {
   const { data: owner } = await admin
     .from("owners")
     .select(
-      "id, full_name, phone, address_line1, address_line2, landmark, city, state, pincode, onboarding_completed, created_at",
+      "id, full_name, phone, phone_verified, phone_verified_at, address_line1, address_line2, landmark, city, state, pincode, onboarding_completed, created_at",
     )
     .eq("user_id", user.id)
     .maybeSingle<OwnerProfile>();
@@ -119,6 +119,8 @@ export default async function OwnerProfilePage() {
           displayValues={{
             email: user.email ?? null,
             onboardingCompleted: owner?.onboarding_completed ?? false,
+            phoneVerified: owner?.phone_verified ?? false,
+            phoneVerifiedAt: owner?.phone_verified_at ?? null,
             addressText,
           }}
         />

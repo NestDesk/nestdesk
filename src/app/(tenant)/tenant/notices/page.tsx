@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Bell, CalendarDays, Loader2, Megaphone } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
+import { formatDateInIndia } from "../../../../lib/date";
+import { Card, CardContent } from "../../../../components/ui/card";
 
 type TenantNotice = {
   id: string;
@@ -14,7 +15,7 @@ type TenantNotice = {
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
+  return formatDateInIndia(iso, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -92,7 +93,7 @@ export default function TenantNoticesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {notices.map((n, idx) => (
+          {notices.map((n) => (
             <Card
               key={n.id}
               className="group rounded-2xl border border-border/70 bg-card/70 transition-shadow hover:shadow-sm"
@@ -100,13 +101,7 @@ export default function TenantNoticesPage() {
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
                   {/* Icon bubble */}
-                  <div
-                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                      idx === 0
-                        ? "bg-primary/15 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                     <Bell className="h-4 w-4" />
                   </div>
 

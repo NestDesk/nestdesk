@@ -81,6 +81,7 @@ export const EXPENSE_PAYMENT_MODE_LABEL: Record<ExpensePaymentMode, string> = {
 };
 
 export const EXPENSE_RECURRING_FREQUENCIES = [
+  "daily",
   "monthly",
   "quarterly",
   "yearly",

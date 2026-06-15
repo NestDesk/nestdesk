@@ -9,8 +9,10 @@ const securityHeaders = [
     value: "max-age=63072000; includeSubDomains; preload",
   },
   {
+    // CHANGED: Changed from 'DENY' to 'SAMEORIGIN' so you can handle cross-origin frames
+    // via the more modern Content-Security-Policy 'frame-src' / 'frame-ancestors' directives.
     key: "X-Frame-Options",
-    value: "DENY",
+    value: "SAMEORIGIN",
   },
   {
     key: "X-Content-Type-Options",
@@ -28,13 +30,15 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js requires unsafe-eval in dev; tightened for production via env
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      // CHANGED: Added Razorpay and Vercel scripts here
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      // Allow Supabase API + realtime WebSocket
-      `connect-src 'self' https://*.supabase.co wss://*.supabase.co`,
+      // CHANGED: Added Razorpay API and telemetry endpoints to allowed connections
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com`,
+      // ADDED: Allows Razorpay's checkout iframe to load over your site
+      "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -43,6 +47,11 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  experimental: {
+    staleTimes: {
+      dynamic: 0,
+    },
+  },
   images: {
     remotePatterns: [
       {

@@ -16,31 +16,40 @@ The active product flow is:
 
 ## Recent Updates
 
-1. Tenant workspace visuals were upgraded with a branded portal shell.
-2. Tenant navigation now has active-state highlighting and clearer section cues.
-3. Tenant dashboard UI was refreshed with a professional hero panel, quick actions, and improved status/property hierarchy.
-4. Maintenance workflow is now bi-directional:
+22. WhatsApp notice delivery via MSG91 was fixed for template param mapping and payload integrity:
+    - Notice broadcast now maps approved template params to ordered component keys `body_1`, `body_2`, `body_3`, and `body_4`.
+    - MSG91 sender no longer replaces the template object with template id, which previously dropped component params.
+    - Outgoing payload logging now captures the exact serialized JSON body sent to MSG91.
+    - Response logging now captures parsed JSON when available and falls back to raw text.
+
+1. Auth shell and login screen theming were simplified for reliable light/dark readability.
+2. Theme selector was added to the auth top navbar so users can switch theme directly on login/register flows.
+
+3. Tenant workspace visuals were upgraded with a branded portal shell.
+4. Tenant navigation now has active-state highlighting and clearer section cues.
+5. Tenant dashboard UI was refreshed with a professional hero panel, quick actions, and improved status/property hierarchy.
+6. Maintenance workflow is now bi-directional:
    - Tenant-raised requests appear in owner dashboard as notification count.
    - Owners can open a dedicated Maintenance area, add comments, and change status.
    - Tenant maintenance view now shows owner comments and status changes.
-5. Tenant maintenance requests are now editable and deletable from tenant portal.
-6. Owner maintenance dashboard request count now correctly includes open requests by fixing owner-hostel lookup filters.
-7. Tenant maintenance edit/delete is now restricted to open status only; owner actions remain unrestricted.
-8. Owner portal now includes a complete Tenants management module:
-   - Owner can list all tenants across properties.
-   - Owner can filter/search by status, property, and tenant details.
-   - Owner can update tenant profile info, status, join/move-out dates, room assignment, and agreed rent amount.
-   - Room occupancy state is synchronized when tenant status or room assignment changes.
-9. Notices module is now fully implemented:
-   - Owner can create notices (draft or published) for any of their properties.
-   - Owner can edit notice title and body.
-   - Owner can publish or unpublish notices with a single toggle.
-   - Owner can soft-delete notices.
-   - Owner notices page supports search, property filter, and status filter (published / draft).
-   - Published notices are immediately visible to all active tenants of the property.
-   - Tenant notices page is refactored to use the /api/tenant/notices API (only active tenants see notices).
-   - notices table now has is_published and published_at columns (migration 006).
-10. Payments module is now fully implemented:
+7. Tenant maintenance requests are now editable and deletable from tenant portal.
+8. Owner maintenance dashboard request count now correctly includes open requests by fixing owner-hostel lookup filters.
+9. Tenant maintenance edit/delete is now restricted to open status only; owner actions remain unrestricted.
+10. Owner portal now includes a complete Tenants management module:
+    - Owner can list all tenants across properties.
+    - Owner can filter/search by status, property, and tenant details.
+    - Owner can update tenant profile info, status, join/move-out dates, room assignment, and agreed rent amount.
+    - Room occupancy state is synchronized when tenant status or room assignment changes.
+11. Notices module is now fully implemented:
+    - Owner can create notices (draft or published) for any of their properties.
+    - Owner can edit notice title and body.
+    - Owner can publish or unpublish notices with a single toggle.
+    - Owner can soft-delete notices.
+    - Owner notices page supports search, property filter, and status filter (published / draft).
+    - Published notices are immediately visible to all active tenants of the property.
+    - Tenant notices page is refactored to use the /api/tenant/notices API (only active tenants see notices).
+    - notices table now has is_published and published_at columns (migration 006).
+12. Payments module is now fully implemented:
 
 - Owner can record received payments for active tenants with amount, month, method, status, and notes.
 - A receipt number (ND-YYYYMM-XXXXXX) is auto-generated when a payment is recorded or updated as paid.
@@ -149,6 +158,61 @@ The active product flow is:
 - API now returns month options from property onboarding month to current month.
 - Recurring expenses are now auto-materialized by API when due date is reached, and recurring templates advance their next due date automatically.
 
+23. Auth registration and session flows were standardized:
+
+- New centralized auth module now handles registration, login, logout, callback exchange, cookie propagation, and post-login redirect resolution.
+- Owner and tenant registration now create confirmed accounts immediately and start a session without email verification.
+- Tenant registration now cleans up newly-created auth users when tenant profile insert fails to avoid orphan auth identities.
+- Registration returns a clear duplicate-email message when the email already exists.
+
+24. Owner phone verification is now implemented end-to-end with MSG91 WhatsApp OTP:
+
+- Added owner-scoped OTP APIs at /api/owner/phone-otp/request and /api/owner/phone-otp/verify.
+- Profile screen now supports WhatsApp OTP send and verify actions with verified/not-verified status visibility.
+- Updating phone number in owner profile now auto-resets phone_verified and phone_verified_at.
+- Dashboard sidebar now shows an exclamation warning on My Profile when phone is unverified, with hover tooltip.
+- Property activation is now blocked until phone verification is complete, enforced in API and reflected in activation UI state.
+
+25. Owner subscriptions and Razorpay checkout are now implemented:
+
+- Added owner Subscriptions and Usage page under dashboard navigation.
+- Added Razorpay Standard Checkout flow for paid plan purchase.
+- Added POST /api/create-order to create Razorpay orders with owner context and amount guardrails.
+- Added POST /api/verify-payment to validate HMAC signature and activate plans only on successful verification.
+- Successful verification now writes to subscriptions and updates owners.plan.
+- Added GET /api/owner/subscription/current for owner plan visibility in topbar and dashboard.
+- Topbar avatar menu now shows current plan and includes quick links to My Account and Subscriptions.
+
+26. Pricing and subscription catalog was simplified:
+
+- Removed the test and business plan surfaces from the UI and payment backend.
+- Reduced paid plan prices to micro = 5, starter = 7, and pro = 11.
+- Replaced the old business card with a custom institution plan that routes users to sales instead of checkout.
+
+27. Subscription limits and plan listing are now database-driven:
+
+- Added server-side plan catalog loading from public.subscription_plans for active global plans.
+- Pricing cards now fetch plans from /api/subscription-plans and render database plan names, descriptions, and monthly prices.
+- Owner plan restrictions for property creation and tenant activation now read max_properties and max_tenants from subscription_plans (with fallback to static config if table rows are unavailable).
+
+28. Custom plan curation and owner plan snapshot implementation was started:
+
+- Added migration 20260616_create_subscription_plans_table.sql to create public.subscription_plans with indexes and idempotent seed inserts for free/starter/micro/pro/institution.
+- Added migration 20260617_add_owner_plan_snapshot_and_custom_formula_fields.sql to add owners.active_plan_id and owners.active_plan_name and formula metadata columns for custom_institution_plans.
+- Added migration backfill logic to populate owners.active_plan_id and owners.active_plan_name from latest active subscriptions and global plan catalog.
+- Updated order creation and payment verification flows to persist owners.active_plan_id and owners.active_plan_name at purchase activation time.
+- Updated paid-plan classification so institution custom purchases can complete via the same checkout verification flow.
+- Reworked admin planner into a custom plans workflow with pricing calculator (editable formula parameters), curated plan list management, activate/deactivate, and assign-by-email actions.
+- Updated admin sidebar label from Subscription Planner to Custom Plans while keeping route path /admin/planner stable.
+
+29. Subscription UX and admin audit regression slice is now completed:
+
+- Owner subscription and usage screen now surfaces custom institution plan names in current-plan display and summary cards.
+- Pricing cards yearly preview now avoids misleading discount messaging for assigned custom institution plans and reflects yearly billing as monthly x 12 for those custom cards.
+- Admin custom plan API now writes audit logs for plan create, update, activate/deactivate, and delete actions.
+- Owner custom plan assignment API now writes audit logs with old/new assignment payloads for traceability.
+- Subscription and middleware paths passed project lint regression checks after these updates.
+
 ## Implemented Modules
 
 ### 1. Auth and Session Management
@@ -156,8 +220,8 @@ The active product flow is:
 Implemented:
 
 1. Email/password registration with strong password validation.
-2. Production-ready email verification callback flow through Supabase.
-3. Dev-mode shortcut registration with confirmed users to avoid email delivery blockers.
+2. Email/password registration without mandatory verification, with immediate post-signup session creation.
+3. Centralized auth helper module in src/lib/auth.ts for registration, login, logout, callback exchange, and role-based redirect resolution.
 4. Login API with Supabase cookie session handling.
 5. Login rate limiting backed by the login_activity table.
 6. Logout API that clears Supabase session cookies.

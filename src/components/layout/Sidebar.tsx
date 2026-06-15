@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   LayoutDashboard,
@@ -10,18 +11,22 @@ import {
   BedDouble,
   CreditCard,
   WalletCards,
+  BarChart2,
   Bell,
   Wrench,
   UserCircle2,
+  Rocket,
   Settings,
+  AlertCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "../ui/tooltip";
+import { type OwnerPlan } from "../../lib/subscriptions";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -33,6 +38,8 @@ const navItems = [
   { label: "Notices", href: "/notices", icon: Bell },
   { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "My Profile", href: "/profile", icon: UserCircle2 },
+  { label: "Reports", href: "/reports", icon: BarChart2 },
+  { label: "Subscriptions & Usage", href: "/subscriptions", icon: Rocket },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -40,14 +47,94 @@ interface SidebarProps {
   collapsed?: boolean;
   mobile?: boolean;
   onNavigate?: () => void;
+  isPhoneVerified: boolean;
+  currentPlan?: OwnerPlan;
 }
+
+const freePlanAllowedPages = new Set([
+  "/dashboard",
+  "/tenants",
+  "/payments",
+  "/subscriptions",
+  "/hostels",
+  "/profile",
+  "/settings",
+]);
+
+const isFreePlanAllowedSidebarHref = (href: string) =>
+  freePlanAllowedPages.has(href) ||
+  freePlanAllowedPages.has(href.split("/")[1] ? `/${href.split("/")[1]}` : href);
 
 export function Sidebar({
   collapsed = false,
   mobile = false,
   onNavigate,
+  isPhoneVerified,
+  currentPlan,
 }: SidebarProps) {
   const pathname = usePathname();
+  const [propertyWarning, setPropertyWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPropertyWarning() {
+      try {
+        const res = await fetch("/api/hostels", { cache: "no-store" });
+        if (!res.ok) {
+          setPropertyWarning(null);
+          return;
+        }
+
+        const json = await res.json();
+        const hostels = Array.isArray(json.hostels)
+          ? (json.hostels as Array<{ is_active?: boolean }>)
+          : [];
+
+        if (hostels.length === 0) {
+          if (mounted) {
+            setPropertyWarning(
+              "You don’t have any properties yet. Add one to start managing rooms, tenants, and payments.",
+            );
+          }
+          return;
+        }
+
+        const allInactive =
+          hostels.length > 0 &&
+          hostels.every((hostel) => hostel.is_active === false);
+        if (allInactive) {
+          if (mounted) {
+            setPropertyWarning(
+              "All your properties are inactive. Activate one to start accepting tenants and managing rooms.",
+            );
+          }
+          return;
+        }
+
+        if (mounted) {
+          setPropertyWarning(null);
+        }
+      } catch {
+        if (mounted) {
+          setPropertyWarning(null);
+        }
+      }
+    }
+
+    loadPropertyWarning();
+
+    const handleHostelStatusChanged = () => {
+      loadPropertyWarning();
+    };
+
+    window.addEventListener("hostel-status-changed", handleHostelStatusChanged);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("hostel-status-changed", handleHostelStatusChanged);
+    };
+  }, []);
 
   return (
     <aside
@@ -60,7 +147,7 @@ export function Sidebar({
       {/* Logo */}
       <div
         className={cn(
-          "flex h-14 items-center border-b border-sidebar-border",
+          "flex h-16 items-center border-b border-sidebar-border",
           collapsed && !mobile ? "justify-center px-2" : "gap-2.5 px-5",
         )}
       >
@@ -84,6 +171,12 @@ export function Sidebar({
       <TooltipProvider delayDuration={100}>
         <nav className="flex-1 space-y-0.5 p-3">
           {navItems.map(({ label, href, icon: Icon }) => {
+            const showUnverifiedWarning = label === "My Profile" && !isPhoneVerified;
+            const showPropertyWarning =
+              label === "My Properties" && Boolean(propertyWarning);
+            const isRestricted =
+              currentPlan === "free" && !isFreePlanAllowedSidebarHref(href);
+
             const navLink = (
               <Link
                 key={href}
@@ -94,11 +187,45 @@ export function Sidebar({
                   collapsed && !mobile && "justify-center px-2",
                   pathname === href
                     ? "bg-gradient-to-r from-primary/80 to-blue-500/70 text-white shadow-md shadow-primary/20"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                  isRestricted && "opacity-60",
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                {(!collapsed || mobile) && label}
+                <div className="relative">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {(showPropertyWarning || showUnverifiedWarning) &&
+                  collapsed &&
+                  !mobile ? (
+                    <span className="absolute -right-4 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+                      <AlertCircle className="h-3 w-3" />
+                    </span>
+                  ) : null}
+                </div>
+                {(!collapsed || mobile) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    {label}
+                    {showPropertyWarning ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          {propertyWarning}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                    {showUnverifiedWarning ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          Phone number not verified
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                  </span>
+                )}
               </Link>
             );
 
@@ -106,7 +233,13 @@ export function Sidebar({
               return (
                 <Tooltip key={href}>
                   <TooltipTrigger asChild>{navLink}</TooltipTrigger>
-                  <TooltipContent side="right">{label}</TooltipContent>
+                  <TooltipContent side="right">
+                    {showPropertyWarning
+                      ? propertyWarning
+                      : showUnverifiedWarning
+                        ? "Phone number not verified"
+                        : label}
+                  </TooltipContent>
                 </Tooltip>
               );
             }

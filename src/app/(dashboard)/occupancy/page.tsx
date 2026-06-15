@@ -1,14 +1,19 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent } from "../../../components/ui/card";
 import {
   PropertyOccupancyAccordion,
   type OccupancyProperty,
-} from "@/components/occupancy/PropertyOccupancyAccordion";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+} from "../../../components/occupancy/PropertyOccupancyAccordion";
+import { createClient } from "../../../lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
 
-type RoomStatus = "vacant" | "occupied" | "maintenance" | "inactive";
+type RoomStatus =
+  | "vacant"
+  | "occupied"
+  | "occupied_partial"
+  | "maintenance"
+  | "inactive";
 type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
 
 type HostelRow = {
@@ -31,7 +36,7 @@ type RoomRow = {
   floor_id: string;
   room_number: string;
   capacity: number;
-  rent_amount: number;
+  rent_amount: number | null;
   status: RoomStatus;
 };
 

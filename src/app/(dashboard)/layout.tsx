@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { DashboardShell } from "@/components/layout/DashboardShell";
+import { createClient } from "../../lib/supabase/server";
+import { createAdminClient } from "../../lib/supabase/admin";
+import { DashboardShell } from "../../components/layout/DashboardShell";
 
 export default async function DashboardLayout({
   children,
@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   const admin = createAdminClient();
   const { data: owner } = await admin
     .from("owners")
-    .select("onboarding_completed")
+    .select("onboarding_completed, phone_verified")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -43,5 +43,9 @@ export default async function DashboardLayout({
     redirect("/onboarding");
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <DashboardShell isPhoneVerified={owner.phone_verified}>
+      {children}
+    </DashboardShell>
+  );
 }

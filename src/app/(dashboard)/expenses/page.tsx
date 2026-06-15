@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCoreRowModel,
   getSortedRowModel,
@@ -26,9 +27,9 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { DatePicker } from "../../../components/ui/DatePicker";
 import {
   Dialog,
   DialogContent,
@@ -36,30 +37,31 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "../../../components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "../../../components/ui/dropdown-menu";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Skeleton } from "../../../components/ui/skeleton";
+import { formatDateInIndia, toIndianDateString } from "../../../lib/date";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABEL,
   EXPENSE_PAYMENT_MODES,
   EXPENSE_PAYMENT_MODE_LABEL,
   EXPENSE_RECURRING_FREQUENCIES,
-  EXPENSE_STATUSES,
   EXPENSE_STATUS_LABEL,
   type ExpenseCategory,
   type ExpensePaymentMode,
   type ExpenseRecurringFrequency,
   type ExpenseStatus,
-} from "@/lib/expenses";
-import { cn } from "@/lib/utils";
+} from "../../../lib/expenses";
+import { cn } from "../../../lib/utils";
 
 import ExpenseDailyTrend from "./ExpenseDailyTrend";
 
@@ -163,18 +165,25 @@ function formatAmount(value: number) {
 }
 
 function toInputDate(value: Date = new Date()) {
-  const y = value.getFullYear();
-  const m = String(value.getMonth() + 1).padStart(2, "0");
-  const d = String(value.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toIndianDateString(value);
 }
 
 function formatDate(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-IN", {
+  return formatDateInIndia(`${dateStr}T00:00:00`, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return {
+    start: toIndianDateString(start),
+    end: toIndianDateString(end),
+  };
 }
 
 function recurringFrequencyLabel(value: ExpenseRecurringFrequency | null) {
@@ -196,19 +205,11 @@ export default function OwnerExpensesPage() {
     PropertyTotal[]
   >([]);
   const [dailyTotals, setDailyTotals] = useState<DailyTotal[]>([]);
+  const hasProperties = hostels.length > 0;
   // Remove monthOptions, use date range picker instead
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
-    // Default to current month (local dates to avoid timezone shifts)
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const fmt = (v: Date) => {
-      const y = v.getFullYear();
-      const m = String(v.getMonth() + 1).padStart(2, "0");
-      const d = String(v.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    };
-    return { start: fmt(start), end: fmt(end) };
+    // Default to the current month range.
+    return getCurrentMonthRange();
   });
 
   const [loading, setLoading] = useState(true);
@@ -219,7 +220,6 @@ export default function OwnerExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterHostelId, setFilterHostelId] = useState("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | ExpenseStatus>("all");
   const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>(
     "all",
   );
@@ -229,6 +229,10 @@ export default function OwnerExpensesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categoryHighlightedIndex, setCategoryHighlightedIndex] = useState(0);
+  const categoryComboRef = useRef<HTMLDivElement | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
@@ -270,6 +274,31 @@ export default function OwnerExpensesPage() {
     };
   }, []);
 
+  const filteredCategoryOptions = useMemo(() => {
+    return EXPENSE_CATEGORIES.filter((category) => {
+      if (!categoryQuery.trim()) return true;
+      const label = EXPENSE_CATEGORY_LABEL[category];
+      return (
+        label.toLowerCase().includes(categoryQuery.toLowerCase()) ||
+        category.toLowerCase().includes(categoryQuery.toLowerCase())
+      );
+    });
+  }, [categoryQuery]);
+
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        categoryComboRef.current &&
+        !categoryComboRef.current.contains(event.target as Node)
+      ) {
+        setCategoryDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [categoryDropdownOpen]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery.trim());
@@ -282,7 +311,6 @@ export default function OwnerExpensesPage() {
     try {
       const params = new URLSearchParams();
       if (filterHostelId !== "all") params.set("hostel_id", filterHostelId);
-      if (filterStatus !== "all") params.set("status", filterStatus);
       if (filterCategory !== "all") params.set("category", filterCategory);
       if (debouncedSearchQuery) params.set("q", debouncedSearchQuery);
       // Add date range (for the table / list view)
@@ -378,13 +406,7 @@ export default function OwnerExpensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [
-    debouncedSearchQuery,
-    filterCategory,
-    filterHostelId,
-    filterStatus,
-    dateRange,
-  ]);
+  }, [debouncedSearchQuery, filterCategory, filterHostelId, dateRange]);
 
   useEffect(() => {
     loadExpenses().catch(() => {
@@ -541,6 +563,8 @@ export default function OwnerExpensesPage() {
       hostel_id: hostels.length === 1 ? hostels[0].id : "",
       expense_date: toInputDate(),
     });
+    setCategoryQuery("");
+    setCategoryDropdownOpen(false);
     setModalOpen(true);
   }
 
@@ -561,6 +585,8 @@ export default function OwnerExpensesPage() {
       recurring_frequency: expense.recurring_frequency ?? "",
       next_due_date: expense.next_due_date ?? "",
     });
+    setCategoryQuery(EXPENSE_CATEGORY_LABEL[expense.category]);
+    setCategoryDropdownOpen(false);
     setModalOpen(true);
   }
 
@@ -568,6 +594,8 @@ export default function OwnerExpensesPage() {
     setModalOpen(false);
     setEditingId(null);
     setDraft(EMPTY_DRAFT);
+    setCategoryQuery("");
+    setCategoryDropdownOpen(false);
   }
 
   function openDeleteDialog(expenseId: string) {
@@ -737,18 +765,88 @@ export default function OwnerExpensesPage() {
             </p>
           </div>
         </div>
-        <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
-          <Plus className="h-4 w-4" />
-          Add Expense
-        </Button>
+        {!loading && hasProperties ? (
+          <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
+            <Plus className="h-4 w-4" />
+            Add Expense
+          </Button>
+        ) : !loading && !hasProperties ? (
+          <Link href="/hostels/new">
+            <Button size="sm" className="h-9 gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add Property
+            </Button>
+          </Link>
+        ) : null}
       </div>
 
-      {/* Filters - moved above cards, single row */}
+      {/* Cards - Current Month, Recurring, and Daily Trend */}
+      {!loading && (
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+              Current Period Expenses
+            </p>
+            <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-200">
+              {formatAmount(summary.this_month)}
+            </p>
+            <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
+              {(() => {
+                const currentMonth = getCurrentMonthRange();
+                return `${formatDate(currentMonth.start)} - ${formatDate(currentMonth.end)}`;
+              })()}
+            </p>
+            <div className="mt-3 space-y-1.5">
+              {thisMonthPropertyTotals.length === 0 ? (
+                <p className="text-xs text-blue-700/70 dark:text-blue-300/80">
+                  No current-period expenses recorded.
+                </p>
+              ) : (
+                thisMonthPropertyTotals.slice(0, 5).map((item) => (
+                  <div
+                    key={item.hostel_id}
+                    className="flex items-center justify-between rounded-md border border-blue-200/70 bg-white/60 px-2.5 py-1.5 dark:border-blue-500/30 dark:bg-blue-900/20"
+                  >
+                    <span className="truncate text-xs text-blue-800 dark:text-blue-200">
+                      {item.hostel_name}
+                    </span>
+                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-200">
+                      {formatAmount(item.total)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Daily Trend - as compact line chart */}
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex flex-col justify-between lg:col-span-2 min-h-[220px]">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-primary">Daily Trend</h3>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {dateRange.start && dateRange.end
+                  ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
+                  : "-"}
+              </span>
+            </div>
+            {dailyTotals.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No trend data.</p>
+            ) : (
+              <ExpenseDailyTrend
+                dailyTotals={dailyTotals}
+                isDarkTheme={isDarkTheme}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Filters*/}
       <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-        <div className="relative w-full md:w-64">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="h-9 pl-8 pr-8 text-sm"
+            className="h-9 w-full min-w-0 pl-8 pr-8 text-sm"
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -803,91 +901,39 @@ export default function OwnerExpensesPage() {
             </option>
           ))}
         </select>
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full md:w-36"
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as "all" | ExpenseStatus)}
-        >
-          <option value="all">All Status</option>
-          {EXPENSE_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {EXPENSE_STATUS_LABEL[status]}
-            </option>
-          ))}
-        </select>
       </div>
-
-      {/* Cards - Current Month, Recurring, and Daily Trend */}
-      {!loading && (
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-              Current Period Expenses
-            </p>
-            <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-200">
-              {formatAmount(summary.this_month)}
-            </p>
-            <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
-              {dateRange.start && dateRange.end
-                ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
-                : "-"}
-            </p>
-            <div className="mt-3 space-y-1.5">
-              {thisMonthPropertyTotals.length === 0 ? (
-                <p className="text-xs text-blue-700/70 dark:text-blue-300/80">
-                  No current-period expenses recorded.
-                </p>
-              ) : (
-                thisMonthPropertyTotals.slice(0, 5).map((item) => (
-                  <div
-                    key={item.hostel_id}
-                    className="flex items-center justify-between rounded-md border border-blue-200/70 bg-white/60 px-2.5 py-1.5 dark:border-blue-500/30 dark:bg-blue-900/20"
-                  >
-                    <span className="truncate text-xs text-blue-800 dark:text-blue-200">
-                      {item.hostel_name}
-                    </span>
-                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-200">
-                      {formatAmount(item.total)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Recurring Expenses card removed per request */}
-
-          {/* Daily Trend - as compact line chart */}
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex flex-col justify-between lg:col-span-2 min-h-[220px]">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-primary">Daily Trend</h3>
-              <span className="text-xs font-semibold text-muted-foreground">
-                {dateRange.start && dateRange.end
-                  ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
-                  : "-"}
-              </span>
-            </div>
-            {dailyTotals.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No trend data.</p>
-            ) : (
-              <ExpenseDailyTrend
-                dailyTotals={dailyTotals}
-                isDarkTheme={isDarkTheme}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Duplicate Daily Trend card removed (compact chart kept above) */}
-
-      {/* Filters moved above, this block removed */}
-
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-72" />
+              </div>
+            </div>
+            <Skeleton className="h-9 w-36 rounded-md" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 rounded-xl" />
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            <Skeleton className="h-9 flex-1 rounded-md" />
+            <Skeleton className="h-9 w-36 rounded-md" />
+            <Skeleton className="h-9 w-36 rounded-md" />
+          </div>
+
+          <div className="space-y-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            ))}
+          </div>
         </div>
-      ) : expenses.length === 0 ? (
+      ) : !hasProperties ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <IndianRupee className="h-6 w-6 text-primary" />
@@ -1018,6 +1064,105 @@ export default function OwnerExpensesPage() {
                 </div>
               </div>
 
+              <div className="space-y-1.5" ref={categoryComboRef}>
+                <Label className="text-xs font-medium">Category</Label>
+                <div className="relative">
+                  <Input
+                    placeholder={
+                      categoryQuery
+                        ? "Search or select category"
+                        : EXPENSE_CATEGORY_LABEL[draft.category] ||
+                          "Search or select category"
+                    }
+                    value={categoryQuery}
+                    onFocus={() => {
+                      setCategoryDropdownOpen(true);
+                      setCategoryHighlightedIndex(0);
+                    }}
+                    onChange={(e) => {
+                      setCategoryQuery(e.target.value);
+                      setCategoryDropdownOpen(true);
+                      setCategoryHighlightedIndex(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setCategoryDropdownOpen(true);
+                        setCategoryHighlightedIndex((prev) =>
+                          Math.min(prev + 1, filteredCategoryOptions.length - 1),
+                        );
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setCategoryDropdownOpen(true);
+                        setCategoryHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                      }
+                      if (e.key === "Enter") {
+                        if (
+                          categoryDropdownOpen &&
+                          filteredCategoryOptions[categoryHighlightedIndex]
+                        ) {
+                          e.preventDefault();
+                          const category =
+                            filteredCategoryOptions[categoryHighlightedIndex];
+                          setDraft((prev) => ({ ...prev, category }));
+                          setCategoryQuery(EXPENSE_CATEGORY_LABEL[category]);
+                          setCategoryDropdownOpen(false);
+                          setCategoryHighlightedIndex(0);
+                        }
+                      }
+                      if (e.key === "Escape") {
+                        setCategoryDropdownOpen(false);
+                      }
+                    }}
+                    className="h-9 w-full"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+                    onClick={() => {
+                      setCategoryDropdownOpen((prev) => !prev);
+                      setCategoryHighlightedIndex(0);
+                    }}
+                  >
+                    ▾
+                  </button>
+                  {categoryDropdownOpen ? (
+                    <div className="absolute left-0 right-0 z-50 mt-1 min-w-full max-h-60 overflow-auto rounded-md border border-border bg-background shadow-lg">
+                      {filteredCategoryOptions.length > 0 ? (
+                        filteredCategoryOptions.map((category, index) => (
+                          <button
+                            key={category}
+                            type="button"
+                            className={
+                              "flex w-full items-center px-3 py-2 text-left text-sm transition-colors " +
+                              (index === categoryHighlightedIndex
+                                ? "bg-muted text-foreground"
+                                : "text-foreground hover:bg-muted")
+                            }
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                            }}
+                            onClick={() => {
+                              setDraft((prev) => ({ ...prev, category }));
+                              setCategoryQuery(EXPENSE_CATEGORY_LABEL[category]);
+                              setCategoryDropdownOpen(false);
+                              setCategoryHighlightedIndex(0);
+                            }}
+                          >
+                            {EXPENSE_CATEGORY_LABEL[category]}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No categories match your search.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Expense Title</Label>
                 <Input
@@ -1030,27 +1175,7 @@ export default function OwnerExpensesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Category</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={draft.category}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        category: e.target.value as ExpenseCategory,
-                      }))
-                    }
-                  >
-                    {EXPENSE_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {EXPENSE_CATEGORY_LABEL[category]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Amount (INR)</Label>
                   <Input
@@ -1065,28 +1190,6 @@ export default function OwnerExpensesPage() {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Status</Label>
-                  <select
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={draft.status}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        status: e.target.value as ExpenseStatus,
-                      }))
-                    }
-                  >
-                    {EXPENSE_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {EXPENSE_STATUS_LABEL[status]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Payment Mode</Label>
                   <select
@@ -1107,28 +1210,17 @@ export default function OwnerExpensesPage() {
                     ))}
                   </select>
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Vendor (optional)</Label>
-                  <Input
-                    placeholder="Vendor / Service Provider"
-                    value={draft.vendor_name}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, vendor_name: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Bill No. (optional)</Label>
-                  <Input
-                    placeholder="Invoice / Bill reference"
-                    value={draft.bill_number}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, bill_number: e.target.value }))
-                    }
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Bill No. (optional)</Label>
+                <Input
+                  placeholder="Invoice / Bill reference"
+                  value={draft.bill_number}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, bill_number: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="rounded-lg border border-border/70 p-3">

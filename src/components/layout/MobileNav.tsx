@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "../ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Sidebar } from "./Sidebar";
 
-export function MobileNav() {
+interface MobileNavProps {
+  isPhoneVerified: boolean;
+}
+
+export function MobileNav({ isPhoneVerified }: MobileNavProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -16,8 +20,17 @@ export function MobileNav() {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-60 p-0">
-        <Sidebar mobile onNavigate={() => setOpen(false)} />
+      <SheetContent
+        side="left"
+        className="w-60 p-0"
+        sheetTitle="Main navigation"
+        sheetDescription="Open the mobile navigation menu to access dashboard sections"
+      >
+        <Sidebar
+          mobile
+          onNavigate={() => setOpen(false)}
+          isPhoneVerified={isPhoneVerified}
+        />
       </SheetContent>
     </Sheet>
   );

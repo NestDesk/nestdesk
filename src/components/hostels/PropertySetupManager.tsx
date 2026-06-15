@@ -13,9 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { BuildingBlueprint } from "./setup/BuildingBlueprint";
 import { FloorRoomGenerator } from "./setup/FloorRoomGenerator";
 import { ActivatePropertyButton } from "./ActivatePropertyButton";
@@ -26,6 +26,7 @@ import type { Floor, Room } from "./setup/types";
 type Props = {
   hostelId: string;
   propertyName: string;
+  isPhoneVerified: boolean;
   isActive: boolean;
   tenantJoinToken?: string | null;
   propertyCode?: string | null;
@@ -38,6 +39,7 @@ type Step = "building-shell" | "add-rooms" | "blueprint" | "finalize";
 export function PropertySetupManager({
   hostelId,
   propertyName,
+  isPhoneVerified,
   isActive,
   tenantJoinToken,
   propertyCode,
@@ -1144,10 +1146,20 @@ export function PropertySetupManager({
                 </div>
               ) : canGoToFinalize ? (
                 <div className="mt-3 flex items-center gap-2">
-                  <ActivatePropertyButton hostelId={hostelId} />
-                  <span className="text-xs text-muted-foreground">
-                    Activation will generate tenant join token and property code.
-                  </span>
+                  <ActivatePropertyButton
+                    hostelId={hostelId}
+                    disabled={!isPhoneVerified}
+                    disabledReason="Phone number not verified. Verify from My Profile to activate property."
+                  />
+                  {!isPhoneVerified ? (
+                    <span className="text-xs text-amber-700 dark:text-amber-300">
+                      Verify phone number in My Profile before activation.
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Activation will generate tenant join token and property code.
+                    </span>
+                  )}
                 </div>
               ) : (
                 <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">

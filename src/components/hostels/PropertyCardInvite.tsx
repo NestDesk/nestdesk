@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Download, Hash, Link2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button";
 
 type Props = {
   joinToken: string;
@@ -87,10 +87,12 @@ export function PropertyCardInvite({
           <span className="flex-1 font-mono text-xs font-bold tracking-widest text-foreground">
             {propertyCode}
           </span>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
             onClick={copyCode}
-            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground"
+            className="w-[75px] h-6 rounded-lg text-[10px]"
           >
             {codeCopied ? (
               <Check className="h-2.5 w-2.5 text-emerald-500" />
@@ -98,7 +100,7 @@ export function PropertyCardInvite({
               <Copy className="h-2.5 w-2.5" />
             )}
             {codeCopied ? "Copied" : "Copy"}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -122,12 +124,12 @@ export function PropertyCardInvite({
               {joinUrl || "Loading…"}
             </span>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex flex-col gap-1.5 self-start">
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-6 rounded-lg px-2 text-[10px]"
+              className="w-[100px] h-6 rounded-lg px-2 text-[10px]"
               onClick={copyLink}
               disabled={!joinUrl}
             >
@@ -142,7 +144,7 @@ export function PropertyCardInvite({
               type="button"
               size="sm"
               variant="outline"
-              className="h-6 rounded-lg px-2 text-[10px]"
+              className="w-[100px] h-6 rounded-lg px-2 text-[10px]"
               onClick={downloadQr}
               disabled={!joinUrl}
             >

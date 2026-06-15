@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Copy, Download, Link2, QrCode, Check, Hash } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 type Props = {
   joinToken: string;

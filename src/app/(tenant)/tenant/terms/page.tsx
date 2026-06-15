@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, FileText, Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "../../../../components/ui/card";
+import { Separator } from "../../../../components/ui/separator";
+import { formatDateInIndia } from "../../../../lib/date";
 
 type TermsData = {
   hostel_name: string;
@@ -45,7 +46,7 @@ export default function TenantTermsPage() {
   const content = data?.terms?.content ?? null;
   const isDefault = data?.terms?.is_default ?? true;
   const updatedAt = data?.terms?.updated_at
-    ? new Date(data.terms.updated_at).toLocaleDateString("en-IN", {
+    ? formatDateInIndia(data.terms.updated_at, {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -84,9 +85,9 @@ export default function TenantTermsPage() {
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
           <div className="text-sm text-amber-600 dark:text-amber-400">
-            <span className="font-medium">Default terms shown.</span> Your property
-            owner has not yet customized the terms and conditions. Please contact
-            them for the official version.
+            <span className="font-medium"></span> Your property owner has not yet
+            customized and published the terms and conditions. Please contact them
+            for the official version.
           </div>
         </div>
       )}

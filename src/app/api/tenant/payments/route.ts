@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
 // GET /api/tenant/payments — Tenant reads their own payment history
 export async function GET() {
@@ -20,6 +20,8 @@ export async function GET() {
     id: string;
     amount: number;
     month: string;
+    billing_start?: string | null;
+    billing_end?: string | null;
     status: string;
     method: string | null;
     receipt_number: string | null;
@@ -48,7 +50,7 @@ export async function GET() {
   const { data: payments, error } = await admin
     .from("payments")
     .select(
-      "id, amount, month, status, method, receipt_number, notes, paid_on, created_at",
+      "id, amount, month, billing_start, billing_end, status, method, receipt_number, notes, paid_on, created_at",
     )
     .eq("tenant_id", tenant.id)
     .order("month", { ascending: false });
@@ -66,7 +68,7 @@ export async function GET() {
         .maybeSingle(),
       admin
         .from("property_billing")
-        .select("gst_number, pan_number, billing_address")
+        .select("gst_number, pan_number, upi_id, billing_address")
         .eq("hostel_id", tenant.hostel_id)
         .maybeSingle(),
       admin
@@ -88,6 +90,7 @@ export async function GET() {
     hostel_billing_address: billing?.billing_address ?? null,
     hostel_gst_number: billing?.gst_number ?? null,
     hostel_pan_number: billing?.pan_number ?? null,
+    hostel_upi_id: billing?.upi_id ?? null,
   }));
 
   const totalPaid = rows

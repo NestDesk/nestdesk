@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
+import {
+  getEffectivePlan,
+  type SubscriptionRecord,
+} from "../../../lib/subscriptions";
+import { getPlanLimitsForOwner } from "../../../lib/subscription-plans";
 
 const createHostelSchema = z.object({
   hostelName: z.string().min(2).max(200),
@@ -136,7 +141,7 @@ export async function GET() {
 
   const hostelsResult = await admin
     .from("hostels")
-    .select("id, name, city, state")
+    .select("id, name, city, state, is_active")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
 
@@ -194,7 +199,7 @@ export async function POST(request: NextRequest) {
 
   const ownerResult = await admin
     .from("owners")
-    .select("id")
+    .select("id, plan")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -207,6 +212,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Complete onboarding before adding properties." },
       { status: 409 },
+    );
+  }
+
+  const { data: currentSubscription } = await admin
+    .from("subscriptions")
+    .select("plan, status, ends_at")
+    .eq("owner_id", ownerId)
+    .in("status", ["active", "grace_period"])
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SubscriptionRecord>();
+
+  const effectivePlan = getEffectivePlan(currentSubscription ?? null);
+  const ownerPlanLimits = await getPlanLimitsForOwner(
+    admin,
+    effectivePlan,
+    ownerId,
+  );
+  const { count: existingHostelCount, error: hostelCountError } = await admin
+    .from("hostels")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId);
+
+  if (hostelCountError) {
+    return NextResponse.json({ error: hostelCountError.message }, { status: 500 });
+  }
+
+  if ((existingHostelCount ?? 0) >= ownerPlanLimits.maxProperties) {
+    return NextResponse.json(
+      {
+        error: `Your current plan allows up to ${ownerPlanLimits.maxProperties} propert${
+          ownerPlanLimits.maxProperties === 1 ? "y" : "ies"
+        }. Upgrade your plan to add more properties.`,
+      },
+      { status: 403 },
     );
   }
 

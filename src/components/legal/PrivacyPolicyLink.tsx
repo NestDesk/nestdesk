@@ -15,7 +15,7 @@ export function PrivacyPolicyLink({ className = "" }: { className?: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`underline underline-offset-2 hover:text-white transition-colors ${className}`}
+        className={`underline underline-offset-2 hover:text-foreground transition-colors ${className}`}
       >
         Privacy Policy
       </button>

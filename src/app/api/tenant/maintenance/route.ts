@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { notifyMaintenanceOwnerByWhatsApp } from "../../../../lib/messaging/maintenance";
 
 // ── GET /api/tenant/maintenance ─────────────────────────────────────────────
 export async function GET() {
@@ -25,12 +26,21 @@ export async function GET() {
     return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
   }
 
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+
   const { data, error } = await admin
     .from("maintenance_requests")
     .select("id, title, description, status, created_at, updated_at")
     .eq("tenant_id", tenant.id)
+    .gte("created_at", monthStart)
+    .lt("created_at", monthEnd)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
+
+  const maintenanceLimit = 3;
+  const requestsRaised = data?.length ?? 0;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -67,7 +77,12 @@ export async function GET() {
     owner_comments: commentsByRequest.get(row.id) ?? [],
   }));
 
-  return NextResponse.json({ requests });
+  return NextResponse.json({
+    requests,
+    maintenanceLimit,
+    requestsRaised,
+    requestsRemaining: Math.max(0, maintenanceLimit - requestsRaised),
+  });
 }
 
 // ── POST /api/tenant/maintenance ────────────────────────────────────────────
@@ -112,18 +127,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
   }
 
-  const { error } = await admin.from("maintenance_requests").insert({
-    hostel_id: tenant.hostel_id,
-    tenant_id: tenant.id,
-    title: parsed.data.title,
-    description: parsed.data.description ?? null,
-    status: "open",
-    updated_at: new Date().toISOString(),
-  });
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+
+  const { count, error: countError } = await admin
+    .from("maintenance_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenant.id)
+    .gte("created_at", monthStart)
+    .lt("created_at", monthEnd)
+    .is("deleted_at", null);
+
+  if (countError) {
+    return NextResponse.json({ error: countError.message }, { status: 500 });
+  }
+
+  if ((count ?? 0) >= 3) {
+    return NextResponse.json(
+      { error: "You can raise up to 3 maintenance requests this month." },
+      { status: 403 },
+    );
+  }
+
+  const { data: insertedRequest, error } = await admin
+    .from("maintenance_requests")
+    .insert({
+      hostel_id: tenant.hostel_id,
+      tenant_id: tenant.id,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      status: "open",
+      updated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  try {
+    await notifyMaintenanceOwnerByWhatsApp({
+      hostelId: tenant.hostel_id,
+      tenantId: tenant.id,
+      issueHeading: parsed.data.title,
+      issueDescription: parsed.data.description ?? null,
+    });
+  } catch (notificationError) {
+    console.error("Failed to notify owner about maintenance request", notificationError);
+  }
+
+  return NextResponse.json({ success: true, maintenanceRequestId: insertedRequest?.id });
 }

@@ -20,15 +20,15 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { PropertyDangerZone } from "@/components/hostels/PropertyDangerZone";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "../ui/accordion";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
+import { PropertyDangerZone } from "../hostels/PropertyDangerZone";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,7 @@ type Hostel = {
 type BillingData = {
   gst_number?: string | null;
   pan_number?: string | null;
+  upi_id?: string | null;
   business_name?: string | null;
   billing_address?: string | null;
 };
@@ -143,6 +144,7 @@ function buildPropertyBillingMap(
       address: fullAddress,
       gst_number: null,
       pan_number: null,
+      upi_id: null,
       business_name: property.name,
       billing_address: fullAddress,
     };
@@ -214,6 +216,7 @@ function BillingSection({ properties }: { properties: Hostel[] }) {
                 d[property.id]?.gst_number ?? prev[property.id]?.gst_number ?? null,
               pan_number:
                 d[property.id]?.pan_number ?? prev[property.id]?.pan_number ?? null,
+              upi_id: d[property.id]?.upi_id ?? prev[property.id]?.upi_id ?? null,
             };
           }
           return next;
@@ -228,9 +231,16 @@ function BillingSection({ properties }: { properties: Hostel[] }) {
     fetchBilling();
   }, [properties]);
 
+  const UPI_ID_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9.\-_]{2,64}$/;
+
   async function saveBilling() {
     const current = billingMap[activeTab];
     if (!current) return;
+
+    if (current.upi_id && !UPI_ID_REGEX.test(current.upi_id.trim())) {
+      toast.error("Enter a valid UPI ID, for example alice@okhdfcbank.");
+      return;
+    }
 
     setSavingId(activeTab);
     const res = await fetch("/api/settings/property-billing", {
@@ -240,6 +250,7 @@ function BillingSection({ properties }: { properties: Hostel[] }) {
         hostel_id: activeTab,
         gst_number: current.gst_number,
         pan_number: current.pan_number,
+        upi_id: current.upi_id,
         business_name: current.business_name,
         billing_address: current.billing_address,
       }),
@@ -294,7 +305,7 @@ function BillingSection({ properties }: { properties: Hostel[] }) {
 
       {/* Billing Form */}
       {current && (
-        <div className="space-y-4">
+        <div className="space-y-4 p-2">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">
@@ -339,25 +350,47 @@ function BillingSection({ properties }: { properties: Hostel[] }) {
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Business / Trade Name
-            </Label>
-            <Input
-              placeholder="Registered business name"
-              maxLength={120}
-              value={current.business_name ?? ""}
-              onChange={(e) =>
-                setBillingMap((p) => ({
-                  ...p,
-                  [activeTab]: {
-                    ...p[activeTab],
-                    business_name: e.target.value || null,
-                  },
-                }))
-              }
-              className="h-9 text-sm"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                UPI ID <span className="text-muted-foreground/50">(optional)</span>
+              </Label>
+              <Input
+                placeholder="e.g. alice@okhdfcbank"
+                maxLength={64}
+                value={current.upi_id ?? ""}
+                onChange={(e) =>
+                  setBillingMap((p) => ({
+                    ...p,
+                    [activeTab]: {
+                      ...p[activeTab],
+                      upi_id: e.target.value || null,
+                    },
+                  }))
+                }
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Business / Trade Name
+              </Label>
+              <Input
+                placeholder="Registered business name"
+                maxLength={120}
+                value={current.business_name ?? ""}
+                onChange={(e) =>
+                  setBillingMap((p) => ({
+                    ...p,
+                    [activeTab]: {
+                      ...p[activeTab],
+                      business_name: e.target.value || null,
+                    },
+                  }))
+                }
+                className="h-9 text-sm"
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Billing Address</Label>
@@ -375,7 +408,7 @@ function BillingSection({ properties }: { properties: Hostel[] }) {
                   },
                 }))
               }
-              className="text-sm resize-none"
+              className="w-full text-sm resize-none"
             />
           </div>
           <div className="flex justify-end">
@@ -458,7 +491,7 @@ function TermsSection({ properties }: { properties: Hostel[] }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 p-2">
       {/* Property tabs */}
       {properties.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
@@ -665,7 +698,7 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
                 maxLength={80}
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="h-9 text-sm"
+                className="h-9 mx-1 text-sm"
               />
             </div>
             <div className="space-y-1.5">
@@ -680,7 +713,7 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
                     phone: e.target.value.replace(/\D/g, ""),
                   }))
                 }
-                className="h-9 text-sm"
+                className="h-9 mx-1 text-sm"
               />
             </div>
           </div>
@@ -694,7 +727,7 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
                 onChange={(e) =>
                   setForm((p) => ({ ...p, designation: e.target.value }))
                 }
-                className="h-9 text-sm"
+                className="h-9 mx-1 text-sm"
               />
             </div>
             <div className="space-y-1.5">

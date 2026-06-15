@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatDateInIndia } from "../../../lib/date";
 import {
   Building2,
   CalendarDays,
@@ -21,33 +22,33 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent } from "../../../components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { DatePicker } from "@/components/ui/DatePicker";
+} from "../../../components/ui/dialog";
+import { DatePicker } from "../../../components/ui/DatePicker";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "../../../components/ui/dropdown-menu";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 import {
   RecordPaymentModal,
   type PaymentMethod,
-} from "@/components/payments/RecordPaymentModal";
-import { calculateRent } from "@/lib/billing";
-import { printInvoice } from "@/lib/invoice";
-import { cn } from "@/lib/utils";
+} from "../../../components/payments/RecordPaymentModal";
+import { calculateRent } from "../../../lib/billing";
+import { printInvoice } from "../../../lib/invoice";
+import { cn } from "../../../lib/utils";
 
 type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
 
@@ -66,6 +67,8 @@ type TenantRow = {
   profile_photo_url: string | null;
   profile_completion_percentage: number;
   agreed_rent_amount: number | null;
+  security_deposit: number | null;
+  security_deposit_returned: number | null;
   join_date: string | null;
   rent_start_date: string | null;
   move_out_date: string | null;
@@ -106,6 +109,8 @@ type TenantDraft = {
   status: TenantStatus;
   roomId: string | null;
   agreedRentAmount: string;
+  securityDeposit: string;
+  securityDepositReturned: string;
   joinDate: string;
   rentStartDate: string;
   moveOutDate: string;
@@ -138,7 +143,7 @@ type TenantProfileDetail = {
   status: TenantStatus;
   occupation_type: string | null;
   institution_name: string | null;
-  aadhar_number: string | null;
+  aadhar_last4: string | null;
   profile_photo_url: string | null;
   aadhar_front_url: string | null;
   aadhar_back_url: string | null;
@@ -146,6 +151,7 @@ type TenantProfileDetail = {
   profile_completion_percentage: number;
   profile_completion_missing: string[];
   agreed_rent_amount: number | null;
+  security_deposit: number | null;
   join_date: string | null;
   rent_start_date: string | null;
   move_out_date: string | null;
@@ -157,6 +163,7 @@ type TenantProfileDetail = {
 type ApprovalDraft = {
   roomId: string;
   agreedRentAmount: string;
+  securityDeposit: string;
   joinDate: string;
   rentStartDate: string;
 };
@@ -214,10 +221,7 @@ function normalizeRentInput(value: string) {
 }
 
 function formatDate(date: string | null) {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleDateString("en-IN", {
+  return formatDateInIndia(date, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -249,7 +253,7 @@ function formatAmount(n: number) {
 function formatMonthLabel(monthStr: string) {
   const [year, month] = monthStr.split("-").map(Number);
   if (!year || !month) return monthStr;
-  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+  return formatDateInIndia(new Date(year, month - 1, 1), {
     month: "short",
     year: "numeric",
   });
@@ -322,7 +326,7 @@ function calculatePendingBreakdown(
     );
 
     rows.push({
-      monthLabel: periodStart.toLocaleDateString("en-IN", {
+      monthLabel: formatDateInIndia(periodStart, {
         month: "short",
         year: "numeric",
       }),
@@ -412,6 +416,7 @@ export default function OwnerTenantsPage() {
   const [approvalDraft, setApprovalDraft] = useState<ApprovalDraft>({
     roomId: "",
     agreedRentAmount: "",
+    securityDeposit: "",
     joinDate: "",
     rentStartDate: "",
   });
@@ -446,7 +451,7 @@ export default function OwnerTenantsPage() {
   const loadPaymentCoverage = useCallback(async (tenantRows: TenantRow[]) => {
     const activeRows = tenantRows.filter(
       (tenant) =>
-        tenant.status === "active" &&
+        (tenant.status === "active" || tenant.status === "moved_out") &&
         !!tenant.rent_start_date &&
         !!tenant.agreed_rent_amount &&
         tenant.agreed_rent_amount > 0,
@@ -487,8 +492,12 @@ export default function OwnerTenantsPage() {
 
       for (const tenant of activeRows) {
         const coveredTill = latestPaidEndByTenant.get(tenant.id) ?? null;
+        const effectiveEnd =
+          tenant.status === "moved_out" && tenant.move_out_date
+            ? tenant.move_out_date
+            : today;
 
-        if (coveredTill && coveredTill >= today) {
+        if (coveredTill && coveredTill >= effectiveEnd) {
           nextCoverage[tenant.id] = {
             status: "paid",
             coveredTill,
@@ -504,7 +513,7 @@ export default function OwnerTenantsPage() {
           ? addDays(coveredTill, 1)
           : tenant.rent_start_date!;
 
-        if (pendingFrom > today) {
+        if (pendingFrom > effectiveEnd) {
           nextCoverage[tenant.id] = {
             status: "paid",
             coveredTill,
@@ -519,7 +528,7 @@ export default function OwnerTenantsPage() {
         const pendingBreakdown = calculatePendingBreakdown(
           Number(tenant.agreed_rent_amount),
           pendingFrom,
-          today,
+          effectiveEnd,
         );
         const pendingAmount =
           Math.round(
@@ -530,7 +539,7 @@ export default function OwnerTenantsPage() {
           status: pendingAmount > 0 ? "pending" : "paid",
           coveredTill,
           pendingFrom: pendingAmount > 0 ? pendingFrom : null,
-          pendingTo: pendingAmount > 0 ? today : null,
+          pendingTo: pendingAmount > 0 ? effectiveEnd : null,
           pendingAmount: pendingAmount > 0 ? pendingAmount : 0,
           pendingBreakdown: pendingAmount > 0 ? pendingBreakdown : [],
         };
@@ -645,8 +654,14 @@ export default function OwnerTenantsPage() {
           status: tenant.status,
           roomId: tenant.room_id,
           agreedRentAmount:
-            tenant.agreed_rent_amount !== null
+            tenant.agreed_rent_amount != null
               ? String(tenant.agreed_rent_amount)
+              : "",
+          securityDeposit:
+            tenant.security_deposit != null ? String(tenant.security_deposit) : "",
+          securityDepositReturned:
+            tenant.security_deposit_returned != null
+              ? String(tenant.security_deposit_returned)
               : "",
           joinDate,
           rentStartDate,
@@ -720,18 +735,48 @@ export default function OwnerTenantsPage() {
       return;
     }
 
-    if (!draft.roomId) {
+    if (draft.status === "active" && !draft.roomId) {
       toast.error("Room assignment is required.");
       return;
     }
 
-    if (!draft.agreedRentAmount) {
+    if (draft.status === "active" && !draft.securityDeposit) {
+      toast.error("Security deposit amount is required to activate a tenant.");
+      return;
+    }
+
+    if (draft.status === "moved_out" && draft.securityDepositReturned === "") {
+      toast.error("Security deposit returned amount is required when moving out.");
+      return;
+    }
+
+    if (draft.status === "moved_out" && !draft.moveOutDate) {
+      toast.error("Move-out date is required when moving out.");
+      return;
+    }
+
+    if (
+      draft.status === "moved_out" &&
+      draft.moveOutDate &&
+      draft.joinDate &&
+      draft.moveOutDate < draft.joinDate
+    ) {
+      toast.error("Move-out date cannot be before join date.");
+      return;
+    }
+
+    if (draft.status !== "moved_out" && !draft.agreedRentAmount) {
       toast.error("Agreed rent amount is required.");
       return;
     }
 
-    if (!draft.joinDate) {
+    if (draft.status !== "moved_out" && !draft.joinDate) {
       toast.error("Join date is required.");
+      return;
+    }
+
+    if (draft.status !== "moved_out" && !draft.rentStartDate) {
+      toast.error("Rent start date is required.");
       return;
     }
 
@@ -746,6 +791,13 @@ export default function OwnerTenantsPage() {
         agreedRentAmount: draft.agreedRentAmount
           ? Number(draft.agreedRentAmount)
           : null,
+        securityDeposit: draft.securityDeposit
+          ? Number(draft.securityDeposit)
+          : null,
+        securityDepositReturned:
+          draft.status === "moved_out" && draft.securityDepositReturned !== ""
+            ? Number(draft.securityDepositReturned)
+            : null,
         joinDate: draft.joinDate || null,
         rentStartDate: draft.rentStartDate || null,
         moveOutDate: draft.status === "moved_out" ? draft.moveOutDate || null : null,
@@ -771,6 +823,7 @@ export default function OwnerTenantsPage() {
               status: TenantStatus;
               first_activated_at: string | null;
               agreed_rent_amount: number | null;
+              security_deposit: number | null;
               join_date: string | null;
               rent_start_date: string | null;
               move_out_date: string | null;
@@ -804,6 +857,7 @@ export default function OwnerTenantsPage() {
                 (roomsByHostel[row.hostel_id] ?? []).find(
                   (room) => room.id === payload.roomId,
                 )?.room_number ?? null,
+              security_deposit: payload.securityDeposit,
               join_date: payload.joinDate,
               rent_start_date: payload.rentStartDate,
               move_out_date: payload.moveOutDate,
@@ -825,6 +879,7 @@ export default function OwnerTenantsPage() {
               (roomsByHostel[row.hostel_id] ?? []).find(
                 (room) => room.id === updatedTenant.room_id,
               )?.room_number ?? null,
+            security_deposit: updatedTenant.security_deposit,
             join_date: updatedTenant.join_date,
             rent_start_date: updatedTenant.rent_start_date,
             move_out_date: updatedTenant.move_out_date,
@@ -882,6 +937,8 @@ export default function OwnerTenantsPage() {
       roomId: tenant.room_id ?? "",
       agreedRentAmount:
         tenant.agreed_rent_amount !== null ? String(tenant.agreed_rent_amount) : "",
+      securityDeposit:
+        tenant.security_deposit !== null ? String(tenant.security_deposit) : "",
       joinDate: tenant.join_date ?? "",
       rentStartDate: tenant.rent_start_date ?? "",
     });
@@ -913,6 +970,10 @@ export default function OwnerTenantsPage() {
           profile.agreed_rent_amount !== null
             ? String(profile.agreed_rent_amount)
             : prev.agreedRentAmount,
+        securityDeposit:
+          profile.security_deposit !== null
+            ? String(profile.security_deposit)
+            : prev.securityDeposit,
         joinDate: profile.join_date ?? prev.joinDate,
         rentStartDate: profile.rent_start_date ?? prev.rentStartDate,
       }));
@@ -1358,10 +1419,13 @@ export default function OwnerTenantsPage() {
                             {tenant.hostel_name}
                           </span>
 
-                          {tenant.join_date ? (
+                          {(tenant.rent_start_date ?? tenant.join_date) ? (
                             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                               <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                              Joined {formatDate(tenant.join_date)}
+                              Rent start{" "}
+                              {formatDate(
+                                tenant.rent_start_date ?? tenant.join_date,
+                              )}
                             </span>
                           ) : null}
 
@@ -1392,19 +1456,20 @@ export default function OwnerTenantsPage() {
                               Profile {tenant.profile_completion_percentage}%
                             </span>
 
-                            {tenant.status === "active" && coverage ? (
+                            {coverage ? (
                               <button
                                 type="button"
                                 onClick={() => openPendingInfo(tenant, coverage)}
                                 className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                  "rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap",
                                   coverage.status === "paid"
                                     ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
                                     : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300",
                                 )}
                               >
-                                Rent{" "}
-                                {coverage.status === "paid" ? "Paid" : "Pending"}
+                                {coverage.status === "paid"
+                                  ? "Rent Paid"
+                                  : `Rent Pending ${formatAmount(coverage.pendingAmount)}`}
                               </button>
                             ) : null}
                           </div>
@@ -1425,7 +1490,7 @@ export default function OwnerTenantsPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="h-8 border-r border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-emerald-500/5 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-400"
+                                  className="h-8 border-r border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-emerald-500/5 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-400 whitespace-nowrap"
                                   onClick={() => openRecordPayment(tenant)}
                                   disabled={tenant.status !== "active"}
                                   title={
@@ -1544,7 +1609,20 @@ export default function OwnerTenantsPage() {
                               }
                             >
                               {STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
+                                <option
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={
+                                    option.value === "active" &&
+                                    !draft.securityDeposit
+                                  }
+                                  title={
+                                    option.value === "active" &&
+                                    !draft.securityDeposit
+                                      ? "Fill security deposit before activating"
+                                      : undefined
+                                  }
+                                >
                                   {option.label}
                                 </option>
                               ))}
@@ -1564,7 +1642,10 @@ export default function OwnerTenantsPage() {
                               id={`room-${tenant.id}`}
                               className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                               value={draft.roomId ?? ""}
-                              disabled={savingId === tenant.id}
+                              disabled={
+                                savingId === tenant.id ||
+                                draft.status === "moved_out"
+                              }
                               onChange={(e) =>
                                 updateDraft(
                                   tenant.id,
@@ -1603,7 +1684,7 @@ export default function OwnerTenantsPage() {
                               htmlFor={`rent-${tenant.id}`}
                               className="text-xs font-medium"
                             >
-                              Agreed Rent per month
+                              Agreed Rent/month
                               <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <div className="relative">
@@ -1619,7 +1700,40 @@ export default function OwnerTenantsPage() {
                                   )
                                 }
                                 placeholder="Monthly rent"
-                                disabled={savingId === tenant.id}
+                                disabled={
+                                  savingId === tenant.id ||
+                                  draft.status === "moved_out"
+                                }
+                                className="h-9 w-full pl-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor={`security-${tenant.id}`}
+                              className="text-xs font-medium"
+                            >
+                              Security Deposit
+                              <span className="ml-1 text-rose-500">*</span>
+                            </Label>
+                            <div className="relative">
+                              <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                id={`security-${tenant.id}`}
+                                value={draft.securityDeposit}
+                                onChange={(e) =>
+                                  updateDraft(
+                                    tenant.id,
+                                    "securityDeposit",
+                                    normalizeRentInput(e.target.value),
+                                  )
+                                }
+                                placeholder="Security deposit"
+                                disabled={
+                                  savingId === tenant.id ||
+                                  draft.status === "moved_out"
+                                }
                                 className="h-9 w-full pl-8 text-sm"
                               />
                             </div>
@@ -1637,7 +1751,10 @@ export default function OwnerTenantsPage() {
                             <DatePicker
                               id={`join-${tenant.id}`}
                               value={draft.joinDate}
-                              disabled={savingId === tenant.id}
+                              disabled={
+                                savingId === tenant.id ||
+                                draft.status === "moved_out"
+                              }
                               onChange={(value) =>
                                 updateDraft(tenant.id, "joinDate", value)
                               }
@@ -1657,7 +1774,10 @@ export default function OwnerTenantsPage() {
                             <DatePicker
                               id={`rentstart-${tenant.id}`}
                               value={draft.rentStartDate}
-                              disabled={savingId === tenant.id}
+                              disabled={
+                                savingId === tenant.id ||
+                                draft.status === "moved_out"
+                              }
                               onChange={(value) =>
                                 updateDraft(tenant.id, "rentStartDate", value)
                               }
@@ -1676,13 +1796,14 @@ export default function OwnerTenantsPage() {
                             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/80">
                               Move-out
                             </p>
-                            <div className="sm:max-w-xs">
+                            <div className="grid gap-3 sm:grid-cols-4">
                               <div className="space-y-1.5">
                                 <Label
                                   htmlFor={`moveout-${tenant.id}`}
                                   className="text-xs font-medium"
                                 >
                                   Move-out Date
+                                  <span className="ml-1 text-rose-500">*</span>
                                 </Label>
                                 <DatePicker
                                   id={`moveout-${tenant.id}`}
@@ -1692,8 +1813,34 @@ export default function OwnerTenantsPage() {
                                     updateDraft(tenant.id, "moveOutDate", value)
                                   }
                                   placeholder="Select move-out date"
-                                  className="h-9 text-sm"
+                                  className="h-9 text-sm w-full"
                                 />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label
+                                  htmlFor={`security-returned-${tenant.id}`}
+                                  className="text-xs font-medium"
+                                >
+                                  Security deposit returned
+                                  <span className="ml-1 text-rose-500">*</span>
+                                </Label>
+                                <div className="relative">
+                                  <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                  <Input
+                                    id={`security-returned-${tenant.id}`}
+                                    value={draft.securityDepositReturned}
+                                    onChange={(e) =>
+                                      updateDraft(
+                                        tenant.id,
+                                        "securityDepositReturned",
+                                        normalizeRentInput(e.target.value),
+                                      )
+                                    }
+                                    placeholder="Amount returned"
+                                    disabled={savingId === tenant.id}
+                                    className="h-9 w-full pl-8 text-sm"
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1745,7 +1892,7 @@ export default function OwnerTenantsPage() {
       )}
 
       <Dialog open={reviewOpen} onOpenChange={closeReview}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Tenant Profile Review</DialogTitle>
             <DialogDescription>
@@ -1829,7 +1976,7 @@ export default function OwnerTenantsPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Aadhaar</p>
                   <p className="text-sm font-medium text-foreground">
-                    {maskAadhaar(reviewTenant.aadhar_number)}
+                    {maskAadhaar(reviewTenant.aadhar_last4)}
                   </p>
                 </div>
                 <div>
@@ -1903,8 +2050,8 @@ export default function OwnerTenantsPage() {
                     <ShieldCheck className="h-3.5 w-3.5" /> Approval
                   </p>
 
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-6">
-                    <div className="sm:col-span-1">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-12">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-room" className="text-xs">
                         Room
                       </Label>
@@ -1924,9 +2071,9 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-1">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-rent" className="text-xs">
-                        Agreed Rent Per Month
+                        Agreed Rent/Month
                       </Label>
                       <Input
                         id="approval-rent"
@@ -1942,7 +2089,7 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-join-date" className="text-xs">
                         Join Date
                       </Label>
@@ -1961,7 +2108,7 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-3">
                       <Label htmlFor="approval-rent-start-date" className="text-xs">
                         Rent Start Date
                       </Label>
@@ -2157,16 +2304,24 @@ export default function OwnerTenantsPage() {
             </div>
           ) : pendingInfoDetail ? (
             <div className="space-y-2 rounded-lg border border-orange-300 bg-orange-50 px-3 py-3 text-sm text-orange-800 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300">
-              <p>Pending Amount: {formatAmount(pendingInfoDetail.pendingAmount)}</p>
-              <p>
-                Pending Period: {formatDate(pendingInfoDetail.pendingFrom)} -{" "}
-                {formatDate(pendingInfoDetail.pendingTo)}
-              </p>
-              {pendingInfoDetail.coveredTill ? (
-                <p>Last Paid Till: {formatDate(pendingInfoDetail.coveredTill)}</p>
-              ) : (
-                <p>No paid period found yet.</p>
-              )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p>
+                    Pending Amount: {formatAmount(pendingInfoDetail.pendingAmount)}
+                  </p>
+                  <p>
+                    Pending Period: {formatDate(pendingInfoDetail.pendingFrom)} -{" "}
+                    {formatDate(pendingInfoDetail.pendingTo)}
+                  </p>
+                  {pendingInfoDetail.coveredTill ? (
+                    <p>
+                      Last Paid Till: {formatDate(pendingInfoDetail.coveredTill)}
+                    </p>
+                  ) : (
+                    <p>No paid period found yet.</p>
+                  )}
+                </div>
+              </div>
 
               {pendingInfoDetail.pendingBreakdown.length > 0 ? (
                 <div className="mt-3 overflow-hidden rounded-md border border-orange-200/70 bg-background/70 dark:border-orange-500/30">

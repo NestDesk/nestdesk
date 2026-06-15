@@ -8,12 +8,12 @@ import {
   Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ActivatePropertyButton } from "@/components/hostels/ActivatePropertyButton";
-import { PropertyCardInvite } from "@/components/hostels/PropertyCardInvite";
+import { createClient } from "../../../lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { ActivatePropertyButton } from "../../../components/hostels/ActivatePropertyButton";
+import { PropertyCardInvite } from "../../../components/hostels/PropertyCardInvite";
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   pg: "PG",
@@ -43,6 +43,20 @@ type FloorOrRoomRow = {
 
 export default async function PropertiesPage() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: owner } = user
+    ? await supabase
+        .from("owners")
+        .select("phone_verified")
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const isPhoneVerified = owner?.phone_verified ?? false;
 
   const { data: hostels, error } = await supabase
     .from("hostels")
@@ -272,7 +286,11 @@ export default async function PropertiesPage() {
                           <p className="text-xs text-foreground/80">
                             Floor plan complete. You can activate this property now.
                           </p>
-                          <ActivatePropertyButton hostelId={property.id} />
+                          <ActivatePropertyButton
+                            hostelId={property.id}
+                            disabled={!isPhoneVerified}
+                            disabledReason="Phone number not verified. Verify from My Profile to activate property."
+                          />
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">

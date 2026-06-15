@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Building2, Pencil, Trash2, Loader2, X, Check } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
 import {
   occupancyColor,
   occupancyLabel,

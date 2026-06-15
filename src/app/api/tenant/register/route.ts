@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createServerClient } from "@supabase/ssr";
-import { validateSupabaseEnv } from "@/lib/supabase/env-check";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import {
+  isValidAadhaarNumber,
+  normalizeAadhaarNumber,
+} from "../../../../lib/aadhaar";
+import { encryptAadhaar, hashAadhaar } from "../../../../lib/aadhaar-encryption";
+import {
+  applySupabaseCookies,
+  isExistingUserError,
+  registerWithEmailPassword,
+} from "../../../../lib/auth";
 
 function getClientIp(req: NextRequest): string {
   return (
@@ -23,6 +30,7 @@ const bodySchema = z.object({
     .regex(/^\d{10}$/, "Enter a valid 10-digit phone number.")
     .optional()
     .or(z.literal("")),
+  phoneVerified: z.boolean().optional().default(false),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters.")
@@ -75,6 +83,7 @@ export async function POST(request: NextRequest) {
     fullName,
     email,
     phone,
+    phoneVerified,
     password,
     occupationType,
     institutionName,
@@ -121,88 +130,57 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── 2. Create Supabase Auth user ────────────────────────────────────────
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin;
+  if (normalizedAadhaar) {
+    const aadhaarHash = hashAadhaar(normalizedAadhaar);
+    const { data: existingTenant, error: existingTenantError } = await admin
+      .from("tenants")
+      .select("id")
+      .eq("aadhar_number_hash", aadhaarHash)
+      .maybeSingle();
 
-  let authUserId: string;
-  let requiresEmailVerification: boolean;
-
-  // Collect session cookies to attach to the final response
-  const cookiesToSet: Array<{
-    name: string;
-    value: string;
-    options: Record<string, unknown>;
-  }> = [];
-
-  const { url, anonKey } = validateSupabaseEnv();
-  const supabaseClient = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookies) {
-        cookiesToSet.push(...cookies);
-      },
-    },
-  });
-
-  if (process.env.NODE_ENV !== "production") {
-    // Dev: create confirmed user immediately
-    const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: fullName, role: "tenant" },
-    });
-
-    if (createError) {
-      if (createError.message.toLowerCase().includes("already")) {
-        return NextResponse.json(
-          { error: "An account with this email already exists. Please sign in." },
-          { status: 409 },
-        );
-      }
-      return NextResponse.json({ error: createError.message }, { status: 400 });
-    }
-
-    authUserId = created.user.id;
-    requiresEmailVerification = false;
-
-    // Sign the user in immediately so session cookies are set on this response.
-    // Without this, client-side router.push("/tenant/...") has no active session.
-    await supabaseClient.auth.signInWithPassword({ email, password });
-  } else {
-    // Prod: sign up via Supabase (sends verification email)
-    const { data: signUpData, error: signUpError } =
-      await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName, role: "tenant" },
-          emailRedirectTo: `${appUrl}/auth/callback`,
-        },
-      });
-
-    if (signUpError) {
-      if (signUpError.message.toLowerCase().includes("already")) {
-        return NextResponse.json(
-          { error: "An account with this email already exists. Please sign in." },
-          { status: 409 },
-        );
-      }
-      return NextResponse.json({ error: signUpError.message }, { status: 400 });
-    }
-
-    if (!signUpData.user) {
+    if (existingTenantError) {
       return NextResponse.json(
-        { error: "Account creation failed. Please try again." },
+        { error: existingTenantError.message },
         { status: 500 },
       );
     }
 
-    authUserId = signUpData.user.id;
-    requiresEmailVerification = !signUpData.user.confirmed_at;
+    if (existingTenant) {
+      return NextResponse.json(
+        { error: "This Aadhaar number is already linked to an existing tenant." },
+        { status: 409 },
+      );
+    }
   }
+
+  const {
+    data: authData,
+    error: createError,
+    cookiesToSet,
+  } = await registerWithEmailPassword(request, {
+    email,
+    password,
+    metadata: { full_name: fullName, role: "tenant" },
+  });
+
+  if (createError) {
+    if (isExistingUserError(createError.message)) {
+      return NextResponse.json(
+        { error: "An account with this email already exists. Please sign in." },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ error: createError.message }, { status: 400 });
+  }
+
+  if (!authData.user?.id) {
+    return NextResponse.json(
+      { error: "Account creation failed. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  const authUserId = authData.user.id;
 
   // ── 3. Insert tenant row ─────────────────────────────────────────────────
   const { error: tenantError } = await admin.from("tenants").insert({
@@ -212,26 +190,45 @@ export async function POST(request: NextRequest) {
     full_name: fullName,
     email,
     phone: phone || null,
+    phone_verified: phoneVerified && Boolean(phone),
+    phone_verified_at: phoneVerified && Boolean(phone) ? new Date().toISOString() : null,
     occupation_type: occupationType,
     institution_name: institutionName,
     gender,
-    aadhar_number: normalizedAadhaar,
+    aadhar_number: normalizedAadhaar ? encryptAadhaar(normalizedAadhaar) : null,
+    aadhar_number_hash: normalizedAadhaar ? hashAadhaar(normalizedAadhaar) : null,
     aadhar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : null,
     status: "pending",
   });
 
   if (tenantError) {
     if (
-      tenantError.message.toLowerCase().includes("idx_tenants_aadhar_number_unique")
+      tenantError.message
+        .toLowerCase()
+        .includes("idx_tenants_aadhar_number_hash_unique") ||
+      tenantError.message.toLowerCase().includes("aadhar_number_hash")
     ) {
+      await admin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+
       return NextResponse.json(
         { error: "This Aadhaar number is already linked to an existing tenant." },
         { status: 409 },
       );
     }
-    // If tenant row insert fails but auth user was created in prod,
-    // the verification email is already sent — user can still verify and we
-    // can handle orphan cleanup separately. For now return the error.
+
+    const deleteResult = await admin.auth.admin.deleteUser(authUserId);
+    if (deleteResult.error) {
+      return NextResponse.json(
+        {
+          error:
+            "Tenant registration failed and cleanup could not be completed. " +
+            "Please contact support.",
+          details: [tenantError.message, deleteResult.error.message],
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({ error: tenantError.message }, { status: 500 });
   }
 
@@ -264,21 +261,11 @@ export async function POST(request: NextRequest) {
 
   const payload = {
     success: true,
-    requiresEmailVerification,
-    redirectTo: requiresEmailVerification ? null : "/tenant/profile",
-    message: requiresEmailVerification
-      ? "Account created. Please check your email to verify your account."
-      : "Account created successfully.",
+    redirectTo: "/tenant/profile",
+    message: "Account created successfully.",
   };
 
-  // Attach session cookies to the response so the browser is logged in immediately.
   const response = NextResponse.json(payload);
-  cookiesToSet.forEach(({ name, value, options }) => {
-    response.cookies.set(
-      name,
-      value,
-      options as Parameters<typeof response.cookies.set>[2],
-    );
-  });
+  applySupabaseCookies(response, cookiesToSet);
   return response;
 }

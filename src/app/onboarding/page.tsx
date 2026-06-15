@@ -5,13 +5,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Building2, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { CheckCircle2, Loader2, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { cn } from "../../lib/utils";
+import { createClient as createBrowserSupabaseClient } from "../../lib/supabase/client";
+import { TopBar } from "../../components/layout/TopBar";
 
 // ── Zod schemas per step ─────────────────────────────────────────────────────
 const ownerSchema = z.object({
@@ -60,10 +61,12 @@ function StepIndicator({ current }: { current: number }) {
               <div
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all",
-                  isDone && "border-emerald-400 bg-emerald-400/20 text-emerald-400",
-                  isActive &&
-                    "border-primary bg-primary/20 text-primary shadow-lg shadow-primary/20",
-                  !isDone && !isActive && "border-white/20 bg-white/5 text-white/30",
+                  isDone &&
+                    "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                  isActive && "border-primary bg-primary/10 text-primary",
+                  !isDone &&
+                    !isActive &&
+                    "border-border bg-muted text-muted-foreground",
                 )}
               >
                 {isDone ? (
@@ -75,9 +78,9 @@ function StepIndicator({ current }: { current: number }) {
               <span
                 className={cn(
                   "text-[10px] font-medium",
-                  isDone && "text-emerald-400",
-                  isActive && "text-white/80",
-                  !isDone && !isActive && "text-white/30",
+                  isDone && "text-emerald-600 dark:text-emerald-400",
+                  isActive && "text-foreground",
+                  !isDone && !isActive && "text-muted-foreground",
                 )}
               >
                 {label}
@@ -87,7 +90,7 @@ function StepIndicator({ current }: { current: number }) {
               <div
                 className={cn(
                   "mb-4 h-px w-10 transition-all",
-                  isDone ? "bg-emerald-400/50" : "bg-white/10",
+                  isDone ? "bg-emerald-500/40" : "bg-border",
                 )}
               />
             )}
@@ -110,7 +113,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-sm font-medium text-foreground/80">{label}</Label>
+      <Label className="text-sm font-medium text-foreground">{label}</Label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
@@ -285,9 +288,9 @@ export default function OnboardingPage() {
 
   if (bootstrapping) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/40 to-slate-950 px-4 py-10">
-        <div className="mx-auto flex h-[70vh] w-full max-w-lg items-center justify-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl">
-          <div className="flex items-center gap-2 text-white/70">
+      <div className="min-h-screen bg-background px-4 pt-6">
+        <div className="mx-auto flex h-[70vh] w-full max-w-lg items-center justify-center rounded-2xl border bg-card">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading onboarding...
           </div>
@@ -297,45 +300,36 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/40 to-slate-950 px-4 py-10">
-      {/* Ambient blobs */}
-      <div className="pointer-events-none fixed -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-primary/10 blur-3xl" />
-      <div className="pointer-events-none fixed -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-blue-500/10 blur-3xl" />
+    <div className="min-h-screen bg-background px-4 pb-8">
+      <TopBar title="Onboarding" />
 
-      <div className="relative z-10 mx-auto w-full max-w-lg">
-        {/* Brand */}
-        <div className="mb-8 flex items-center justify-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400">
-            <Building2 className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-lg font-bold text-white">NestDesk</span>
-        </div>
-
+      <div className="relative z-10 mt-2 mx-auto w-full max-w-lg">
         <StepIndicator current={step} />
 
         {/* ── Step 1: Owner details ───────────────────────────────────────── */}
         {step === 1 && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur-xl">
-            <div className="mb-6 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/20 via-blue-500/10 to-transparent p-4">
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            <div className="mb-6 rounded-2xl border bg-muted/40 p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/25 text-sm font-semibold text-white ring-1 ring-primary/40">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/30">
                   {ownerInitial}
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-white/60">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     Welcome
                   </p>
-                  <p className="text-base font-semibold text-white">
-                    {welcomeName} <span className="text-white/60">(Owner)</span>
+                  <p className="text-base font-semibold text-foreground">
+                    {welcomeName}{" "}
+                    <span className="text-muted-foreground">(Owner)</span>
                   </p>
                 </div>
               </div>
             </div>
 
-            <h4 className="mb-1 text-md font-semibold text-white">
+            <h4 className="mb-1 text-md font-semibold text-foreground">
               Tell us about your details
             </h4>
-            <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <div className="my-4 h-px w-full bg-border" />
             <form
               onSubmit={ownerForm.handleSubmit(handleOwnerSubmit)}
               className="space-y-4"
@@ -344,8 +338,8 @@ export default function OnboardingPage() {
                 label="Phone number"
                 error={ownerForm.formState.errors.phone?.message}
               >
-                <div className="flex overflow-hidden rounded-xl border border-white/15 bg-white/10 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30">
-                  <span className="flex items-center border-r border-white/15 px-3 text-sm font-medium text-white/70">
+                <div className="flex overflow-hidden rounded-xl border bg-background transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+                  <span className="flex items-center border-r border-border px-3 text-sm font-medium text-muted-foreground">
                     +91
                   </span>
                   <Input
@@ -355,7 +349,7 @@ export default function OnboardingPage() {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={10}
-                    className="rounded-none border-0 bg-transparent text-white placeholder:text-white/30 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="rounded-none border-0 bg-transparent text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                     {...ownerForm.register("phone", {
                       setValueAs: (value) =>
                         String(value ?? "")
@@ -376,7 +370,7 @@ export default function OnboardingPage() {
               >
                 <Input
                   placeholder="176/1 Atif Vihar, Opp BBD University"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                  className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                   {...ownerForm.register("addressLine1")}
                 />
               </Field>
@@ -387,7 +381,7 @@ export default function OnboardingPage() {
               >
                 <Input
                   placeholder="Area / locality"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                  className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                   {...ownerForm.register("addressLine2")}
                 />
               </Field>
@@ -398,7 +392,7 @@ export default function OnboardingPage() {
               >
                 <Input
                   placeholder="Near main gate"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                  className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                   {...ownerForm.register("landmark")}
                 />
               </Field>
@@ -414,7 +408,7 @@ export default function OnboardingPage() {
                 <Input
                   placeholder="226010"
                   maxLength={6}
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                  className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                   {...ownerForm.register("ownerPincode", {
                     setValueAs: (value) =>
                       String(value ?? "")
@@ -432,15 +426,18 @@ export default function OnboardingPage() {
                   })}
                 />
                 {pincodeLookupLoading ? (
-                  <p className="text-xs text-white/60">Loading city and state…</p>
+                  <p className="text-xs text-muted-foreground">
+                    Loading city and state...
+                  </p>
                 ) : null}
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="City" error={ownerForm.formState.errors.city?.message}>
                   <Input
+                    disabled={true}
                     placeholder="Lucknow"
-                    className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                    className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                     {...ownerForm.register("city")}
                   />
                 </Field>
@@ -449,8 +446,9 @@ export default function OnboardingPage() {
                   error={ownerForm.formState.errors.state?.message}
                 >
                   <Input
+                    disabled={true}
                     placeholder="Uttar Pradesh"
-                    className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary"
+                    className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
                     {...ownerForm.register("state")}
                   />
                 </Field>
@@ -459,7 +457,7 @@ export default function OnboardingPage() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30"
+                className="mt-2 w-full rounded-xl font-semibold"
               >
                 {submitting ? (
                   <>
@@ -479,19 +477,19 @@ export default function OnboardingPage() {
 
         {/* ── Step 2: Success ─────────────────────────────────────────────── */}
         {step === 2 && (
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8 text-center shadow-xl shadow-black/30 backdrop-blur-xl">
+          <div className="rounded-2xl border border-emerald-500/20 bg-card p-8 text-center shadow-sm">
             <div className="mb-4 flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="h-8 w-8" />
               </div>
             </div>
-            <h2 className="mb-2 text-xl font-bold text-white">
+            <h2 className="mb-2 text-xl font-bold text-foreground">
               You&apos;re all set! 🎉
             </h2>
-            <p className="mb-2 text-sm text-white/60">
-              Your owner profile is ready. Taking you to the dashboard…
+            <p className="mb-2 text-sm text-muted-foreground">
+              Your owner profile is ready. Taking you to the dashboard...
             </p>
-            <Loader2 className="mx-auto h-4 w-4 animate-spin text-white/30" />
+            <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         )}
       </div>

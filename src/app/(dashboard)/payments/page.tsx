@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -27,23 +27,24 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog";
+} from "../../../components/ui/dialog";
 import {
   RecordPaymentModal,
   type PaymentMethod,
   type PaymentStatus,
   type RecordPaymentTenantOption,
-} from "@/components/payments/RecordPaymentModal";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { Input } from "@/components/ui/input";
+} from "../../../components/payments/RecordPaymentModal";
+import { Badge } from "../../../components/ui/badge";
+import { DatePicker } from "../../../components/ui/DatePicker";
+import { Input } from "../../../components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+} from "../../../components/ui/dropdown-menu";
+import { Label } from "../../../components/ui/label";
 import {
   createColumnHelper,
   flexRender,
@@ -52,7 +53,8 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { printInvoice } from "@/lib/invoice";
+import { formatDateInIndia, toIndianDateString } from "../../../lib/date";
+import { printInvoice } from "../../../lib/invoice";
 
 type PaymentRow = {
   id: string;
@@ -108,6 +110,12 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   other: "Other",
 };
 
+const STATUS_CHIP: Record<PaymentStatus, string> = {
+  paid: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
+  disputed:
+    "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300",
+};
+
 const columnHelper = createColumnHelper<PaymentRow>();
 
 function formatAmount(n: number) {
@@ -123,18 +131,16 @@ function formatBillingPeriod(dateStr: string) {
   const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
   const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
   const fmt = (d: Date) =>
-    d
-      .toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-      .replace(/ /g, "-");
+    formatDateInIndia(d, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).replace(/ /g, "-");
   return `${fmt(startDate)} - ${fmt(endDate)}`;
 }
 
 function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
+  return formatDateInIndia(dateStr, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -166,16 +172,11 @@ function formatPropertyAddress(payment: PaymentRow) {
 }
 
 function todayISO() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate(),
-  ).padStart(2, "0")}`;
+  return toIndianDateString();
 }
 
 function toLocalISO(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
+  return toIndianDateString(date);
 }
 
 function getMonthEndDate(dateStr: string) {
@@ -399,11 +400,21 @@ export default function OwnerPaymentsPage() {
     }),
     columnHelper.accessor("amount", {
       header: "Paid Amount",
-      cell: (info) => (
-        <span className="text-foreground">
-          {formatAmount(Number(info.getValue()))}
-        </span>
-      ),
+      cell: (info) => {
+        const payment = info.row.original;
+        return (
+          <div className="inline-flex items-center gap-2">
+            <span className="text-foreground">
+              {formatAmount(Number(info.getValue()))}
+            </span>
+            <Badge
+              className={`inline-flex h-6 items-center rounded-full border px-2 text-[11px] font-semibold uppercase ${STATUS_CHIP[payment.status]}`}
+            >
+              {payment.status}
+            </Badge>
+          </div>
+        );
+      },
       enableSorting: true,
     }),
     columnHelper.accessor("paid_on", {

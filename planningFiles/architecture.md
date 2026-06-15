@@ -23,6 +23,13 @@ The app is split into five main layers:
 4. Global providers and hooks under src/providers and src/hooks
 5. Supabase schema and RLS setup under supabase/migrations
 
+## Messaging Notes
+
+1. WhatsApp notice delivery uses MSG91 template messaging through `src/lib/messaging/msg91.ts`.
+2. Notice template params are now sent as ordered MSG91 body components (`body_1` through `body_4`) from `src/lib/messaging/notice.ts`.
+3. Sender logging captures the exact serialized payload posted to MSG91 and parsed/raw provider responses for troubleshooting delivery failures.
+4. For MSG91 bulk WhatsApp API, template name payload format is enforced and template id is treated as metadata-only for diagnostics.
+
 ## Route Groups and Main Screens
 
 ### Public and Auth-facing Screens
@@ -36,6 +43,7 @@ The app is split into five main layers:
 
 2. src/app/(auth)/layout.tsx
    - Shared auth visual shell
+   - Includes top navbar theme selector for light/dark/system switching
 
 3. src/app/(auth)/login/page.tsx
    - Login form
@@ -139,6 +147,105 @@ The app is split into five main layers:
 - Owner account profile workspace
 - Displays owner details, contact information, onboarding status, and property snapshot counts
 - Includes inline edit action for owner full name, phone, and address details
+- Includes WhatsApp OTP phone verification controls and verification status
+
+14. src/app/(dashboard)/subscriptions/page.tsx
+
+- Owner subscriptions and usage workspace
+- Renders plan catalog and current plan summary
+- Initiates Razorpay Standard Checkout for paid plans
+- Shows the institution plan as a custom sales-assisted option instead of a checkout item
+
+15. src/app/api/create-order/route.ts
+
+- Owner-authenticated API to create Razorpay orders
+- Validates minimum amount and handles provider auth/provider failures
+
+16. src/app/api/verify-payment/route.ts
+
+- Owner-authenticated API to verify Razorpay payment signature
+- Activates subscription only on valid HMAC signature match
+- Updates owners.plan and writes subscription audit trail
+
+17. src/app/api/create-order/route.ts
+
+- Owner-authenticated API to create Razorpay orders
+- Rejects the custom institution plan and unsupported legacy plan values
+
+17. src/app/api/owner/subscription/current/route.ts
+
+- Owner-authenticated API to fetch current plan and latest subscription snapshot
+- Used by topbar avatar menu and subscriptions/dashboard surfaces
+
+18. src/app/api/subscription-plans/route.ts
+
+- Public API to return active subscription plan catalog from subscription_plans for pricing surfaces.
+
+19. src/lib/subscription-plans.ts
+
+- Server-only helper to read active plan catalog and owner-aware plan limits from subscription_plans.
+- Used by property and tenant plan-cap enforcement to apply max_properties and max_tenants from DB values.
+
+20. src/app/admin/planner/page.tsx
+
+- Admin Custom Plans console on route /admin/planner.
+- Includes pricing calculator section with editable formula parameters:
+   - base fee
+   - property fee
+   - tenant fee
+   - tenant threshold
+   - property count
+   - tenant count
+- Computes monthly and yearly rates (yearly = monthly x 12), supports apply-to-form workflow.
+- Includes curated plans section for edit/delete, activate/deactivate, and assign-by-email actions.
+
+21. src/app/api/admin/planner/plans/route.ts
+
+- CRUD API for custom institution plans now includes formula metadata columns.
+- Supports plan activation/deactivation through PATCH payload updates.
+- Writes audit logs for create/update/activate/deactivate/delete actions.
+
+22. src/app/api/create-order/route.ts
+
+- Custom-plan aware order creation now stores purchased plan snapshot metadata in payment order notes.
+- Zero-cost confirmation path now updates owners.plan plus owners.active_plan_id and owners.active_plan_name.
+
+23. src/app/api/verify-payment/route.ts
+
+- Payment verification now loads custom_plan_id from payment_orders and resolves purchased plan snapshot.
+- On successful verification updates owners.plan plus owners.active_plan_id and owners.active_plan_name.
+- Institution custom plan purchase path is treated as paid verification eligible.
+
+24. src/components/admin/AdminSidebar.tsx
+
+- Admin navigation label changed from Subscription Planner to Custom Plans.
+- Route remains /admin/planner for compatibility.
+
+25. src/app/api/admin/owners/[ownerId]/assign-plan/route.ts
+
+- Assigns active custom plans to owners by owner id.
+- Deactivates previous active assignment before insert.
+- Writes assignment audit logs with previous and new custom plan snapshots.
+
+26. src/app/(dashboard)/subscriptions/page.tsx
+
+- Subscription usage header now resolves and displays custom institution plan names when applicable.
+- Keeps fallback to normalized plan labels for non-custom plans.
+
+27. src/components/layout/PricingPlans.tsx
+
+- Yearly pricing preview for assigned custom plans now uses monthly x 12 without generic discount banner semantics.
+- Maintains existing promotional display behavior for standard non-custom plans.
+
+14. src/app/api/owner/phone-otp/request/route.ts
+
+- Owner-authenticated API to request WhatsApp OTP for phone verification
+- Uses OTP service and MSG91 provider integration
+
+15. src/app/api/owner/phone-otp/verify/route.ts
+
+- Owner-authenticated API to verify OTP challenge
+- Marks owners.phone_verified true and records phone_verified_at timestamp
 
 ## Layout and UI Shell Components
 
@@ -160,10 +267,12 @@ The app is split into five main layers:
 2. src/components/layout/Sidebar.tsx
    - Desktop and mobile navigation source for dashboard areas
    - Includes owner modules for properties, tenants, occupancy, maintenance, payments, expenses, notices, profile, and settings
+   - Shows profile warning indicator when owner phone is not verified
 
 3. src/components/profile/OwnerProfileEditor.tsx
    - Client-side owner profile edit form with validation and save/cancel actions
    - Calls owner profile API and refreshes server-rendered profile data after successful save
+   - Sends and verifies WhatsApp OTP from profile context for phone verification
 
 4. src/components/layout/TopBar.tsx
    - Theme toggle, profile menu, logout action, and mobile nav trigger
@@ -320,15 +429,17 @@ Main files:
 2. src/app/api/auth/login/route.ts
 3. src/app/api/auth/logout/route.ts
 4. src/app/auth/callback/route.ts
-5. src/lib/rate-limiter.ts
+5. src/lib/auth.ts
+6. src/lib/rate-limiter.ts
 
 Behavior:
 
 1. Registration validates inputs with Zod.
-2. Production flow relies on Supabase verification email.
-3. Development flow can create confirmed users directly.
+2. Owner and tenant registration both create confirmed accounts immediately with email/password.
+3. Shared auth helpers centralize sign-up, sign-in, sign-out, callback exchange, cookie propagation, and role-based redirect resolution.
 4. Login writes login_activity rows and enforces a 5-failures-in-15-minutes rule.
-5. Successful login redirects based on onboarding completion.
+5. Successful login redirects based on owner onboarding state or tenant role.
+6. Duplicate email registration attempts return clear conflict responses for owner and tenant signup APIs.
 
 ### Owner Onboarding
 
@@ -359,7 +470,8 @@ Behavior:
 1. Properties are owner-scoped.
 2. App flow creates new properties as inactive.
 3. Activation is blocked until floors and rooms exist.
-4. Property creation and activation write audit log entries.
+4. Activation is blocked until owner phone is verified.
+5. Property creation and activation write audit log entries.
 
 ### Floor and Room Setup
 
@@ -406,7 +518,8 @@ Behavior:
 
 1. OTP challenge request and verification APIs are implemented.
 2. OTPs are stored as hashed challenges in the database.
-3. The active owner flow does not currently require OTP completion.
+3. Owner profile now uses OTP completion to verify phone numbers.
+4. MSG91 is used for WhatsApp OTP delivery when enabled.
 
 ## Supabase Integration Pattern
 
@@ -423,6 +536,8 @@ Behavior:
 
 4. src/lib/supabase/env-check.ts
    - Early validation for required env vars
+5. src/lib/auth.ts
+   - Shared route-level auth helpers for registration, login, logout, callback exchange, and redirect decisions
 
 ### Common Access Pattern
 

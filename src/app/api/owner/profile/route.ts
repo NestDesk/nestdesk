@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
 
 const updateOwnerProfileSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters.").max(100),
@@ -57,7 +57,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: owner, error: ownerError } = await admin
     .from("owners")
-    .select("id")
+    .select("id, phone")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -69,15 +69,23 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Owner account not found." }, { status: 403 });
   }
 
+  const normalizedPhone = `+91${parsed.data.phone}`;
+  const previousDigits = String(owner.phone ?? "")
+    .replace(/\D/g, "")
+    .slice(-10);
+  const incomingDigits = normalizedPhone.replace(/\D/g, "").slice(-10);
+  const phoneChanged = previousDigits !== incomingDigits;
+
   const payload = {
     full_name: parsed.data.fullName.trim(),
-    phone: `+91${parsed.data.phone}`,
+    phone: normalizedPhone,
     address_line1: parsed.data.addressLine1.trim(),
     address_line2: normalizeOptional(parsed.data.addressLine2),
     landmark: normalizeOptional(parsed.data.landmark),
     city: parsed.data.city.trim(),
     state: parsed.data.state.trim(),
     pincode: parsed.data.pincode,
+    ...(phoneChanged ? { phone_verified: false, phone_verified_at: null } : {}),
     updated_at: new Date().toISOString(),
   };
 

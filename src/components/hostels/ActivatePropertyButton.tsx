@@ -4,10 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 type ActivatePropertyButtonProps = {
   hostelId: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 type ActivateResponse = {
@@ -16,12 +24,19 @@ type ActivateResponse = {
   error?: string;
 };
 
-export function ActivatePropertyButton({ hostelId }: ActivatePropertyButtonProps) {
+export function ActivatePropertyButton({
+  hostelId,
+  disabled = false,
+  disabledReason,
+}: ActivatePropertyButtonProps) {
   const [activating, setActivating] = useState(false);
   const router = useRouter();
 
   async function onActivate() {
-    if (activating) {
+    if (activating || disabled) {
+      if (disabled && disabledReason) {
+        toast.error(disabledReason);
+      }
       return;
     }
 
@@ -44,6 +59,7 @@ export function ActivatePropertyButton({ hostelId }: ActivatePropertyButtonProps
       }
 
       toast.success(payload.message ?? "Property activated.");
+      window.dispatchEvent(new CustomEvent("hostel-status-changed"));
       router.refresh();
     } catch {
       toast.error("Network error. Please try again.");
@@ -52,13 +68,13 @@ export function ActivatePropertyButton({ hostelId }: ActivatePropertyButtonProps
     }
   }
 
-  return (
+  const button = (
     <Button
       type="button"
       size="sm"
       className="rounded-lg h-6 px-2 text-xs"
       onClick={onActivate}
-      disabled={activating}
+      disabled={activating || disabled}
     >
       {activating ? (
         <>
@@ -72,5 +88,20 @@ export function ActivatePropertyButton({ hostelId }: ActivatePropertyButtonProps
         </>
       )}
     </Button>
+  );
+
+  if (!disabledReason) {
+    return button;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>{button}</span>
+        </TooltipTrigger>
+        <TooltipContent>{disabledReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

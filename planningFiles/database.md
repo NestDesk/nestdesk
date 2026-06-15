@@ -8,6 +8,9 @@ NestDesk currently uses a simple two-file development database workflow:
 
 ## Migration Files
 
+Theme and auth UI refinements (auth layout + login visual cleanup + theme selector placement) introduced no database schema changes.
+MSG91 WhatsApp payload and template param mapping fixes introduced no database schema changes.
+
 1. Reset script: supabase/migrations/000_dev_drop_all.sql
 2. Full schema bootstrap: supabase/migrations/001_init_simple.sql
 3. Tenant join token enhancement: supabase/migrations/002_tenant_join_token.sql
@@ -81,12 +84,13 @@ This is important because the application code depends on owners.user_id in:
 7. audit_logs
    - Stores app audit events.
    - Currently written for onboarding create/update, property creation, and property activation.
+   - Also written for admin custom plan lifecycle actions (create/update/activate/deactivate/delete) and owner custom plan assignment changes.
 
 8. phone_otp_challenges
 9. maintenance_request_comments
    - Stores hashed OTP challenges.
    - Used by phone OTP request/verify endpoints and OTP service helpers.
-   - Present even though OTP is not required in the active owner flow.
+   - Active owner profile flow uses this table for phone verification challenges.
 10. expenses
 
 - Stores owner-scoped property running expenses across utility, staffing, maintenance, compliance, and operational categories.
@@ -105,10 +109,9 @@ This is important because the application code depends on owners.user_id in:
 1. payments
 2. notices
 3. maintenance_requests
-4. subscriptions
-5. invite_codes
-6. consent_records
-7. data_deletion_requests
+4. invite_codes
+5. consent_records
+6. data_deletion_requests
 
 These tables are already part of the bootstrap, but the corresponding screens and route flows are still pending.
 
@@ -119,10 +122,57 @@ Maintenance is now partially wired:
 3. Tenant maintenance timelines now include owner comments.
 4. Tenants can edit and soft-delete their own maintenance requests (deleted_at based).
 
+Subscriptions are now wired for owner payments:
+
+1. Owners can open Subscriptions and Usage from dashboard navigation.
+2. Plan purchase uses Razorpay Standard Checkout.
+3. POST /api/create-order creates Razorpay order objects with owner-scoped metadata.
+4. POST /api/verify-payment validates HMAC signature and only activates plan on a valid signature.
+5. Successful verification writes a new subscriptions row and updates owners.plan.
+6. The latest plan/status is exposed through GET /api/owner/subscription/current for owner UI surfaces.
+7. Plan catalog display and owner capacity limits now read from subscription_plans (active global rows) using code-based matching.
+
+The legacy test and business plan values are normalized away in the app layer, and the institution plan is treated as a sales-assisted custom option.
+
+## Latest Subscription and Custom Plan Schema Updates
+
+New migrations added in the current implementation phase:
+
+1. supabase/migrations/20260616_create_subscription_plans_table.sql
+
+- Creates public.subscription_plans if missing.
+- Adds global and owner-specific uniqueness indexes plus active/rank lookup indexes.
+- Adds idempotent seed rows for free, starter, micro, pro, and institution plans.
+
+2. supabase/migrations/20260617_add_owner_plan_snapshot_and_custom_formula_fields.sql
+
+- Adds owners.active_plan_id (UUID) and owners.active_plan_name (TEXT) for direct owner plan snapshot reads.
+- Adds formula parameters on custom_institution_plans:
+  - base_fee_inr
+  - property_fee_inr
+  - tenant_fee_inr
+  - tenant_threshold
+  - pricing_property_count
+  - pricing_tenant_count
+  - formula_version
+- Adds constraint guards for non-negative pricing_property_count and pricing_tenant_count.
+- Backfills owners.active_plan_id and owners.active_plan_name from latest active subscription rows and global subscription catalog rows.
+
+### Practical Ownership Snapshot Rules
+
+1. owners.plan remains the normalized plan code (free/micro/starter/pro/institution).
+2. owners.active_plan_id stores the purchased plan identity:
+
+- For custom institution purchases: custom_institution_plans.id.
+- For default plans: subscription_plans.id for the matching active global plan code.
+
+3. owners.active_plan_name stores the purchased display name for fast UI access.
+4. subscriptions.custom_plan_id and payment_orders.custom_plan_id remain the historical source for custom-plan purchase tracing.
+
 ## Important Constraints and Design Choices
 
 1. All primary keys use UUID with gen_random_uuid().
-2. owners.plan is constrained to free, starter, pro, business, enterprise.
+2. owners.plan is constrained to free, micro, starter, pro, institution.
 3. hostels.property_type is constrained to pg, hostel, coliving, rental.
 4. rooms.status is constrained to vacant, occupied, maintenance, inactive.
 5. rooms enforce unique room_number per hostel where deleted_at is null.
@@ -166,6 +216,13 @@ High-level policy model:
 3. Floor APIs read and mutate floors.
 4. Room APIs read and mutate rooms.
 5. Bulk room API inserts rooms in batches and skips duplicates.
+6. Property activation requires owners.phone_verified = true in addition to floor/room readiness.
+
+### Owner Phone Verification
+
+1. POST /api/owner/phone-otp/request creates OTP challenges in phone_otp_challenges for purpose verify-owner-phone.
+2. POST /api/owner/phone-otp/verify validates OTP and marks owners.phone_verified true with owners.phone_verified_at timestamp.
+3. PATCH /api/owner/profile resets owners.phone_verified false and owners.phone_verified_at null when phone number changes.
 
 ### Expenses
 
@@ -185,5 +242,5 @@ This should be treated as a follow-up item. Either add deleted_at to hostels and
 ## Notes for Future Work
 
 1. Payment, notices, subscription, consent, and deletion-request modules can build directly on the existing schema.
-2. If phone verification is re-enabled, the existing phone_otp_challenges table and OTP service can be reused.
+2. Phone verification is active through existing phone_otp_challenges infrastructure and owner profile APIs.
 3. Storage bucket policies and document storage flows are not yet defined in migrations and should be added separately when document upload work starts.

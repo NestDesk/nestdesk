@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  Building2,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -17,19 +16,22 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
-import { TenantConsentLink } from "@/components/legal/TenantConsentLink";
-import { cn } from "@/lib/utils";
+} from "../../../components/ui/card";
+import { Navbar, NavbarLogo } from "../../../components/layout/Navbar";
+import { ThemeToggle } from "../../../components/layout/ThemeToggle";
+import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../lib/aadhaar";
+import { TenantConsentLink } from "../../../components/legal/TenantConsentLink";
+import { OtpVerificationDialog } from "../../../components/ui/otp-verification-dialog";
+import { cn } from "../../../lib/utils";
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -120,7 +122,7 @@ function PasswordStrength({ password }: { password: string }) {
             key={i}
             className={cn(
               "h-1 flex-1 rounded-full transition-all duration-300",
-              i < passed ? STRENGTH_COLORS[passed] : "bg-white/10",
+              i < passed ? STRENGTH_COLORS[passed] : "bg-muted-foreground/20",
             )}
           />
         ))}
@@ -133,9 +135,11 @@ function PasswordStrength({ password }: { password: string }) {
               {ok ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
               ) : (
-                <XCircle className="h-3.5 w-3.5 text-white/30" />
+                <XCircle className="h-3.5 w-3.5 text-muted-foreground/40" />
               )}
-              <span className={ok ? "text-white/60" : "text-white/30"}>
+              <span
+                className={ok ? "text-muted-foreground" : "text-muted-foreground/70"}
+              >
                 {rule.label}
               </span>
             </li>
@@ -183,16 +187,18 @@ function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
     .join(", ");
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/8 p-3">
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-popover/80 p-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
         <Home className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-white leading-snug">{hostel.name}</p>
-        <p className="text-xs text-white/50">
+        <p className="text-sm font-medium text-foreground leading-snug">
+          {hostel.name}
+        </p>
+        <p className="text-xs text-muted-foreground">
           {PROPERTY_TYPE_LABELS[hostel.property_type] ?? hostel.property_type}
         </p>
-        <p className="mt-0.5 flex items-start gap-1 text-xs text-white/40">
+        <p className="mt-0.5 flex items-start gap-1 text-xs text-muted-foreground/70">
           <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
           <span className="break-words">{address}</span>
         </p>
@@ -231,6 +237,12 @@ function TenantRegisterPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   // Validate token + fetch hostel info
   useEffect(() => {
@@ -277,7 +289,84 @@ function TenantRegisterPageContent() {
     return () => sub.unsubscribe();
   }, [watch]);
 
+  async function handleSendOtp() {
+    const phoneValue = normalizePhoneNumber(watch("phone") ?? "");
+    if (!/^\d{10}$/.test(phoneValue)) {
+      toast.error("Enter a valid 10-digit phone number before requesting OTP.");
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/tenant/phone-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneValue }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send OTP.");
+        return;
+      }
+
+      setOtpSent(true);
+      setOtpCode("");
+      setPhoneVerified(false);
+      setOtpDialogOpen(true);
+      toast.success(json.message ?? "OTP sent to your WhatsApp number.");
+      if (json.devOtpHint) {
+        toast.success(`DEV OTP: ${json.devOtpHint}`);
+      }
+    } catch {
+      toast.error("Network error while sending OTP.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    const phoneValue = normalizePhoneNumber(watch("phone") ?? "");
+    if (!/^\d{10}$/.test(phoneValue)) {
+      toast.error("Enter a valid 10-digit phone number first.");
+      return;
+    }
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit OTP code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await fetch("/api/tenant/phone-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneValue, otpCode }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "OTP verification failed.");
+        return;
+      }
+
+      setPhoneVerified(true);
+      setOtpCode("");
+      setOtpDialogOpen(false);
+      toast.success("Phone number verified successfully.");
+    } catch {
+      toast.error("Network error while verifying OTP.");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
   async function onSubmit(data: TenantRegisterForm) {
+    if (!phoneVerified) {
+      toast.error("Verify your phone number before creating the tenant account.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/tenant/register", {
         method: "POST",
@@ -288,6 +377,7 @@ function TenantRegisterPageContent() {
           fullName: data.fullName,
           email: data.email,
           phone: data.phone,
+          phoneVerified,
           password: data.password,
           occupationType: data.occupationType,
           institutionName: data.institutionName,
@@ -306,12 +396,14 @@ function TenantRegisterPageContent() {
         return;
       }
 
-      if (json.requiresEmailVerification) {
-        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
-      } else {
-        toast.success("Account created. Welcome!");
-        router.push(json.redirectTo ?? "/tenant/profile");
+      if (json.redirectTo) {
+        toast.success(json.message ?? "Registration successful. Continuing...");
+        router.push(json.redirectTo);
+        return;
       }
+
+      toast.success("Registration successful. Continuing...");
+      router.push("/tenant/profile");
     } catch {
       toast.error("Network error. Please try again.");
     }
@@ -320,9 +412,9 @@ function TenantRegisterPageContent() {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (hostelLoading) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-auth px-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground px-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-3 text-sm text-white/60">Verifying invite…</p>
+        <p className="mt-3 text-sm text-muted-foreground">Verifying invite…</p>
       </div>
     );
   }
@@ -330,13 +422,13 @@ function TenantRegisterPageContent() {
   // ── Error state ────────────────────────────────────────────────────────────
   if (hostelError || !hostel) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-auth px-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground px-4">
         <div className="w-full max-w-sm space-y-4 text-center">
           <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-destructive/20 text-destructive">
             <XCircle className="h-7 w-7" />
           </div>
-          <h2 className="text-xl font-bold text-white">Invalid Invite Link</h2>
-          <p className="text-sm text-white/60">{hostelError}</p>
+          <h2 className="text-xl font-bold text-foreground">Invalid Invite Link</h2>
+          <p className="text-sm text-muted-foreground">{hostelError}</p>
           <Button asChild variant="outline" className="rounded-xl">
             <Link href="/join">Try entering your property code</Link>
           </Button>
@@ -347,30 +439,26 @@ function TenantRegisterPageContent() {
 
   // ── Register form ──────────────────────────────────────────────────────────
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-auth">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background text-foreground">
       <div className="animate-blob pointer-events-none absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-primary/20 blur-3xl" />
       <div className="animate-blob-delay-2 pointer-events-none absolute -right-32 top-1/3 h-[400px] w-[400px] rounded-full bg-blue-500/15 blur-3xl" />
 
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-white/5 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
-              <Building2 className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-sm font-bold text-white">NestDesk</span>
-          </Link>
-          <Link
-            href="/login"
-            className="text-xs text-white/50 hover:text-white transition-colors"
-          >
-            Sign in
-          </Link>
-        </div>
-      </header>
+      <Navbar
+        left={<NavbarLogo />}
+        right={
+          <>
+            <ThemeToggle />
+            <Link href="/login" className="hidden sm:block">
+              <Button variant="ghost" size="sm" className="rounded-xl">
+                Sign in
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="relative z-10 flex flex-1 items-start justify-center px-4 py-10">
-        <Card className="w-full max-w-md rounded-3xl border border-white/10 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl dark:bg-white/5">
+        <Card className="w-full max-w-md rounded-3xl border border-border bg-card shadow-2xl shadow-black/10 backdrop-blur-2xl dark:shadow-black/30">
           <CardHeader className="space-y-4 pb-4 pt-8">
             <div className="flex justify-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400 glow-ring">
@@ -378,10 +466,10 @@ function TenantRegisterPageContent() {
               </div>
             </div>
             <div className="text-center">
-              <CardTitle className="text-2xl font-bold text-white">
+              <CardTitle className="text-2xl font-bold text-foreground">
                 Create Tenant Account
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-muted-foreground">
                 Register to live at this property
               </CardDescription>
             </div>
@@ -394,7 +482,7 @@ function TenantRegisterPageContent() {
 
               {/* Full name */}
               <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-white/80">
+                <Label htmlFor="fullName" className="text-foreground/80">
                   Full name
                 </Label>
                 <Input
@@ -402,7 +490,7 @@ function TenantRegisterPageContent() {
                   type="text"
                   placeholder="Your full name"
                   autoComplete="name"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("fullName")}
                 />
                 {errors.fullName && (
@@ -412,11 +500,11 @@ function TenantRegisterPageContent() {
 
               {/* Phone */}
               <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-white/80">
+                <Label htmlFor="phone" className="text-foreground/80">
                   Phone number
                 </Label>
-                <div className="flex overflow-hidden rounded-xl border border-white/15 bg-white/10 text-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary">
-                  <span className="flex items-center px-3 text-sm text-white/60">
+                <div className="flex overflow-hidden rounded-xl border border-border bg-popover/80 text-foreground focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+                  <span className="flex items-center px-3 text-sm text-muted-foreground">
                     +91
                   </span>
                   <Input
@@ -426,7 +514,7 @@ function TenantRegisterPageContent() {
                     placeholder="1234567890"
                     autoComplete="tel-national"
                     maxLength={10}
-                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-0 text-white placeholder:text-white/30 focus-visible:ring-0"
+                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-2 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0"
                     {...register("phone", {
                       onChange: (event) => {
                         const value = normalizePhoneNumber(event.target.value);
@@ -439,16 +527,40 @@ function TenantRegisterPageContent() {
                 {errors.phone && (
                   <p className="text-xs text-red-400">{errors.phone.message}</p>
                 )}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {phoneVerified ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Phone verified
+                    </span>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleSendOtp}
+                        disabled={sendingOtp || !watch("phone") || !/^\d{10}$/.test(normalizePhoneNumber(watch("phone") ?? ""))}
+                      >
+                        Verify phone number
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Use the OTP dialog to send and verify your code.
+                      </span>
+                    </>
+                  )}
+                </div>
+
               </div>
 
               {/* Occupation */}
               <div className="space-y-1.5">
-                <Label htmlFor="occupationType" className="text-white/80">
+                <Label htmlFor="occupationType" className="text-foreground/80">
                   Occupation type
                 </Label>
                 <select
                   id="occupationType"
-                  className="block h-10 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="block h-10 w-full rounded-xl border border-border bg-popover/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                   {...register("occupationType")}
                 >
                   {Object.entries(OCCUPATION_LABELS).map(([value, label]) => (
@@ -466,14 +578,14 @@ function TenantRegisterPageContent() {
 
               {/* Institution */}
               <div className="space-y-1.5">
-                <Label htmlFor="institutionName" className="text-white/80">
+                <Label htmlFor="institutionName" className="text-foreground/80">
                   Institution name
                 </Label>
                 <Input
                   id="institutionName"
                   type="text"
                   placeholder="College / company / organization"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("institutionName")}
                 />
                 {errors.institutionName && (
@@ -485,12 +597,12 @@ function TenantRegisterPageContent() {
 
               {/* Gender */}
               <div className="space-y-1.5">
-                <Label htmlFor="gender" className="text-white/80">
+                <Label htmlFor="gender" className="text-foreground/80">
                   Gender
                 </Label>
                 <select
                   id="gender"
-                  className="h-10 w-full rounded-xl border border-white/15 bg-white/10 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="h-10 w-full rounded-xl border border-border bg-popover/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                   {...register("gender")}
                 >
                   {Object.entries(GENDER_LABELS).map(([value, label]) => (
@@ -506,9 +618,11 @@ function TenantRegisterPageContent() {
 
               {/* Aadhaar */}
               <div className="space-y-1.5">
-                <Label htmlFor="aadharNumber" className="text-white/80">
+                <Label htmlFor="aadharNumber" className="text-foreground/80">
                   Aadhaar number{" "}
-                  <span className="text-white/40 font-normal">(optional)</span>
+                  <span className="text-muted-foreground/70 font-normal">
+                    (optional)
+                  </span>
                 </Label>
                 <Input
                   id="aadharNumber"
@@ -516,7 +630,7 @@ function TenantRegisterPageContent() {
                   inputMode="numeric"
                   maxLength={12}
                   placeholder="12-digit Aadhaar number"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("aadharNumber", {
                     onChange: (e) => {
                       setValue(
@@ -536,7 +650,7 @@ function TenantRegisterPageContent() {
 
               {/* Email */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-white/80">
+                <Label htmlFor="email" className="text-foreground/80">
                   Email
                 </Label>
                 <Input
@@ -544,7 +658,7 @@ function TenantRegisterPageContent() {
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
-                  className="rounded-xl border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                   {...register("email")}
                 />
                 {errors.email && (
@@ -554,7 +668,7 @@ function TenantRegisterPageContent() {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-white/80">
+                <Label htmlFor="password" className="text-foreground/80">
                   Password
                 </Label>
                 <div className="relative">
@@ -563,13 +677,13 @@ function TenantRegisterPageContent() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Min 8 chars, mixed case + number"
                     autoComplete="new-password"
-                    className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                    className="rounded-xl border-border bg-popover/80 pr-10 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                     {...register("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
@@ -588,7 +702,7 @@ function TenantRegisterPageContent() {
 
               {/* Confirm password */}
               <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-white/80">
+                <Label htmlFor="confirmPassword" className="text-foreground/80">
                   Confirm password
                 </Label>
                 <div className="relative">
@@ -597,13 +711,13 @@ function TenantRegisterPageContent() {
                     type={showConfirm ? "text" : "password"}
                     placeholder="••••••••"
                     autoComplete="new-password"
-                    className="rounded-xl border-white/15 bg-white/10 pr-10 text-white placeholder:text-white/30 focus-visible:border-primary focus-visible:ring-primary/30"
+                    className="rounded-xl border-border bg-popover/80 pr-10 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
                     {...register("confirmPassword")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirm((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
                     aria-label={showConfirm ? "Hide" : "Show"}
                   >
                     {showConfirm ? (
@@ -621,20 +735,20 @@ function TenantRegisterPageContent() {
               </div>
 
               {/* Consent */}
-              <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-start gap-3 rounded-xl border border-border bg-popover/80 p-3">
                 <input
                   id="consentGiven"
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 accent-primary"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
                   {...register("consentGiven")}
                 />
                 <Label
                   htmlFor="consentGiven"
-                  className="text-xs text-white/60 leading-relaxed cursor-pointer"
+                  className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
                 >
                   I agree to NestDesk&apos;s{" "}
-                  <TenantConsentLink className="text-white/80" /> and consent to my
-                  personal data being used for rental management purposes by{" "}
+                  <TenantConsentLink className="text-foreground/80" /> and consent to
+                  my personal data being used for rental management purposes by{" "}
                   {hostel.name} and NestDesk.
                 </Label>
               </div>
@@ -645,7 +759,7 @@ function TenantRegisterPageContent() {
               {/* Submit */}
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !phoneVerified}
                 className="w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:brightness-110"
               >
                 {isSubmitting ? (
@@ -658,11 +772,11 @@ function TenantRegisterPageContent() {
                 )}
               </Button>
 
-              <p className="text-center text-xs text-white/50">
+              <p className="text-center text-xs text-muted-foreground/70">
                 Already have an account?{" "}
                 <Link
                   href={`/login?token=${token}&hostel=${hostelId}`}
-                  className="underline underline-offset-4 hover:text-white"
+                  className="underline underline-offset-4 hover:text-foreground"
                 >
                   Sign in
                 </Link>
@@ -671,6 +785,24 @@ function TenantRegisterPageContent() {
           </CardContent>
         </Card>
       </div>
+
+      <OtpVerificationDialog
+        open={otpDialogOpen}
+        onOpenChange={(open) => {
+          setOtpDialogOpen(open);
+          if (!open) {
+            setOtpCode("");
+          }
+        }}
+        phone={normalizePhoneNumber(watch("phone") ?? "")}
+        otpCode={otpCode}
+        onOtpChange={setOtpCode}
+        onVerify={handleVerifyOtp}
+        onResend={handleSendOtp}
+        sendingOtp={sendingOtp}
+        verifyingOtp={verifyingOtp}
+        otpSent={otpSent}
+      />
     </div>
   );
 }

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isValidAadhaarNumber, normalizeAadhaarNumber } from "@/lib/aadhaar";
-import { getTenantProfileCompletion } from "@/lib/tenant-profile-completion";
+import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import {
+  isValidAadhaarNumber,
+  normalizeAadhaarNumber,
+} from "../../../../lib/aadhaar";
+import { encryptAadhaar, hashAadhaar } from "../../../../lib/aadhaar-encryption";
+import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
@@ -41,7 +45,7 @@ export async function GET() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, status, occupation_type, institution_name, aadhar_number, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
+      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -76,10 +80,12 @@ export async function GET() {
       full_name: tenant.full_name,
       email: tenant.email,
       phone: tenant.phone,
+      phone_verified: tenant.phone_verified ?? false,
+      phone_verified_at: tenant.phone_verified_at ?? null,
       status: tenant.status,
       occupation_type: tenant.occupation_type,
       institution_name: tenant.institution_name,
-      aadhar_number: tenant.aadhar_number,
+      aadhar_last4: tenant.aadhar_last4,
       profile_photo_path: tenant.profile_photo_path,
       aadhar_front_path: tenant.aadhar_front_path,
       aadhar_back_path: tenant.aadhar_back_path,
@@ -174,21 +180,36 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const currentPhone = (await admin.from("tenants").select("phone").eq("id", tenant.id).maybeSingle()).data?.phone ?? null;
+  const phoneChanged = parsed.data.phone !== undefined && parsed.data.phone !== currentPhone;
+
   const { error } = await admin
     .from("tenants")
     .update({
       full_name: parsed.data.fullName,
       phone: parsed.data.phone || null,
+      phone_verified: phoneChanged ? false : undefined,
+      phone_verified_at: phoneChanged ? null : undefined,
       occupation_type: parsed.data.occupationType,
       institution_name: parsed.data.institutionName,
-      aadhar_number: normalizedAadhaar,
+      aadhar_number: normalizedAadhaar
+        ? encryptAadhaar(normalizedAadhaar)
+        : undefined,
+      aadhar_number_hash: normalizedAadhaar
+        ? hashAadhaar(normalizedAadhaar)
+        : undefined,
       aadhar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : undefined,
       updated_at: new Date().toISOString(),
     })
     .eq("id", tenant.id);
 
   if (error) {
-    if (error.message.toLowerCase().includes("idx_tenants_aadhar_number_unique")) {
+    if (
+      error.message
+        .toLowerCase()
+        .includes("idx_tenants_aadhar_number_hash_unique") ||
+      error.message.toLowerCase().includes("aadhar_number_hash")
+    ) {
       return NextResponse.json(
         { error: "This Aadhaar number is already linked to another tenant." },
         { status: 409 },

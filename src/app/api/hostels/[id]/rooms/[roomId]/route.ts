@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "../../../../../../lib/supabase/admin";
+import { createClient } from "../../../../../../lib/supabase/server";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -12,8 +12,14 @@ const updateRoomSchema = z.object({
   floorId: z.string().uuid(),
   roomNumber: z.string().min(1, "Room number is required.").max(40),
   capacity: z.number().int().min(1).max(6),
-  rentAmount: z.number().min(0).max(1000000),
-  status: z.enum(["vacant", "occupied", "maintenance", "inactive"]),
+  rentAmount: z.number().min(0).max(1000000).nullable().optional(),
+  status: z.enum([
+    "vacant",
+    "occupied",
+    "occupied_partial",
+    "maintenance",
+    "inactive",
+  ]),
 });
 
 function normalizeRoomNumber(value: string): string {
@@ -168,15 +174,19 @@ export async function PATCH(
     );
   }
 
+  const updates: Record<string, unknown> = {
+    floor_id: parsedBody.data.floorId,
+    room_number: normalizedRoomNumber,
+    capacity: parsedBody.data.capacity,
+    status: parsedBody.data.status,
+  };
+  if (parsedBody.data.rentAmount !== undefined) {
+    updates.rent_amount = parsedBody.data.rentAmount;
+  }
+
   const updateResult = await resolved.admin
     .from("rooms")
-    .update({
-      floor_id: parsedBody.data.floorId,
-      room_number: normalizedRoomNumber,
-      capacity: parsedBody.data.capacity,
-      rent_amount: parsedBody.data.rentAmount,
-      status: parsedBody.data.status,
-    })
+    .update(updates)
     .eq("id", parsedParams.data.roomId)
     .eq("hostel_id", parsedParams.data.id)
     .is("deleted_at", null)
