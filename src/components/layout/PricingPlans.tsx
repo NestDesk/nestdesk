@@ -435,8 +435,8 @@ export function PricingPlans({
   }, []);
 
   return (
-    <section id={id} className="bg-muted/30 py-10">
-      <div className="w-full px-4 sm:px-6">
+    <section id={id} className="bg-muted/30 py-4">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="afterInteractive"
@@ -460,10 +460,10 @@ export function PricingPlans({
         ) : null}
 
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full border border-border bg-background p-1 shadow-sm">
+          <div className="flex w-full max-w-sm items-center gap-1 rounded-full border border-border bg-background p-1 shadow-sm sm:w-auto">
             <button
               onClick={() => setIsYearly(false)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+              className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:flex-none sm:px-4 ${
                 !isYearly
                   ? "bg-primary text-white shadow"
                   : "text-muted-foreground hover:text-foreground"
@@ -473,7 +473,7 @@ export function PricingPlans({
             </button>
             <button
               onClick={() => setIsYearly(true)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+              className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:flex-none sm:px-4 ${
                 isYearly
                   ? "bg-primary text-white shadow"
                   : "text-muted-foreground hover:text-foreground"
@@ -506,7 +506,7 @@ export function PricingPlans({
 
           <div
             ref={carouselRef}
-            className="flex gap-4 overflow-x-auto pb-3 pr-3 pt-3 snap-x snap-mandatory scroll-smooth"
+            className="flex gap-4 overflow-x-auto pb-3 pt-3 snap-x snap-mandatory scroll-smooth"
           >
             {planCards.map((plan) => {
               const planId = plan.id;
@@ -569,7 +569,7 @@ export function PricingPlans({
               return (
                 <div
                   key={`${name}-${plan.customPlanId ?? planId}`}
-                  className={`relative flex min-w-[80vw] flex-col rounded-2xl border p-5 snap-start sm:min-w-[68vw] md:min-w-[20rem] xl:min-w-[22rem] ${
+                  className={`relative flex min-w-[88vw] max-w-none flex-col rounded-3xl border p-5 shadow-lg shadow-primary/5 snap-start sm:min-w-[18rem] sm:max-w-sm md:min-w-[20rem] lg:min-w-[22rem] xl:min-w-[24rem] ${
                     highlighted
                       ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
                       : "card-hover border-border/60 bg-card/80 backdrop-blur-sm"
@@ -851,7 +851,7 @@ export function PricingPlans({
           </div>
         </div>
 
-        <p className="mt-8 text-center text-sm text-muted-foreground">
+        <p className="mt-8 text-center text-sm font-semibold">
           Need a custom rollout for large operations? Contact support for an
           institution plan tailored to your property network.
         </p>
