@@ -254,6 +254,9 @@ export default async function LandingPage() {
             <a href="#pricing" className="transition-colors hover:text-foreground">
               Pricing
             </a>
+            <Link href="/help" className="transition-colors hover:text-foreground">
+              Help
+            </Link>
           </>
         }
         right={
