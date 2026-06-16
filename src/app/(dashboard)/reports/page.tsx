@@ -233,18 +233,20 @@ function KPICard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4 flex items-start gap-3 shadow-sm">
-      <div className="rounded-lg bg-muted p-2 mt-0.5 shrink-0">
-        <Icon className="h-4 w-4 text-muted-foreground" />
+    <article className="rounded-2xl border border-border/70 bg-card/95 p-4 shadow-sm transition-colors hover:border-primary/30 hover:bg-card">
+      <div className="flex items-start gap-3">
+        <div className="rounded-xl bg-primary/10 p-2.5 text-primary shadow-sm shrink-0">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
+            {label}
+          </p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+          {sub && <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{sub}</p>}
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide truncate">
-          {label}
-        </p>
-        <p className="text-2xl font-bold mt-0.5 leading-tight">{value}</p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-      </div>
-    </div>
+    </article>
   );
 }
 
@@ -337,15 +339,15 @@ function ReportTable<T extends object>({
   });
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-b">
-        <div className="relative max-w-xs w-full">
+    <section className="rounded-2xl border border-border/70 bg-card shadow-sm overflow-hidden">
+      <div className="flex flex-col gap-3 border-b bg-muted/20 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Search…"
-            className="pl-8 h-8 text-sm"
+            placeholder="Search records…"
+            className="h-9 w-full rounded-xl border-border/70 pl-9 text-sm shadow-sm"
           />
           {globalFilter && (
             <button
@@ -359,7 +361,7 @@ function ReportTable<T extends object>({
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5 text-xs h-8"
+          className="h-9 w-full gap-1.5 rounded-xl text-xs lg:w-auto"
           onClick={() =>
             exportToCSV(data as Record<string, unknown>[], `${fileName}.csv`)
           }
@@ -369,7 +371,7 @@ function ReportTable<T extends object>({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="min-w-[780px] w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="border-b bg-muted/30">
@@ -426,11 +428,11 @@ function ReportTable<T extends object>({
           </tbody>
         </table>
       </div>
-      <div className="px-4 py-2.5 border-t text-xs text-muted-foreground">
+      <div className="border-t px-4 py-2.5 text-xs text-muted-foreground">
         {table.getFilteredRowModel().rows.length} row
         {table.getFilteredRowModel().rows.length !== 1 ? "s" : ""}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -497,7 +499,7 @@ function FinancialTab({ isDark }: { isDark: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KPICard
           label="Rent Collected"
           value={fmt(kpis?.totalCollected ?? 0)}
@@ -525,7 +527,7 @@ function FinancialTab({ isDark }: { isDark: boolean }) {
       </div>
 
       {chart.length > 0 && (
-        <div className="rounded-xl border bg-card shadow-sm p-4">
+        <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
           <p className="text-sm font-semibold mb-3">
             Monthly Rent Collected vs Expenses
           </p>
@@ -604,7 +606,7 @@ function OccupancyTab({ isDark }: { isDark: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <KPICard
           label="Total Beds"
           value={fmtNum(kpis?.totalBeds ?? 0)}
@@ -644,7 +646,7 @@ function OccupancyTab({ isDark }: { isDark: boolean }) {
       </div>
 
       {chart.length > 0 && (
-        <div className="rounded-xl border bg-card shadow-sm p-4">
+        <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
           <p className="text-sm font-semibold mb-3">Room Status by Property</p>
           <ReportChart
             id="occ-chart"
@@ -654,6 +656,7 @@ function OccupancyTab({ isDark }: { isDark: boolean }) {
             categories={chart.map((c) => c.property)}
             series={[
               { name: "Total Rooms", data: chart.map((c) => c.totalRooms) },
+              { name: "Vacant", data: chart.map((c) => c.vacantRooms) },
               {
                 name: "Fully occupied",
                 data: chart.map((c) => c.occupiedFullRooms),
@@ -664,14 +667,14 @@ function OccupancyTab({ isDark }: { isDark: boolean }) {
               },
               { name: "Inactive", data: chart.map((c) => c.inactiveRooms) },
               { name: "Maintenance", data: chart.map((c) => c.maintenanceRooms) },
-              { name: "Vacant", data: chart.map((c) => c.vacantRooms) },
+            
             ]}
             colors={[
-              "#6b7280",
+              "#ffc73a",
               "#2563eb",
               "#38bdf8",
               "#64748b",
-              "#f59e0b",
+              "#ad6d00",
               "#10b981",
             ]}
             yFormatter={fmtNum}
@@ -745,7 +748,7 @@ function DefaultersTab({ isDark }: { isDark: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KPICard
           label="Defaulters"
           value={fmtNum(kpis?.totalDefaulters ?? 0)}
@@ -773,7 +776,7 @@ function DefaultersTab({ isDark }: { isDark: boolean }) {
       </div>
 
       {buckets.length > 0 && (
-        <div className="rounded-xl border bg-card shadow-sm p-4">
+        <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
           <p className="text-sm font-semibold mb-3">Overdue by Aging Bucket</p>
           <ReportChart
             id="def-chart"
@@ -853,7 +856,7 @@ function ExpensesTab({ isDark }: { isDark: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KPICard label="Total Expenses" value={fmt(kpis?.totalExpenses ?? 0)} icon={IndianRupee} sub="All recorded expenses" />
         <KPICard label="Paid" value={fmt(kpis?.paidExpenses ?? 0)} icon={TrendingUp} sub="Completed payments" />
         <KPICard label="Pending" value={fmt(kpis?.pendingExpenses ?? 0)} icon={CalendarDays} sub="Still outstanding" />
@@ -861,7 +864,7 @@ function ExpensesTab({ isDark }: { isDark: boolean }) {
       </div>
 
       {chart.length > 0 && (
-        <div className="rounded-xl border bg-card shadow-sm p-4">
+        <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
           <p className="text-sm font-semibold mb-3">Monthly Expense Spend</p>
           <ReportChart
             id="exp-chart"
@@ -935,7 +938,7 @@ function MaintenanceTab({ isDark }: { isDark: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KPICard
           label="Total Tickets"
           value={fmtNum(kpis?.total ?? 0)}
@@ -963,7 +966,7 @@ function MaintenanceTab({ isDark }: { isDark: boolean }) {
       </div>
 
       {chart.length > 0 && (
-        <div className="rounded-xl border bg-card shadow-sm p-4">
+        <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
           <p className="text-sm font-semibold mb-3">Tickets by Property</p>
           <ReportChart
             id="mnt-chart"
@@ -1008,7 +1011,7 @@ type TabId = (typeof TABS)[number]["id"];
 function FiltersBar({ hostels }: { hostels: Hostel[] }) {
   const { filters, set } = useFilters();
   return (
-    <div className="rounded-xl border bg-card shadow-sm px-4 py-3">
+    <section className="rounded-2xl border border-border/70 bg-card/95 shadow-sm px-3 py-3 sm:px-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-2">
@@ -1045,7 +1048,7 @@ function FiltersBar({ hostels }: { hostels: Hostel[] }) {
               <button
                 onClick={() => set({ hostelIds: [] })}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                   filters.hostelIds.length === 0
                     ? "bg-primary text-primary-foreground border-primary"
                     : "border-border hover:bg-muted",
@@ -1065,7 +1068,7 @@ function FiltersBar({ hostels }: { hostels: Hostel[] }) {
                     });
                   }}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                     filters.hostelIds.includes(h.id)
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-border hover:bg-muted",
@@ -1086,7 +1089,7 @@ function FiltersBar({ hostels }: { hostels: Hostel[] }) {
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1140,19 +1143,19 @@ function ReportsShell() {
 
   return (
     <FiltersCtx.Provider value={ctxValue}>
-      <div className="space-y-5">
-        <div className="sticky top-0 z-20 pt-1 pb-2 bg-background/80 backdrop-blur-sm -mx-1 px-1">
+      <div className="space-y-5 pb-2">
+        <div className="sticky top-0 z-20 rounded-2xl border border-border/60 bg-background/90 p-2 shadow-sm backdrop-blur-md">
           <FiltersBar hostels={hostels} />
         </div>
 
         {/* tab strip */}
-        <div className="flex gap-1 rounded-xl border bg-card p-1 shadow-sm w-full overflow-x-auto">
+        <div className="flex gap-1 rounded-2xl border border-border/70 bg-card p-1 shadow-sm w-full overflow-x-auto">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all whitespace-nowrap flex-1 justify-center",
+                "flex min-w-max items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all whitespace-nowrap sm:flex-1 sm:justify-center",
                 activeTab === id
                   ? "bg-primary text-primary-foreground shadow"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
@@ -1178,18 +1181,16 @@ function ReportsShell() {
 
 export default function ReportsPage() {
   return (
-    <div className="p-4 md:p-6 max-w-full">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="rounded-lg bg-primary/10 p-2">
-          <BarChart2 className="h-5 w-5 text-primary" />
+    <main className="mx-auto w-full max-w-7xl p-4 md:p-6">
+      <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-border/70 bg-card/90 p-4 shadow-sm md:flex-row md:items-end md:justify-between md:p-5">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Analytics</p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground md:text-2xl">Reports & Analytics</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Deep operational insights across your portfolio, tuned for quick scanning on every screen.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold">Reports & Analytics</h1>
-          <p className="text-sm text-muted-foreground">
-            Deep operational insights across your portfolio
-          </p>
-        </div>
-      </div>
+      </header>
 
       <Suspense
         fallback={
@@ -1200,6 +1201,6 @@ export default function ReportsPage() {
       >
         <ReportsShell />
       </Suspense>
-    </div>
+    </main>
   );
 }

@@ -138,18 +138,12 @@ export default async function SubscriptionsPage() {
   const unusedCreditPaise = owner.unused_credit_paise ?? 0;
 
   return (
-    <div className="mx-auto  px-4 sm:px-6 pb-10">
+    <div className="mx-auto">
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <div className="rounded-[28px] border border-border/70 bg-background/80 p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-primary/10 text-primary">
-                <Rocket className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                  Billing overview
-                </p>
+              <div>               
                 <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
                   Subscriptions and usage
                 </h1>
@@ -206,16 +200,6 @@ export default async function SubscriptionsPage() {
           </div>
         </aside>
       </div>
-      <div className="rounded-[28px] border border-border/70 bg-background/80 p-6 shadow-sm mt-2">
-        <div className="mb-4">
-          <p className="text-sm uppercase tracking-[0.24em] text-muted-foreground">
-            Upgrade plans
-          </p>
-          <h2 className="mt-2 text-xl font-semibold text-foreground">
-            Choose the right plan for your growth
-          </h2>
-        </div>
-
         <PricingPlans
           isLoggedIn
           currentPlan={effectivePlan}
@@ -224,8 +208,7 @@ export default async function SubscriptionsPage() {
           ctaText="Buy"
           title=""
           description=""
-        />
-      </div>
+        />     
       <SubscriptionHistoryClient
         currentPlan={effectivePlan}
         subscriptionHistory={subscriptionHistory ?? []}

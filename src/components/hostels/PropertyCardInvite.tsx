@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Download, Hash, Link2 } from "lucide-react";
+import { jsPDF } from "jspdf";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
@@ -52,6 +53,7 @@ export function PropertyCardInvite({
 
   function downloadQr() {
     if (!svgRef.current || !joinUrl) return;
+
     const svg = svgRef.current;
     const svgData = new XMLSerializer().serializeToString(svg);
     const canvas = document.createElement("canvas");
@@ -60,18 +62,70 @@ export function PropertyCardInvite({
     canvas.height = size;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
     const img = new Image();
     const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
+
     img.onload = () => {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, size, size);
       ctx.drawImage(img, 0, 0, size, size);
       URL.revokeObjectURL(url);
-      const a = document.createElement("a");
-      a.download = `${propertyName.replace(/\s+/g, "-").toLowerCase()}-qr.png`;
-      a.href = canvas.toDataURL("image/png");
-      a.click();
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 36;
+      const qrImage = canvas.toDataURL("image/png");
+      const safeName = propertyName.trim() || "Property";
+
+      pdf.setFillColor(248, 250, 252);
+      pdf.rect(0, 0, pageWidth, pdf.internal.pageSize.getHeight(), "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.text(`Join ${safeName}`, margin, 52);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.text("Tenants can use the QR code and steps below to join this property and create their account.", margin, 78, { maxWidth: pageWidth - margin * 2 });
+
+      pdf.setDrawColor(226, 232, 240);
+      pdf.roundedRect(margin, 96, pageWidth - margin * 2, 260, 12, 12, "S");
+
+      if (propertyCode) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.text("Property code:", margin + 36, 120);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(13);
+        pdf.text(propertyCode, margin + 36, 138);
+      }
+
+      const qrX = margin + (pageWidth - margin * 2 - 140) / 2;
+      pdf.addImage(qrImage, "PNG", qrX, 160, 140, 140);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.text("How tenants can join", margin + 36, 388);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      const instructions = [
+        "1. Open the join link or scan the QR code with a phone camera.",
+        "2. Enter the property code if asked, or continue with the invite link.",
+        "3. Fill in the tenant details and create a password to complete account setup.",
+        "4. Once registered, the tenant can sign in and view their account and property details.",
+        "5. Please upload your Aadhaar card and any alternate ID proof for verification.",
+        "6. Tenants can also see payment history, download receipts, and manage their profile.",
+        "7. Tenants can raise maintenance requests and view their status.",
+        "8. Tenants can view any notices published by the property management.",
+      ];  
+      instructions.forEach((line, index) => {
+        pdf.text(line, margin + 36, 422 + index * 18, { maxWidth: pageWidth - margin * 2 - 36 });
+      });
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.text(`Join link: ${joinUrl}`, margin, 320, { maxWidth: pageWidth - margin * 2 });
+      pdf.save(`${safeName.replace(/\s+/g, "-").toLowerCase()}-join-guide.pdf`);
     };
     img.src = url;
   }
@@ -149,7 +203,7 @@ export function PropertyCardInvite({
               disabled={!joinUrl}
             >
               <Download className="mr-1 h-2.5 w-2.5" />
-              QR
+              QR PDF
             </Button>
           </div>
         </div>
