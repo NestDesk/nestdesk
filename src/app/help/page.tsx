@@ -37,9 +37,10 @@ export default async function HelpPage() {
         }
         center={
           <>
-            <a href="/#features" className="transition-colors hover:text-foreground">Features</a>
-            <a href="/#how-it-works" className="transition-colors hover:text-foreground">How it works</a>
-            <a href="/#pricing" className="transition-colors hover:text-foreground">Pricing</a>
+            <Link href="/#demo" className="transition-colors hover:text-foreground">Demo</Link>
+            <Link href="/#features" className="transition-colors hover:text-foreground">Features</Link>
+            <Link href="/#how-it-works" className="transition-colors hover:text-foreground">How it works</Link>
+            <Link href="/#pricing" className="transition-colors hover:text-foreground">Pricing</Link>
             <Link href="/help" className="transition-colors hover:text-foreground">Help</Link>
           </>
         }

@@ -14,6 +14,7 @@ import { Separator } from "../components/ui/separator";
 import { createClient } from "../lib/supabase/server";
 import { LegalPolicyLauncher } from "../components/legal/LegalPolicyLauncher";
 import { PricingSection } from "../components/layout/PricingSection";
+import { ScreenshotCarousel } from "../components/layout/ScreenshotCarousel";
 import {
   Building2,
   Zap,
@@ -242,6 +243,9 @@ export default async function LandingPage() {
         }
         center={
           <>
+            <a href="#demo" className="transition-colors hover:text-foreground">
+              Demo
+            </a>
             <a href="#features" className="transition-colors hover:text-foreground">
               Features
             </a>
@@ -384,6 +388,9 @@ export default async function LandingPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <Separator />
       </div>
+
+      {/* ── Demo at a glance ──────────────────── */}
+      <ScreenshotCarousel />
 
       {/* ── Features ───────────────────────────── */}
       <section id="features" className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
