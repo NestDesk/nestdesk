@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 import image2 from "../../assets/screenshots/2.png";
 import image3 from "../../assets/screenshots/3.png";
@@ -39,7 +39,7 @@ export function ScreenshotCarousel() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % screenshots.length);
-    }, 5000);
+    }, 7000);
 
     return () => window.clearInterval(timer);
   }, []);
