@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { BuildingBlueprint } from "./setup/BuildingBlueprint";
 import { FloorRoomGenerator } from "./setup/FloorRoomGenerator";
 import { ActivatePropertyButton } from "./ActivatePropertyButton";
-import { PropertyInviteCard } from "./PropertyInviteCard";
+import { PropertyCardInvite } from "./PropertyCardInvite";
 import { autoFloorName, autoPrefix } from "./setup/helpers";
 import type { Floor, Room } from "./setup/types";
 
@@ -1169,7 +1169,7 @@ export function PropertySetupManager({
             </div>
 
             {isActive && tenantJoinToken ? (
-              <PropertyInviteCard
+              <PropertyCardInvite
                 joinToken={tenantJoinToken}
                 propertyName={propertyName}
                 propertyCode={propertyCode ?? undefined}

@@ -566,7 +566,7 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        <Card className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-2">
+        <Card className="hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/8 to-primary/4 p-2 sm:block">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/15">
@@ -866,10 +866,10 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="rounded-2xl border-border/70">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Recent Payments</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-3 pt-0">
             {isFreePlan ? (
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
                 Recent payments are not available on the Free plan. Upgrade to
@@ -882,54 +882,59 @@ export default async function DashboardPage() {
               </div>
             ) : hasProperties ? (
               recentPayments.length > 0 ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-                    <div className="col-span-4">Tenant</div>
-                    <div className="col-span-3">Property</div>
-                    <div className="col-span-2">Amount</div>
-                    <div className="col-span-3 text-right">Date</div>
+                <div className="space-y-2">
+                  <div className="hidden text-[10px] uppercase tracking-[0.15em] text-muted-foreground sm:grid sm:grid-cols-[1.15fr_0.85fr_0.6fr_auto] sm:gap-3 sm:px-1">
+                    <span>Tenant</span>
+                    <span>Property</span>
+                    <span>Amount</span>
+                    <span className="text-right">Date</span>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {recentPayments.map((payment) => (
-                      <div
+                      <article
                         key={payment.id}
-                        className="grid grid-cols-12 gap-3 rounded-2xl border border-border/70 bg-slate-50 p-3 dark:bg-slate-950"
+                        className="rounded-xl border border-border/70 bg-slate-50 p-2.5 shadow-sm transition-colors hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-900 sm:p-3"
                       >
-                        <div className="col-span-4 min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {payment.tenant_name}
-                          </p>
-                          {payment.room_number ? (
-                            <p className="truncate text-xs text-muted-foreground">
-                              Room {payment.room_number}
+                        <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[1.1fr_0.9fr_0.55fr_auto] sm:items-center sm:gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {payment.tenant_name}
                             </p>
-                          ) : null}
+                            {payment.room_number ? (
+                              <p className="truncate text-xs text-muted-foreground">
+                                Room {payment.room_number}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="min-w-0 truncate text-sm text-foreground">
+                            {payment.hostel_name}
+                          </div>
+                          <div className="text-sm font-semibold text-foreground whitespace-nowrap">
+                            Rs. {new Intl.NumberFormat("en-IN").format(payment.amount)}
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-1 text-sm text-foreground sm:justify-end sm:text-right">
+                            <span className="text-xs uppercase text-muted-foreground sm:hidden">
+                              {payment.status === "paid" ? "Paid" : "Disputed"}
+                            </span>
+                            <span className="break-all text-left sm:text-sm">
+                              {formatDateInIndia(
+                                payment.paid_on ?? payment.created_at,
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
+                            </span>
+                          </div>
                         </div>
-                        <div className="col-span-3 truncate text-sm text-foreground">
-                          {payment.hostel_name}
-                        </div>
-                        <div className="col-span-2 text-sm font-semibold text-foreground">
-                          Rs. {new Intl.NumberFormat("en-IN").format(payment.amount)}
-                        </div>
-                        <div className="col-span-3 text-right">
-                          <p className="text-sm text-foreground">
-                            {formatDateInIndia(
-                              payment.paid_on ?? payment.created_at,
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground uppercase">
-                            {payment.status === "paid" ? "Paid" : "Disputed"}
-                          </p>
-                        </div>
-                      </div>
+                        <p className="mt-1 hidden text-xs text-muted-foreground uppercase sm:block">
+                          {payment.status === "paid" ? "Paid" : "Disputed"}
+                        </p>
+                      </article>
                     ))}
                   </div>
-                  <Button asChild variant="outline" size="sm" className="mt-2">
+                  <Button asChild variant="outline" className="mt-1 w-full">
                     <Link href="/payments">View All Payments</Link>
                   </Button>
                 </div>
@@ -948,10 +953,10 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-border/70">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Room Occupancy</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 pb-3 pt-0">
             {isFreePlan ? (
               <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
                 Room occupancy analytics are not available on the Free plan. Upgrade

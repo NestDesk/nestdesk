@@ -1,4 +1,4 @@
-import { UserCircle2, Building2, CalendarDays } from "lucide-react";
+import { Building2, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Separator } from "../../../components/ui/separator";
 import { createClient } from "../../../lib/supabase/server";
@@ -89,9 +89,7 @@ export default async function OwnerProfilePage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-          <UserCircle2 className="h-5 w-5 text-primary" />
-        </div>
+        
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
             My Profile

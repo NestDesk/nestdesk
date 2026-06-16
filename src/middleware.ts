@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/join",
+  "/help",
 ];
 // Paths that require guest state (redirect logged-in users away)
 const AUTH_ONLY_PATHS = [
@@ -62,6 +63,7 @@ function isPublic(pathname: string) {
   return (
     PUBLIC_PATHS.some((p) => pathname === p) ||
     pathname.startsWith("/auth/") ||
+    pathname.startsWith("/help") ||
     pathname.startsWith("/join/") ||
     pathname.startsWith("/tenant/register") ||
     pathname.startsWith("/_next/") ||

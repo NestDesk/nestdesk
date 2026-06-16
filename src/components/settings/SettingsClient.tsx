@@ -27,6 +27,14 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { PropertyDangerZone } from "../hostels/PropertyDangerZone";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
@@ -566,6 +574,7 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const loadStaff = useCallback(async () => {
     const res = await fetch("/api/settings/support-staff");
@@ -617,6 +626,7 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
       method: "DELETE",
     });
     setDeletingId(null);
+    setConfirmDeleteId(null);
     if (res.ok) {
       setStaff((p) => p.filter((s) => s.id !== id));
       toast.success("Staff member removed.");
@@ -624,6 +634,8 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
       toast.error("Failed to remove.");
     }
   }
+
+  const staffToDelete = staff.find((item) => item.id === confirmDeleteId) ?? null;
 
   if (loading) {
     return <div className="h-20 animate-pulse rounded-lg bg-muted/50" />;
@@ -668,7 +680,7 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
               </div>
               <button
                 type="button"
-                onClick={() => deleteStaff(s.id)}
+                onClick={() => setConfirmDeleteId(s.id)}
                 disabled={deletingId === s.id}
                 className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 title="Remove"
@@ -685,6 +697,55 @@ function SupportStaffSection({ properties }: { properties: Hostel[] }) {
           </p>
         )
       )}
+
+      <Dialog open={Boolean(confirmDeleteId)} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
+        <DialogContent className="max-w-md rounded-2xl border-border/70 bg-card p-5 shadow-xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-semibold">Delete support staff?</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  This action will permanently remove the selected support staff member.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-foreground">
+            {staffToDelete ? (
+              <>
+                <p className="font-medium">{staffToDelete.name}</p>
+                <p className="text-muted-foreground">{staffToDelete.designation}</p>
+              </>
+            ) : (
+              <p>Are you sure you want to remove this staff member?</p>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => confirmDeleteId && deleteStaff(confirmDeleteId)}
+              disabled={deletingId === confirmDeleteId}
+            >
+              {deletingId === confirmDeleteId ? "Removing…" : "Delete Staff"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add form */}
       {showForm ? (
@@ -835,7 +896,7 @@ export function SettingsClient({ properties }: SettingsClientProps) {
         {/* Billing Details */}
         <AccordionItem
           value="billing"
-          className="rounded-2xl border border-border/70 bg-card/80 px-5 shadow-sm"
+          className="rounded-2xl border border-border/70 bg-card/80 px-2 shadow-sm"
         >
           <AccordionTrigger className="py-4 hover:no-underline [&>svg]:hidden">
             <div className="flex w-full items-center gap-3">
@@ -847,7 +908,7 @@ export function SettingsClient({ properties }: SettingsClientProps) {
                   Billing Details
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  GST number, PAN, and billing address
+                  UPI ID, GST number, PAN, and billing address
                 </p>
               </div>
               <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -862,7 +923,7 @@ export function SettingsClient({ properties }: SettingsClientProps) {
         {/* Property Terms */}
         <AccordionItem
           value="terms"
-          className="rounded-2xl border border-border/70 bg-card/80 px-5 shadow-sm"
+          className="rounded-2xl border border-border/70 bg-card/80 px-2 shadow-sm"
         >
           <AccordionTrigger className="py-4 hover:no-underline [&>svg]:hidden">
             <div className="flex w-full items-center gap-3">
@@ -889,7 +950,7 @@ export function SettingsClient({ properties }: SettingsClientProps) {
         {/* Support Staff */}
         <AccordionItem
           value="staff"
-          className="rounded-2xl border border-border/70 bg-card/80 px-5 shadow-sm"
+          className="rounded-2xl border border-border/70 bg-card/80 px-2 shadow-sm"
         >
           <AccordionTrigger className="py-4 hover:no-underline [&>svg]:hidden">
             <div className="flex w-full items-center gap-3">
@@ -916,7 +977,7 @@ export function SettingsClient({ properties }: SettingsClientProps) {
         {/* Property Management */}
         <AccordionItem
           value="properties"
-          className="rounded-2xl border border-red-500/20 bg-red-500/5 px-5 shadow-sm"
+          className="rounded-2xl border border-red-500/20 bg-red-500/5 px-2 shadow-sm"
         >
           <AccordionTrigger className="py-4 hover:no-underline [&>svg]:hidden">
             <div className="flex w-full items-center gap-3">

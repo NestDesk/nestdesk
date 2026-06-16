@@ -101,6 +101,16 @@ export default async function TenantDashboardPage() {
       .lt("created_at", monthEnd)
       .is("deleted_at", null))?.count ?? 0;
 
+  const { data: latestNotice } = await admin
+    .from("notices")
+    .select("id, title, body, published_at")
+    .eq("hostel_id", tenant.hostel_id)
+    .eq("is_published", true)
+    .is("deleted_at", null)
+    .order("published_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-br from-primary/10 via-card to-blue-500/10">
@@ -299,9 +309,8 @@ export default async function TenantDashboardPage() {
 
         <Card className="rounded-3xl border border-primary/15 bg-gradient-to-br from-background via-primary/8 to-blue-500/10 shadow-sm sm:col-span-2 lg:col-span-2">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-sm font-semibold text-foreground">Room & Security Deposit</CardTitle>
-              <span className="rounded-full border border-border/70 bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="flex items-center justify-between gap-3">             
+              <span className="rounded-full border border-border/70 bg-background/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
                 Stay essentials
               </span>
             </div>
@@ -338,6 +347,25 @@ export default async function TenantDashboardPage() {
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 {securityDeposit != null ? "Security deposit amount on record" : "Security deposit not set yet"}
+              </p>
+            </div>
+          </CardContent>
+
+          <CardContent className="pt-0">
+            <div className="rounded-3xl border border-border/70 bg-background/90 p-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <Megaphone className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Latest notice</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {latestNotice?.title ?? "No published notice yet"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground whitespace-pre-wrap">
+                {latestNotice?.body ?? "Your property owner’s latest notice will appear here once it is published."}
               </p>
             </div>
           </CardContent>

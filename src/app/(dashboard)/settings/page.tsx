@@ -2,7 +2,6 @@ import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { Separator } from "../../../components/ui/separator";
 import { SettingsClient } from "../../../components/settings/SettingsClient";
-import { Settings } from "lucide-react";
 
 type HostelRow = {
   id: string;
@@ -51,9 +50,7 @@ export default async function SettingsPage() {
     <div className="space-y-2">
       {/* Page header */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-          <Settings className="h-5 w-5 text-primary" />
-        </div>
+        
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Settings

@@ -22,6 +22,12 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../../components/ui/accordion";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
@@ -445,6 +451,8 @@ export default function OwnerTenantsPage() {
   >({});
   const [pendingInfoOpen, setPendingInfoOpen] = useState(false);
   const [pendingInfoTenant, setPendingInfoTenant] = useState<TenantRow | null>(null);
+  const [summaryAccordionValue, setSummaryAccordionValue] = useState<string[]>([]);
+  const [filterAccordionValue, setFilterAccordionValue] = useState<string[]>([]);
   const [pendingInfoDetail, setPendingInfoDetail] =
     useState<TenantPaymentCoverage | null>(null);
 
@@ -581,6 +589,27 @@ export default function OwnerTenantsPage() {
       // handled in loadTenants
     });
   }, [loadTenants]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+
+    const syncAccordions = () => {
+      setSummaryAccordionValue(mediaQuery.matches ? ["summary-cards"] : []);
+      setFilterAccordionValue(mediaQuery.matches ? ["filters-panel"] : []);
+    };
+
+    syncAccordions();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncAccordions);
+      return () => mediaQuery.removeEventListener("change", syncAccordions);
+    }
+
+    mediaQuery.addListener(syncAccordions);
+    return () => mediaQuery.removeListener(syncAccordions);
+  }, []);
 
   const filteredTenants = useMemo(() => {
     const matches = tenants.filter((tenant) => {
@@ -1117,132 +1146,152 @@ export default function OwnerTenantsPage() {
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Total Card */}
-        <Card className="rounded-xl border-border/70">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Total
-                </p>
-                <p className="text-xl font-bold text-foreground">{summary.total}</p>
-              </div>
+      <Accordion
+        type="multiple"
+        value={summaryAccordionValue}
+        onValueChange={setSummaryAccordionValue}
+        className="w-full"
+      >
+        <AccordionItem
+          value="summary-cards"
+          className="overflow-hidden rounded-xl border border-border/70 bg-background"
+        >
+          <AccordionTrigger className="rounded-none border-none bg-background px-4 py-3 text-left hover:no-underline">
+            <span className="text-sm font-semibold text-foreground">
+              Tenant summary cards
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="border-t border-border/70 bg-background p-0">
+            <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Total Card */}
+              <Card className="rounded-xl border-border/70">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Total
+                      </p>
+                      <p className="text-xl font-bold text-foreground">{summary.total}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+                    {Object.values(propertyStatusCounts).map((item) => (
+                      <div key={item.name}>
+                        {item.name}: <span className="font-semibold text-foreground">{item.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Active Card */}
+              <Card className="rounded-xl border-border/70">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
+                      <UserCheck className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Active
+                      </p>
+                      <p className="text-xl font-bold text-foreground">{summary.active}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+                    {Object.values(propertyStatusCounts).map((item) => (
+                      <div key={item.name}>
+                        {item.name}: <span className="font-semibold text-foreground">{item.active}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pending Card */}
+              <Card className="rounded-xl border-border/70">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
+                      <Clock className="h-4 w-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Pending
+                      </p>
+                      <p className="text-xl font-bold text-foreground">{summary.pending}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+                    {Object.values(propertyStatusCounts).map((item) => (
+                      <div key={item.name}>
+                        {item.name}: <span className="font-semibold text-foreground">{item.pending}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Moved Out Card */}
+              <Card className="rounded-xl border-border/70">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-500/10">
+                      <UserX className="h-4 w-4 text-slate-500" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Moved Out
+                      </p>
+                      <p className="text-xl font-bold text-foreground">{summary.moved_out}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
+                    {Object.values(propertyStatusCounts).map((item) => (
+                      <div key={item.name}>
+                        {item.name}: <span className="font-semibold text-foreground">{item.moved_out}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            {/* Per-property breakdown */}
-            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-              {Object.values(propertyStatusCounts).map((item) => (
-                <div key={item.name}>
-                  {item.name}:{" "}
-                  <span className="font-semibold text-foreground">{item.total}</span>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+      <Accordion
+        type="multiple"
+        value={filterAccordionValue}
+        onValueChange={setFilterAccordionValue}
+        className="w-full space-y-0.5"
+      >
+        <AccordionItem
+          value="filters-panel"
+          className="overflow-hidden rounded-xl border border-border/70 bg-background"
+        >
+          <AccordionTrigger className="rounded-none border-none bg-background px-4 py-3 text-left hover:no-underline">
+            <span className="text-sm font-semibold text-foreground">
+              Filters
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="border-t border-border/70 bg-background p-0">
+            <Card className="rounded-none border-none shadow-none">
+              <CardContent className="grid gap-2 p-3 sm:grid-cols-[30%_70%]">
+                <div className="relative min-w-0">
+                  <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name, email, room, or property"
+                    className="pl-8 min-w-0"
+                  />
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Active Card */}
-        <Card className="rounded-xl border-border/70">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
-                <UserCheck className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Active
-                </p>
-                <p className="text-xl font-bold text-foreground">{summary.active}</p>
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-              {Object.values(propertyStatusCounts).map((item) => (
-                <div key={item.name}>
-                  {item.name}:{" "}
-                  <span className="font-semibold text-foreground">
-                    {item.active}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Card */}
-        <Card className="rounded-xl border-border/70">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
-                <Clock className="h-4 w-4 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Pending
-                </p>
-                <p className="text-xl font-bold text-foreground">
-                  {summary.pending}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-              {Object.values(propertyStatusCounts).map((item) => (
-                <div key={item.name}>
-                  {item.name}:{" "}
-                  <span className="font-semibold text-foreground">
-                    {item.pending}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Moved Out Card */}
-        <Card className="rounded-xl border-border/70">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-500/10">
-                <UserX className="h-4 w-4 text-slate-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Moved Out
-                </p>
-                <p className="text-xl font-bold text-foreground">
-                  {summary.moved_out}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-              {Object.values(propertyStatusCounts).map((item) => (
-                <div key={item.name}>
-                  {item.name}:{" "}
-                  <span className="font-semibold text-foreground">
-                    {item.moved_out}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="rounded-xl border-border/70">
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-[30%_70%]">
-          <div className="relative min-w-0">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, email, room, or property"
-              className="pl-8 min-w-0"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
             <select
               className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
               value={statusFilter}
@@ -1281,43 +1330,46 @@ export default function OwnerTenantsPage() {
               <option value="pending">Rent pending</option>
             </select>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-10 min-w-[10rem] justify-between"
-                >
-                  <span className="truncate text-sm">
-                    {SORT_OPTION_LABELS[sortOption]}
-                  </span>
-                  <ArrowUpDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onSelect={() => setSortOption("room_number")}>
-                  Room number
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSortOption("join_date")}>
-                  Joined date
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => setSortOption("profile_completion")}
-                >
-                  Profile completion
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSortOption("rent_amount")}>
-                  Rent amount
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setSortOption("none")}>
-                  Clear sorting
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardContent>
-      </Card>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-10 min-w-[10rem] justify-between"
+                    >
+                      <span className="truncate text-sm">
+                        {SORT_OPTION_LABELS[sortOption]}
+                      </span>
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onSelect={() => setSortOption("room_number")}>
+                      Room number
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setSortOption("join_date")}>
+                      Joined date
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setSortOption("profile_completion")}
+                    >
+                      Profile completion
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setSortOption("rent_amount")}>
+                      Rent amount
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setSortOption("none")}>
+                      Clear sorting
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              </CardContent>
+            </Card>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -1848,11 +1900,7 @@ export default function OwnerTenantsPage() {
                       ) : null}
 
                       {/* Footer actions */}
-                      <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-4">
-                        <p className="text-[11px] text-muted-foreground">
-                          Changes will be saved immediately and reflect in tenant
-                          portal.
-                        </p>
+                      <div className="flex items-center justify-end gap-3 border-t border-border/50 pt-4">
                         <div className="flex shrink-0 items-center gap-2">
                           <Button
                             type="button"

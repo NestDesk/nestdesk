@@ -74,11 +74,11 @@ export default async function TenantLayout({
         left={
           <>
             <NavbarLogo href="/" subtitle="Tenant Portal" />
+             <TenantMobileNav />
           </>
         }
         right={
-          <>
-            <TenantMobileNav />
+          <>           
             <span className="hidden text-xs text-muted-foreground md:block">
               {tenant.full_name}
             </span>

@@ -22,11 +22,16 @@ import {
   Repeat,
   Search,
   Trash2,
-  WalletCards,
   X,
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../../components/ui/accordion";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { DatePicker } from "../../../components/ui/DatePicker";
@@ -220,6 +225,7 @@ export default function OwnerExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterHostelId, setFilterHostelId] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>(
     "all",
   );
@@ -305,6 +311,23 @@ export default function OwnerExpensesPage() {
     }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateFiltersOpen = () => setFiltersOpen(mediaQuery.matches);
+
+    updateFiltersOpen();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateFiltersOpen);
+      return () => mediaQuery.removeEventListener("change", updateFiltersOpen);
+    }
+
+    mediaQuery.addListener(updateFiltersOpen);
+    return () => mediaQuery.removeListener(updateFiltersOpen);
+  }, []);
 
   const loadExpenses = useCallback(async () => {
     setLoading(true);
@@ -752,9 +775,7 @@ export default function OwnerExpensesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <WalletCards className="h-5 w-5 text-primary" />
-          </div>
+          
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               Expenses
@@ -842,66 +863,100 @@ export default function OwnerExpensesPage() {
       )}
 
       {/* Filters*/}
-      <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="h-9 w-full min-w-0 pl-8 pr-8 text-sm"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              onClick={() => setSearchQuery("")}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-        </div>
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full md:w-44"
-          value={filterHostelId}
-          onChange={(e) => setFilterHostelId(e.target.value)}
+      <Accordion
+        type="single"
+        collapsible
+        value={filtersOpen ? "filters" : undefined}
+        onValueChange={(value) => setFiltersOpen(value === "filters")}
+        className="mt-2"
+      >
+        <AccordionItem
+          value="filters"
+          className="rounded-2xl border border-border/70 bg-card shadow-sm"
         >
-          <option value="all">All Properties</option>
-          {hostels.map((hostel) => (
-            <option key={hostel.id} value={hostel.id}>
-              {hostel.name}
-            </option>
-          ))}
-        </select>
-        {/* Date Range Picker */}
-        <div className="flex gap-2 items-center">
-          <DatePicker
-            value={dateRange.start}
-            onChange={(val) => setDateRange((prev) => ({ ...prev, start: val }))}
-            placeholder="Start date"
-          />
-          <span className="text-muted-foreground">to</span>
-          <DatePicker
-            value={dateRange.end}
-            onChange={(val) => setDateRange((prev) => ({ ...prev, end: val }))}
-            placeholder="End date"
-          />
-        </div>
-        <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full md:w-40"
-          value={filterCategory}
-          onChange={(e) =>
-            setFilterCategory(e.target.value as "all" | ExpenseCategory)
-          }
-        >
-          <option value="all">All Categories</option>
-          {EXPENSE_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {EXPENSE_CATEGORY_LABEL[category]}
-            </option>
-          ))}
-        </select>
-      </div>
+          <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline lg:px-5">
+            <span className="flex items-center gap-2 text-foreground">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              Search & filters
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 lg:px-5">
+            <div className="grid w-full gap-3 lg:grid-cols-[1.6fr_1.2fr_1fr] lg:items-end">
+              <div className="relative min-w-0 w-full">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-9 w-full min-w-0 pl-8 pr-8 text-sm"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full"
+                  value={filterHostelId}
+                  onChange={(e) => setFilterHostelId(e.target.value)}
+                >
+                  <option value="all">All Properties</option>
+                  {hostels.map((hostel) => (
+                    <option key={hostel.id} value={hostel.id}>
+                      {hostel.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full"
+                  value={filterCategory}
+                  onChange={(e) =>
+                    setFilterCategory(e.target.value as "all" | ExpenseCategory)
+                  }
+                >
+                  <option value="all">All Categories</option>
+                  {EXPENSE_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {EXPENSE_CATEGORY_LABEL[category]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row lg:flex-col lg:items-stretch">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  Date range
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  <DatePicker
+                    value={dateRange.start}
+                    onChange={(val) =>
+                      setDateRange((prev) => ({ ...prev, start: val }))
+                    }
+                    placeholder="Start date"
+                  />
+                  <DatePicker
+                    value={dateRange.end}
+                    onChange={(val) =>
+                      setDateRange((prev) => ({ ...prev, end: val }))
+                    }
+                    placeholder="End date"
+                  />
+                </div>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       {loading ? (
         <div className="space-y-6">
           <div className="flex items-center justify-between">

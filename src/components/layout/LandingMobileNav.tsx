@@ -11,6 +11,7 @@ const navLinks = [
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
+  { label: "Help", href: "/help" },
 ];
 
 export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) {
@@ -45,7 +46,7 @@ export function LandingMobileNav({ user }: { user: LandingAccountUser | null }) 
         side="left"
         className="w-72 px-0 pb-6 pt-0"
         sheetTitle="Landing page navigation"
-        sheetDescription="Open the landing page menu to navigate to features, pricing, and other sections"
+        sheetDescription="Open the landing page menu to navigate to features, pricing, help, and other sections"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         {/* Header */}

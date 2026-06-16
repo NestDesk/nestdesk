@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
   CalendarCheck,
-  CreditCard,
   Download,
   FileDown,
   IndianRupee,
@@ -44,6 +43,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../../components/ui/accordion";
 import { Label } from "../../../components/ui/label";
 import {
   createColumnHelper,
@@ -212,6 +217,7 @@ export default function OwnerPaymentsPage() {
 
   // Record modal
   const [recordOpen, setRecordOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
@@ -345,6 +351,17 @@ export default function OwnerPaymentsPage() {
 
   useEffect(() => {
     loadPayments().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const updateFiltersState = () => {
+      setFiltersOpen(window.innerWidth >= 1024);
+    };
+
+    updateFiltersState();
+    window.addEventListener("resize", updateFiltersState);
+
+    return () => window.removeEventListener("resize", updateFiltersState);
   }, []);
 
   /* ------------------------------------------------------------------ */
@@ -765,9 +782,6 @@ export default function OwnerPaymentsPage() {
       {/* â”€â”€ Header â”€â”€ */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <CreditCard className="h-5 w-5 text-primary" />
-          </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               Payments
@@ -784,87 +798,103 @@ export default function OwnerPaymentsPage() {
       </div>
 
       {!loading && payments.length > 0 && (
-        <div className="space-y-3">
-          <div className="grid w-full gap-3 lg:grid-cols-[2.7fr_2.3fr_auto] lg:items-center">
-            <div className="relative min-w-0 w-full">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="h-9 w-full pl-8 pr-7 text-sm"
-                placeholder="Search…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+        <Accordion
+          type="single"
+          collapsible
+          value={filtersOpen ? "filters" : undefined}
+          onValueChange={(value) => setFiltersOpen(value === "filters")}
+          className="space-y-3"
+        >
+          <AccordionItem value="filters" className="rounded-2xl border border-border/70 bg-card shadow-sm">
+            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline lg:px-5">
+              <span className="flex items-center gap-2 text-foreground">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                Search & filters
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 lg:px-5">
+              <div className="grid w-full gap-3 lg:grid-cols-[1.9fr_2.3fr_auto] lg:items-center">
+                <div className="relative min-w-0 w-full">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-9 w-full pl-8 pr-7 text-sm"
+                    placeholder="Search…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
 
-            <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
-                <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">
-                  Paid on
-                </span>
+                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Paid on
+                    </span>
+                  </div>
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                    <DatePicker
+                      value={fromDate}
+                      onChange={(value) => setFromDate(value)}
+                      placeholder="Start date"
+                      className="min-w-0"
+                    />
+                    <DatePicker
+                      value={toDate}
+                      onChange={(value) => setToDate(value)}
+                      placeholder="End date"
+                      className="min-w-0"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterHostelId("all");
+                      setFilterStatus("all");
+                      const { startDate, endDate } = thisMonthRange();
+                      setFromDate(startDate);
+                      setToDate(endDate);
+                    }}
+                    title="Reset filters"
+                    aria-label="Reset filters"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition hover:border-primary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 gap-2">
+                        <Download className="h-4 w-4" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onSelect={downloadExcel}>
+                        Download Excel
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={downloadPdf}>
+                        Download PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                <DatePicker
-                  value={fromDate}
-                  onChange={(value) => setFromDate(value)}
-                  placeholder="Start date"
-                  className="min-w-0"
-                />
-                <DatePicker
-                  value={toDate}
-                  onChange={(value) => setToDate(value)}
-                  placeholder="End date"
-                  className="min-w-0"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilterHostelId("all");
-                  setFilterStatus("all");
-                  const { startDate, endDate } = thisMonthRange();
-                  setFromDate(startDate);
-                  setToDate(endDate);
-                }}
-                title="Reset filters"
-                aria-label="Reset filters"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition hover:border-primary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2">
-                    <Download className="h-4 w-4" />
-                    Export
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onSelect={downloadExcel}>
-                    Download Excel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={downloadPdf}>
-                    Download PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
 
       {/* â”€â”€ Content â”€â”€ */}

@@ -254,6 +254,9 @@ export default async function LandingPage() {
             <a href="#pricing" className="transition-colors hover:text-foreground">
               Pricing
             </a>
+            <Link href="/help" className="transition-colors hover:text-foreground">
+              Help
+            </Link>
           </>
         }
         right={
@@ -333,8 +336,7 @@ export default async function LandingPage() {
               </div>
 
               <p className="mt-4 text-sm text-muted-foreground">
-                Free plan available &bull; Setup in under 10 minutes &bull; No
-                contracts
+                Free plan available &bull;  No contracts
               </p>
 
               {/* Trust bar */}
@@ -384,7 +386,7 @@ export default async function LandingPage() {
       </div>
 
       {/* ── Features ───────────────────────────── */}
-      <section id="features" className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+      <section id="features" className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <div className="mb-10 flex flex-col items-center text-center">
           <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Built for how managed properties actually work
@@ -418,7 +420,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── How It Works ───────────────────────── */}
-      <section id="how-it-works" className="bg-muted/30 py-14">
+      <section id="how-it-works" className="bg-muted/30 py-4">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex flex-col items-center text-center">
             <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -445,7 +447,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── Testimonials ───────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <div className="mb-10 flex flex-col items-center text-center">
           <Badge
             variant="secondary"
