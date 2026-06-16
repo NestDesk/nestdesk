@@ -8,9 +8,10 @@ import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import type { LandingAccountUser } from "./LandingAccountMenu";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Demo", href: "/#demo" },
+  { label: "Features", href: "/#features" },
+  { label: "How it works", href: "/#how-it-works" },
+  { label: "Pricing", href: "/#pricing" },
   { label: "Help", href: "/help" },
 ];
 
