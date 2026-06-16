@@ -1,4 +1,3 @@
-import { Rocket } from "lucide-react";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { formatDateInIndia } from "../../../lib/date";

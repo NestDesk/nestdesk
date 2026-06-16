@@ -20,7 +20,6 @@ import {
 } from "@tanstack/react-table";
 import {
   ArrowUpDown,
-  BarChart2,
   Building2,
   CalendarDays,
   Download,

@@ -22,7 +22,6 @@ import {
   Repeat,
   Search,
   Trash2,
-  WalletCards,
   X,
   ArrowUpDown,
 } from "lucide-react";

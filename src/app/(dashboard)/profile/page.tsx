@@ -1,4 +1,4 @@
-import { UserCircle2, Building2, CalendarDays } from "lucide-react";
+import { Building2, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Separator } from "../../../components/ui/separator";
 import { createClient } from "../../../lib/supabase/server";
