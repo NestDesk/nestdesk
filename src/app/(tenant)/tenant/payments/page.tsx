@@ -136,7 +136,7 @@ export default function TenantPaymentsPage() {
       ) : (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
               <p className="text-xs text-emerald-700 dark:text-emerald-400">
                 Total Paid
@@ -177,9 +177,9 @@ export default function TenantPaymentsPage() {
                   )}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <div className="mt-0.5 hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
                           <IndianRupee className="h-4 w-4" />
                         </div>
                         <div className="space-y-1">
@@ -222,8 +222,8 @@ export default function TenantPaymentsPage() {
                       </div>
 
                       {p.receipt_number && (
-                        <div className="shrink-0 text-right">
-                          <div className="flex flex-col items-end gap-2">
+                        <div className="shrink-0 text-left sm:text-right">
+                          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                               <Receipt className="h-3 w-3" />
                               {p.receipt_number}

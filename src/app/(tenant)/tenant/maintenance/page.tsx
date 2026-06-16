@@ -287,7 +287,7 @@ export default function TenantMaintenancePage() {
                 Describe the issue and we&apos;ll notify your property manager.
               </p>
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                You have {requestsRemaining} of {maintenanceLimit} maintenance requests left.
+                You have {requestsRemaining} of {maintenanceLimit} maintenance requests left this month.
               </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3 p-3">
