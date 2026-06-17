@@ -113,13 +113,19 @@ export async function GET(request: NextRequest) {
       starts_at: subscription.starts_at,
       ends_at: subscription.ends_at,
       created_at: subscription.created_at,
-      owner: subscription.owners?.[0]
-        ? {
-            id: subscription.owner_id,
-            full_name: subscription.owners[0].full_name,
-            email: subscription.owners[0].email,
-          }
-        : null,
+      owner: (() => {
+        const owner = Array.isArray(subscription.owners)
+          ? subscription.owners[0] ?? null
+          : subscription.owners ?? null;
+
+        return owner
+          ? {
+              id: subscription.owner_id,
+              full_name: owner.full_name,
+              email: owner.email,
+            }
+          : null;
+      })(),
       hostels: hostelsByOwner.get(subscription.owner_id) ?? [],
     })),
   };

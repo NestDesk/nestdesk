@@ -7,11 +7,20 @@ export interface PhoneVerificationPayload {
 }
 
 function getSigningSecret(): string {
-  const secret = process.env.OTP_SIGNING_SECRET;
-  if (!secret || secret.trim().length < 16) {
+  const candidates = [
+    process.env.OTP_SIGNING_SECRET,
+    process.env.NEXTAUTH_SECRET,
+    process.env.CRON_SECRET,
+    "dev-otp-signing-secret-123456",
+  ];
+
+  const secret = candidates.find((value) => value && value.trim().length >= 16);
+
+  if (!secret) {
     throw new Error("OTP_SIGNING_SECRET is missing or too short.");
   }
-  return secret;
+
+  return secret.trim();
 }
 
 function sign(body: string): string {

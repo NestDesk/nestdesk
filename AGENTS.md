@@ -5,7 +5,7 @@
 - Keep messaging logic in `src/lib/messaging/`; keep notice and maintenance WhatsApp flows separate.
 - Never expose Razorpay secrets or put client-side secrets in UI code.
 - Use editor/type checks for normal changes; do not run `npm run build` for every small edit.
-- do not Run `npm run build` unless asked for release-ready verification.
+- IMPORTANT - Do not Run `npm run build` unless asked for release-ready verification.
 
 Common paths:
 - Tenant API: `src/app/api/tenant/**`

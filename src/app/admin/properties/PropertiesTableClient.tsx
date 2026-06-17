@@ -19,10 +19,16 @@ interface HostelRow {
   owner_id: string;
   owners:
     | {
-        full_name: string;
+        full_name: string | null;
         email: string | null;
         phone: string | null;
-        plan: string;
+        plan: string | null;
+      }
+    | {
+        full_name: string | null;
+        email: string | null;
+        phone: string | null;
+        plan: string | null;
       }[]
     | null;
 }
@@ -63,12 +69,15 @@ export default function AdminPropertiesTable({
 }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
 
+  const getOwnerFromRelation = (owners: HostelRow["owners"]) =>
+    Array.isArray(owners) ? owners[0] ?? null : owners ?? null;
+
   const filteredHostels = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return hostels;
 
     return hostels.filter((hostel) => {
-      const owner = hostel.owners?.[0];
+      const owner = getOwnerFromRelation(hostel.owners);
       const searchValues = [hostel.name, owner?.email ?? "", owner?.phone ?? ""];
       return searchValues.some((value) => value.toLowerCase().includes(query));
     });
@@ -131,7 +140,7 @@ export default function AdminPropertiesTable({
               filteredHostels.map((hostel) => {
                 const rooms = roomsByHostel[hostel.id];
                 const activeTenants = tenantsByHostel[hostel.id] ?? 0;
-                const owner = hostel.owners?.[0] ?? null;
+                const owner = getOwnerFromRelation(hostel.owners);
 
                 return (
                   <tr

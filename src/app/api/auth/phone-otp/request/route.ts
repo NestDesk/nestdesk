@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const phoneE164 = normalizeIndianPhone(parsed.data.phone);
+
     const result = await requestOwnerPhoneOtp({
       phoneE164,
       purpose: parsed.data.purpose,

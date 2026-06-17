@@ -139,9 +139,9 @@ export default function AdminLeadsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-36 rounded-xl text-sm">
+            <SelectTrigger className="h-11 w-full rounded-xl text-base sm:h-9 sm:w-36 sm:text-sm">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
@@ -156,7 +156,7 @@ export default function AdminLeadsPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-9 gap-2 rounded-xl"
+            className="h-11 w-full gap-2 rounded-xl sm:h-9 sm:w-auto"
             onClick={fetchLeads}
             disabled={loading}
           >

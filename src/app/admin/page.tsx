@@ -167,8 +167,6 @@ export default async function AdminOverviewPage() {
     planCounts[plan] = (planCounts[plan] ?? 0) + 1;
   }
 
-  const monthLabel = now.toLocaleString("en-IN", { month: "long", year: "numeric" });
-
   const topKpis = [
     {
       label: "Total Accounts",
@@ -195,7 +193,7 @@ export default async function AdminOverviewPage() {
       bg: "bg-violet-500/10",
     },
     {
-      label: `Total Properties Payments — ${monthLabel}`,
+      label: `Total Properties Payments`,
       value: fmtRupees(monthlyCollected),
       sub:
         monthlyOverdue > 0

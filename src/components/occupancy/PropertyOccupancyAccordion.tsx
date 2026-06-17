@@ -326,7 +326,7 @@ export function PropertyOccupancyAccordion({
                           No rooms on this floor yet.
                         </p>
                       ) : (
-                        <div className="flex gap-2.5 overflow-x-auto pb-1.5 pt-1.5">
+                        <div className="flex flex-wrap gap-2.5 pb-1.5 pt-1.5">
                           {floor.rooms.map((room) => (
                             <RoomCard key={room.id} room={room} />
                           ))}
