@@ -60,199 +60,185 @@ export default async function HelpPage() {
         }
       />
 
-      <main className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-              Back to home
-            </Link>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">NestDesk Help & workflow guide</h1>
-            <p className="max-w-3xl text-muted-foreground">
-              This guide explains how the product is organized, what each section does, and how owners and tenants move through the platform from setup to daily operations.
-            </p>
+      <main className="min-h-screen bg-background text-foreground pb-20">
+        <section className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" />
+                Back to home
+              </Link>
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">NestDesk Help & Documentation</h1>
+              <p className="max-w-3xl text-muted-foreground">
+                Comprehensive guide to exactly how the platform works for Property Owners and Tenants. Learn how to register, configure your properties, raise maintenance requests, and manage rent.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="rounded-xl">
+              <Link href="/login">Sign in to your account</Link>
+            </Button>
           </div>
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href="/login">Sign in</Link>
-          </Button>
-        </div>
 
-        <Card className="rounded-3xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>1. How NestDesk works end to end</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <p>
-              The application has two main portals: the owner dashboard for property and operations management, and the tenant portal for stay-related actions. Owners create properties, rooms, and billing structure first, then tenants join and use the tenant portal for payments, notices, maintenance, and profile updates.
-            </p>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-border p-4">1. Owners set up hostels, rooms, pricing, and subscription plan.</div>
-              <div className="rounded-2xl border border-border p-4">2. Tenants register, get approved, and access their account and stay details.</div>
-              <div className="rounded-2xl border border-border p-4">3. Owners and tenants use payments, notices, maintenance, and reports to run daily operations.</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="rounded-3xl border-border/70 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/10 p-2 text-primary"><Building2 className="h-5 w-5" /></div>
-                <CardTitle>2. Owner section by section</CardTitle>
+          <div className="space-y-12">
+            {/* Owners Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-border pb-4">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <Building2 className="h-6 w-6" />
+                </div>
+                <h2 className="text-2xl font-bold">Property Owners Guide</h2>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <ul className="space-y-3">
-                <li><strong>Dashboard:</strong> gives an overview of active properties, occupancy, maintenance issues, this month’s rent and expenses, and subscription status.</li>
-                <li><strong>Properties / Hostels:</strong> lets owners add and manage hostel details, floors, rooms, activation state, and property access codes.</li>
-                <li><strong>Tenants:</strong> helps owners review tenant applications, approve or update tenant records, assign rooms, and view rent/payment coverage.</li>
-                <li><strong>Payments:</strong> is for recording and tracking rent/payment entries, filtering by hostel or tenant, and reviewing payment history.</li>
-                <li><strong>Expenses:</strong> captures operational spending and recurring cost tracking for the property.</li>
-                <li><strong>Notices:</strong> lets owners create, publish, and manage important announcements for tenants.</li>
-                <li><strong>Maintenance:</strong> centralizes tenant problems, owner comments, status updates, and resolution tracking.</li>
-                <li><strong>Reports:</strong> gives analytics on finances, occupancy, defaulters, expenses, and maintenance trends.</li>
-                <li><strong>Subscriptions:</strong> handles plan upgrades, pricing, and owner billing through integrated payment flow.</li>
-              </ul>
-            </CardContent>
-          </Card>
 
-          <Card className="rounded-3xl border-border/70 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-cyan-500/10 p-2 text-cyan-600"><UserRound className="h-5 w-5" /></div>
-                <CardTitle>3. Tenant section by section</CardTitle>
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl">1. Owner Registration & Onboarding</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted-foreground">
+                  <p>Starting as an owner requires passing our multi-step verification process to ensure a secure platform for tenants.</p>
+                  <div className="rounded-xl border border-border p-4 bg-muted/20">
+                    <ul className="list-decimal list-inside space-y-2">
+                      <li><strong>Account Creation:</strong> Visit <code className="bg-muted px-1.5 py-0.5 rounded">/register</code>. Provide your full name (no numbers allowed), email, and a strong password. A strong password requires at least 8 characters, an uppercase letter, a lowercase letter, and a number.</li>
+                      <li><strong>Plan Selection:</strong> Choose your software tier (e.g., Free, Starter, Pro) during registration. This plan follows you through your account lifecycle.</li>
+                      <li><strong>Onboarding Profile:</strong> Once registered, you must provide your property business or home address. Simply entering your 6-digit Pincode will automatically detect and fill your City and State.</li>
+                      <li><strong>WhatsApp Phone Verification:</strong> Enter your 10-digit mobile number. You will receive an OTP via WhatsApp. This step must be completed to unlock a verified owner dashboard, proving your identity to prospective tenants.</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl">2. Property Setup & Invite Links</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted-foreground">
+                  <p>Your dashboard will be mostly empty until you create a property structure.</p>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-border p-4">
+                      <h4 className="font-semibold text-foreground mb-1 mt-0">Add a Hostel/PG</h4>
+                      <p>Navigate to <strong>Hostels</strong> and fill in the facility name, type (PG, Hostel, rental), and full address. Once saved, it will be listed as 'Setup Incomplete'.</p>
+                    </div>
+                    <div className="rounded-xl border border-border p-4">
+                      <h4 className="font-semibold text-foreground mb-1 mt-0">Create Rooms</h4>
+                      <p>Click into the property to build 'Floors', and then generate 'Rooms'. Set the rent values and capacity for each bed space.</p>
+                    </div>
+                  </div>
+                  <p className="bg-primary/5 text-primary p-3 rounded-xl border border-primary/20">
+                    <strong>Crucial:</strong> Activating the property generates a specific <strong>Invite Link</strong> and <strong>QR Code</strong>. Give this link to your tenants so they apply directly to your property database.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl">3. Owner Platform Features</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <ul className="grid gap-3 md:grid-cols-2">
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Dashboard:</strong> Overviews of occupancy limits, this month's rent collected vs pending, total expenses, and open maintenance tickets.</div></li>
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Tenants:</strong> Review incoming requests from your Invite link. Approve tenants, assign rooms, update their billing dates.</div></li>
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Payments:</strong> Log cash or UPI rent collections. View historical payment records and filter by tenant or hostel.</div></li>
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Expenses:</strong> Track your operational costs (Electricity, Staff Salary, Repairs) against your income.</div></li>
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Maintenance:</strong> View tickets raised by tenants. Update statuses to "In Progress" or "Resolved", leaving comments.</div></li>
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Notices:</strong> Publish important announcements internally. Tenants see these in their dashboard instantly, avoiding WhatsApp clutter.</div></li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tenants Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-border pb-4">
+                <div className="rounded-2xl bg-cyan-500/10 p-2 text-cyan-600">
+                  <UserRound className="h-6 w-6" />
+                </div>
+                <h2 className="text-2xl font-bold">Tenant Operations Guide</h2>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <ul className="space-y-3">
-                <li><strong>Dashboard:</strong> shows account status, stay details, room information, maintenance limit, and quick access to key actions.</li>
-                <li><strong>Payments:</strong> displays rent payment history, paid amounts, disputed items, and receipts.</li>
-                <li><strong>Notices:</strong> shows published announcements from the owner for the tenant’s property.</li>
-                <li><strong>Maintenance:</strong> lets tenants raise, edit, and delete open requests for property issues.</li>
-                <li><strong>Profile:</strong> allows tenants to view and manage their personal details and supporting documents.</li>
-                <li><strong>Support Staff:</strong> gives access to support contacts and service-related help information.</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
 
-        <Card className="rounded-3xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>4. Detailed owner registration and property setup</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5 text-sm text-muted-foreground">
-            <div className="rounded-2xl border border-border p-4">
-              <h2 className="mb-2 font-semibold text-foreground">Owner registration steps</h2>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>Go to /register and create an owner account with full name, email, and a strong password.</li>
-                <li>Choose your plan on the registration page; the selected plan is carried into your onboarding flow.</li>
-                <li>After account creation, you land in onboarding and then enter the owner dashboard.</li>
-                <li>Complete your owner profile and phone verification in the settings/profile areas so your account is trusted for tenant operations.</li>
-              </ol>
-            </div>
-            <div className="rounded-2xl border border-border p-4">
-              <h2 className="mb-2 font-semibold text-foreground">Property setup steps</h2>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>Open Properties and click Add Property to create your hostel or PG entry.</li>
-                <li>Fill in the property name, type, full address, pincode, city, and state. Pincode lookup can auto-fill city/state.</li>
-                <li>After saving, go to the property setup screen to create floors and rooms.</li>
-                <li>Use the Building step to create floor shells, then the Rooms step to add room numbers, capacity, rent, and status.</li>
-                <li>Review the blueprint and finalize the setup. Once the property has floors and rooms, you can activate it for tenant access.</li>
-                <li>After activation, share the invite link or QR code so tenants can register against that property.</li>
-              </ol>
-            </div>
-          </CardContent>
-        </Card>
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl">1. Registration through Invite Links</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted-foreground">
+                  <p>Tenants cannot join in a vacuum. You must scan the owner's QR code or click their Invitation Link. This ensures you are tied straight to their specific PG/Hostel database.</p>
+                  <div className="rounded-xl border border-border p-4 bg-muted/20">
+                    <ol className="list-decimal list-inside space-y-2">
+                      <li>Open the owner's invite link. It will show the property name and confirm it is accepting registrations.</li>
+                      <li>Fill out your full name, email, phone number, gender, and Aadhaar info.</li>
+                      <li>Complete WhatsApp OTP verification to prove your mobile number.</li>
+                      <li>Set your password and enter the system.</li>
+                    </ol>
+                  </div>
+                  <p className="bg-amber-500/5 text-amber-600 p-3 rounded-xl border border-amber-500/20">
+                    <strong>Pending State:</strong> Upon registration, your account is in a "Pending" state. You have access to your dashboard, but features are locked until the owner approves your join request.
+                  </p>
+                </CardContent>
+              </Card>
 
-        <Card className="rounded-3xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>5. Detailed tenant registration, account setup, and activation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5 text-sm text-muted-foreground">
-            <div className="rounded-2xl border border-border p-4">
-              <h2 className="mb-2 font-semibold text-foreground">Tenant registration steps</h2>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>Open the invite link or QR code shared by the owner. This validates the property and takes you to the tenant registration page.</li>
-                <li>Enter full name, email, phone, occupation type, institution name, gender, and Aadhaar details.</li>
-                <li>Verify your phone number using the OTP flow sent to WhatsApp. This must be completed before the tenant account is submitted.</li>
-                <li>Create your password and accept the consent terms. Once the form is submitted, the owner receives the registration for review.</li>
-              </ol>
-            </div>
-            <div className="rounded-2xl border border-border p-4">
-              <h2 className="mb-2 font-semibold text-foreground">How tenants reach 100% activation readiness</h2>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>After registration, the tenant account enters the pending state until the owner approves it.</li>
-                <li>On the tenant dashboard, the profile completion meter shows progress across 10 required items: full name, email, phone, occupation type, institution name, Aadhaar, profile photo, Aadhaar front, Aadhaar back, and alternate ID.</li>
-                <li>To reach 100%, upload all required documents and fill all profile fields. The system marks the profile as complete when every required item is present.</li>
-                <li>Once the owner approves the tenant, the status changes to active and the tenant gains full access to payments, notices, maintenance, and profile tools.</li>
-              </ol>
-            </div>
-          </CardContent>
-        </Card>
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl">2. Hitting 100% Profile Completion</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted-foreground">
+                  <p>Even if the owner approves you, you must fill out 10 distinct profile fields in the <strong>Profile</strong> tab to reach full Active status.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Full Name</li>
+                      <li>Email Address</li>
+                      <li>Phone Number</li>
+                      <li>Occupation Type</li>
+                      <li>Workplace/Institution Name</li>
+                    </ul>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>12-Digit Aadhaar Number</li>
+                      <li>Profile Photo Upload</li>
+                      <li>Aadhaar Front Image</li>
+                      <li>Aadhaar Back Image</li>
+                      <li>Alternate ID Document</li>
+                    </ul>
+                  </div>
+                  <p>Once all 10 inputs are provided, the progress meter reads 100% and you are fully unlocked!</p>
+                </CardContent>
+              </Card>
 
-        <Card className="rounded-3xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>6. Pending vs active states</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-border p-4">
-                <h2 className="mb-2 font-semibold text-foreground">Pending</h2>
-                <p>The tenant has created an account but is waiting for the owner to approve the registration. During this state the tenant can see the pending status and complete profile details, but full access is limited.</p>
-              </div>
-              <div className="rounded-2xl border border-border p-4">
-                <h2 className="mb-2 font-semibold text-foreground">Active</h2>
-                <p>After the owner approves the tenant, the record becomes active. The tenant can access the full portal and use payments, notices, maintenance, profile, and support features.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <Card className="rounded-2xl border-border/70 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl">3. Tenant Features (Maintenance, Notices, and Payments)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-muted-foreground">
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-border p-4 hover:border-cyan-500/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wrench className="h-5 w-5 text-cyan-600" />
+                        <h4 className="font-semibold text-foreground mt-0 mb-0">Raising Maintenance Requests</h4>
+                      </div>
+                      <p>If something breaks (e.g. WiFi, Plumbing, Fan), go to the <strong>Maintenance</strong> tab. Click "New Request", select the category, give it a short title, and describe the issue.</p>
+                      <ul className="ml-5 list-disc mt-2 text-xs">
+                        <li>The owner is immediately notified.</li>
+                        <li>Track whether the issue is 'Open', 'In Progress', or 'Resolved'.</li>
+                        <li>Delete or modify your request if the problem resolves on its own.</li>
+                      </ul>
+                    </div>
 
-        <Card className="rounded-3xl border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>7. Typical workflows</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
-            <div className="rounded-2xl border border-border p-4">
-              <h2 className="mb-2 font-semibold text-foreground">For owners</h2>
-              <p>Start by creating a property, complete room/floor setup, invite or review tenants, then use payments, notices, maintenance, and reports to keep everything running.</p>
-            </div>
-            <div className="rounded-2xl border border-border p-4">
-              <h2 className="mb-2 font-semibold text-foreground">For tenants</h2>
-              <p>After approval, use your dashboard to check status, view payment history, read notices, raise maintenance requests, and manage your profile.</p>
-            </div>
-          </CardContent>
-        </Card>
+                    <div className="rounded-xl border border-border p-4 hover:border-cyan-500/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Megaphone className="h-5 w-5 text-cyan-600" />
+                        <h4 className="font-semibold text-foreground mt-0 mb-0">Viewing Property Notices</h4>
+                      </div>
+                      <p>Forget messy group chats. Under the <strong>Notices</strong> tab, you can read formatted, official announcements from the owner (e.g., 'Water supply offline tomorrow', 'Rent Policy Updates').</p>
+                    </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="rounded-3xl border-border/70 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3"><div className="rounded-2xl bg-primary/10 p-2 text-primary"><CreditCard className="h-5 w-5" /></div><CardTitle>Payments & billing</CardTitle></div>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">Owners record payments and track dues; tenants view their payment history and receipts. This keeps rent collection and verification structured.</CardContent>
-          </Card>
-          <Card className="rounded-3xl border-border/70 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3"><div className="rounded-2xl bg-primary/10 p-2 text-primary"><Megaphone className="h-5 w-5" /></div><CardTitle>Notices & communication</CardTitle></div>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">Owners publish property updates and announcements; tenants see them in their own notices section, keeping communication centralized.</CardContent>
-          </Card>
-          <Card className="rounded-3xl border-border/70 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3"><div className="rounded-2xl bg-primary/10 p-2 text-primary"><Wrench className="h-5 w-5" /></div><CardTitle>Maintenance & support</CardTitle></div>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">Tenants create issues, owners respond and update statuses, and the system tracks open, in-progress, and resolved work.</CardContent>
-          </Card>
-        </div>
-
-        <Card className="rounded-3xl border-border/70 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-3"><div className="rounded-2xl bg-primary/10 p-2 text-primary"><ShieldCheck className="h-5 w-5" /></div><CardTitle>8. What to expect from the app</CardTitle></div>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">NestDesk is designed to reduce manual coordination between owners and tenants. It combines property setup, occupancy tracking, financial history, notices, and maintenance into one system so both sides can operate without scattered tools.</CardContent>
-        </Card>
-      </section>
+                    <div className="rounded-xl border border-border p-4 hover:border-cyan-500/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CreditCard className="h-5 w-5 text-cyan-600" />
+                        <h4 className="font-semibold text-foreground mt-0 mb-0">Tracking Rent & Payments</h4>
+                      </div>
+                      <p>The <strong>Payments</strong> section gives you an immutable history of every rent payment made. See exactly which months are paid and which are listed as pending, keeping the record straight between you and the owner.</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
       </main>
     </>
   );

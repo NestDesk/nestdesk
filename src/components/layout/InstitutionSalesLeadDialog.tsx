@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { OtpVerificationDialog } from "../ui/otp-verification-dialog";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,11 @@ export function InstitutionSalesLeadDialog({
     Partial<Record<keyof InstitutionLeadForm, string>>
   >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (field: keyof InstitutionLeadForm, value: string) => {
@@ -178,11 +184,7 @@ export function InstitutionSalesLeadDialog({
     onOpenChange(false);
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
+  const submitLead = async () => {
     setIsSubmitting(true);
 
     try {
@@ -223,18 +225,96 @@ export function InstitutionSalesLeadDialog({
     }
   };
 
-  const verifyPhoneNumber = () => {
+  const handleSendOtp = async () => {
     const digitsOnly = form.contactPhone.replace(/\D/g, "");
-    if (digitsOnly.length === 10) {
-      toast.success("Phone number looks valid.");
-      setFormErrors((current) => ({ ...current, contactPhone: undefined }));
-    } else {
+    if (!/^\d{10}$/.test(digitsOnly)) {
       setFormErrors((current) => ({
         ...current,
         contactPhone: "Phone number must be exactly 10 digits.",
       }));
       toast.error("Please enter a valid 10-digit phone number.");
+      return;
     }
+
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/auth/phone-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: digitsOnly,
+          purpose: "register-owner-phone",
+        }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send OTP.");
+        return;
+      }
+
+      setOtpCode("");
+      setOtpSent(true);
+      setOtpDialogOpen(true);
+      toast.success(json.message ?? "OTP sent to your WhatsApp number.");
+      if (json.devOtpHint) {
+        toast.success(`DEV OTP: ${json.devOtpHint}`);
+      }
+    } catch {
+      toast.error("Network error while sending OTP.");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const digitsOnly = form.contactPhone.replace(/\D/g, "");
+    if (!/^\d{10}$/.test(digitsOnly)) {
+      toast.error("Enter a valid 10-digit phone number first.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit OTP code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await fetch("/api/auth/phone-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: digitsOnly,
+          otpCode,
+          purpose: "register-owner-phone",
+        }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "OTP verification failed.");
+        return;
+      }
+
+      setOtpCode("");
+      setOtpSent(false);
+      setOtpDialogOpen(false);
+      toast.success("Phone number verified successfully.");
+      await submitLead();
+    } catch {
+      toast.error("Network error while verifying OTP.");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    await handleSendOtp();
   };
 
   return (
@@ -318,14 +398,6 @@ export function InstitutionSalesLeadDialog({
                       className="flex-1 border-0 bg-transparent px-0 focus-visible:ring-0 pl-2"
                     />
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={verifyPhoneNumber}
-                    className="whitespace-nowrap"
-                  >
-                    Verify
-                  </Button>
                 </div>
                 {formErrors.contactPhone ? (
                   <p className="text-xs text-destructive">
@@ -479,6 +551,25 @@ export function InstitutionSalesLeadDialog({
           )}
         </DialogFooter>
       </DialogContent>
+
+      <OtpVerificationDialog
+        open={otpDialogOpen}
+        onOpenChange={(open) => {
+          setOtpDialogOpen(open);
+          if (!open) {
+            setOtpCode("");
+            setOtpSent(false);
+          }
+        }}
+        phone={form.contactPhone}
+        otpCode={otpCode}
+        onOtpChange={setOtpCode}
+        onVerify={handleVerifyOtp}
+        onResend={handleSendOtp}
+        sendingOtp={sendingOtp}
+        verifyingOtp={verifyingOtp}
+        otpSent={otpSent}
+      />
     </Dialog>
   );
 }

@@ -303,7 +303,7 @@ const POLICY_CONTENT: Record<LegalPolicyKey, PolicySection[]> = {
         "Refunds are limited, and subscription fees are generally non-refundable after the applicable billing period begins unless required by law or expressly approved by us.",
       ],
       bullets: [
-        "If you cancel within 3 calendar days of a new paid subscription purchase, you may qualify for an automated refund where technically available and consistent with payment processor rules.",
+        "If you cancel within 3 calendar days of a new paid subscription purchase, you may qualify for an automated refund where technically available and consistent with payment processor rules. Please write to us at support@nestdesk.in with your email id, phone number registered and transaction details to check eligibility.",
         "After the initial 3-day window, we generally do not refund the current paid period, but we may provide a prorated credit or refund in exceptional cases at our discretion.",
         "Upgrades, renewal charges, taxes, and fees already remitted are typically non-refundable once processed.",
         "If a payment was charged in error due to a system fault, duplicate transaction, or other verified billing error, we will review it and may refund or credit the amount as appropriate.",

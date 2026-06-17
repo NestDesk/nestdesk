@@ -13,6 +13,7 @@ import { Label } from "../../components/ui/label";
 import { cn } from "../../lib/utils";
 import { createClient as createBrowserSupabaseClient } from "../../lib/supabase/client";
 import { TopBar } from "../../components/layout/TopBar";
+import { OtpVerificationDialog } from "../../components/ui/otp-verification-dialog";
 
 // ── Zod schemas per step ─────────────────────────────────────────────────────
 const ownerSchema = z.object({
@@ -125,6 +126,12 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [ownerName, setOwnerName] = useState("Owner");
   const [bootstrapping, setBootstrapping] = useState(true);
   const [pincodeLookupError, setPincodeLookupError] = useState<string | null>(null);
@@ -252,7 +259,88 @@ export default function OnboardingPage() {
     }
   }
 
+  async function handleSendOtp() {
+    const phoneValue = ownerForm.getValues("phone")?.replace(/\D/g, "") ?? "";
+
+    if (!/^\d{10}$/.test(phoneValue)) {
+      toast.error("Enter a valid 10-digit phone number before requesting OTP.");
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/auth/phone-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneValue, purpose: "register-owner-phone" }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send OTP.");
+        return;
+      }
+
+      setOtpCode("");
+      setOtpSent(true);
+      setPhoneVerified(false);
+      setOtpDialogOpen(true);
+      toast.success(json.message ?? "OTP sent to your WhatsApp number.");
+      if (json.devOtpHint) {
+        toast.success(`DEV OTP: ${json.devOtpHint}`);
+      }
+    } catch {
+      toast.error("Network error while sending OTP.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    const phoneValue = ownerForm.getValues("phone")?.replace(/\D/g, "") ?? "";
+
+    if (!/^\d{10}$/.test(phoneValue)) {
+      toast.error("Enter a valid 10-digit phone number first.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit OTP code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const response = await fetch("/api/auth/phone-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneValue, otpCode, purpose: "register-owner-phone" }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "OTP verification failed.");
+        return;
+      }
+
+      setPhoneVerified(true);
+      setOtpCode("");
+      setOtpSent(false);
+      setOtpDialogOpen(false);
+      toast.success("Phone number verified successfully.");
+    } catch {
+      toast.error("Network error while verifying OTP.");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
   async function handleOwnerSubmit(data: OwnerForm) {
+    if (!phoneVerified) {
+      toast.error("Verify your phone number before completing onboarding.");
+      return;
+    }
+
     writeDraft({ step: 1, ownerData: data });
 
     setSubmitting(true);
@@ -260,7 +348,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, phoneVerified }),
       });
 
       const json = await res.json();
@@ -358,11 +446,28 @@ export default function OnboardingPage() {
                       onChange: (event) => {
                         const target = event.target as HTMLInputElement;
                         target.value = target.value.replace(/\D/g, "").slice(0, 10);
+                        setPhoneVerified(false);
+                        setOtpSent(false);
                       },
                     })}
                   />
                 </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendOtp}
+                    disabled={sendingOtp}
+                  >
+                    {sendingOtp ? "Sending..." : "Send OTP"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {phoneVerified ? "Phone verified" : "Verify your WhatsApp number to continue"}
+                  </span>
+                </div>
               </Field>
+
 
               <Field
                 label="Address line 1"
@@ -456,7 +561,7 @@ export default function OnboardingPage() {
 
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !phoneVerified}
                 className="mt-2 w-full rounded-xl font-semibold"
               >
                 {submitting ? (
@@ -472,6 +577,24 @@ export default function OnboardingPage() {
                 )}
               </Button>
             </form>
+
+            <OtpVerificationDialog
+              open={otpDialogOpen}
+              onOpenChange={(open) => {
+                setOtpDialogOpen(open);
+                if (!open) {
+                  setOtpCode("");
+                }
+              }}
+              phone={ownerForm.getValues("phone")?.replace(/\D/g, "") ?? ""}
+              otpCode={otpCode}
+              onOtpChange={setOtpCode}
+              onVerify={handleVerifyOtp}
+              onResend={handleSendOtp}
+              sendingOtp={sendingOtp}
+              verifyingOtp={verifyingOtp}
+              otpSent={otpSent}
+            />
           </div>
         )}
 

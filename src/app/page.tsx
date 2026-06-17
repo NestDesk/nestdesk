@@ -143,12 +143,12 @@ const testimonials = [
 
 const trustBadges = [
   { icon: BadgeCheck, label: "Property setup in 2 minutes" },
-  { icon: Zap, label: "Fast rent tracking" },
-  { icon: Users, label: "Owner + tenant portals" },
+  { icon: Zap, label: "Fast rent tracking" }, 
   { icon: Building2, label: "Live occupancy visibility" },
   { icon: MessageSquare, label: "Maintenance requests" },
   { icon: MessageCircle, label: "WhatsApp rent reminders" },
   { icon: Megaphone, label: "Broadcast tenant notices" },
+  { icon: Users, label: "Owner + tenant Dashboards" },
 ];
 
 /* ─────────────────────────────────────────────

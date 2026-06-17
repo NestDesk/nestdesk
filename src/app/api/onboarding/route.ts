@@ -3,10 +3,12 @@ import https from "https";
 import { z } from "zod";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
+import { normalizeIndianPhone } from "../../../lib/phone";
 
 const onboardingSchema = z.object({
   // Owner details
   phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number."),
+  phoneVerified: z.boolean().optional().default(false),
   addressLine1: z.string().min(5).max(200),
   addressLine2: z.string().max(150).optional(),
   landmark: z.string().max(100).optional(),
@@ -294,7 +296,7 @@ export async function POST(request: NextRequest) {
   const authDigits = String(phoneFromAuth ?? "")
     .replace(/\D/g, "")
     .slice(-10);
-  const normalizedPhone = `+91${inputDigits || authDigits}`;
+  const normalizedPhone = normalizeIndianPhone(inputDigits || authDigits);
 
   // ── 3. Check if owner already onboarded (idempotency guard) ────────────
   const existingByUserId = await admin
@@ -319,6 +321,30 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const duplicatePhoneCheck = await admin
+    .from("owners")
+    .select("id, full_name, email")
+    .eq("phone", normalizedPhone)
+    .neq("user_id", user.id)
+    .maybeSingle();
+
+  if (duplicatePhoneCheck.error) {
+    return NextResponse.json(
+      { error: duplicatePhoneCheck.error.message },
+      { status: 500 },
+    );
+  }
+
+  if (duplicatePhoneCheck.data) {
+    return NextResponse.json(
+      {
+        error:
+          "This mobile number is already registered to another owner account.",
+      },
+      { status: 409 },
+    );
+  }
+
   // ── 4. Save owner profile ───────────────────────────────────────────────
   const ownerPayload = {
     user_id: user.id,
@@ -332,8 +358,8 @@ export async function POST(request: NextRequest) {
     state: normalizeText(data.state),
     pincode: data.ownerPincode,
     kyc_address_verified: false,
-    phone_verified: false,
-    phone_verified_at: null,
+    phone_verified: data.phoneVerified ?? false,
+    phone_verified_at: data.phoneVerified ? new Date().toISOString() : null,
     onboarding_completed: existing?.onboarding_completed ?? false,
   };
 

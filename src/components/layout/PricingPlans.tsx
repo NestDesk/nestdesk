@@ -485,7 +485,7 @@ export function PricingPlans({
           {isYearly && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
               <Tag className="h-3 w-3" />
-              Yearly billing preview
+              Yearly billing 10% Additonal discount
             </span>
           )}
         </div>
