@@ -70,7 +70,7 @@ export default async function AdminPaymentsPage() {
     admin
       .from("payments")
       .select(
-        "id, amount, status, method, paid_on, receipt_number, tenant_id, hostel_id, created_at, hostels!inner(name)",
+        "id, amount, status, method, paid_on, receipt_number, tenant_id, hostel_id, created_at, hostels!inner(name), owners!inner(full_name, email, phone)",
       )
       .order("created_at", { ascending: false })
       .limit(20),
@@ -342,6 +342,9 @@ export default async function AdminPaymentsPage() {
                     Amount
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Owner
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -359,10 +362,24 @@ export default async function AdminPaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {(recentPayments ?? []).map((p) => (
+                {(recentPayments ?? []).map((p) => {
+                  const owner = Array.isArray(p.owners)
+                    ? p.owners[0] ?? null
+                    : p.owners ?? null;
+                  const hostel = Array.isArray(p.hostels)
+                    ? p.hostels[0] ?? null
+                    : p.hostels ?? null;
+
+                  return (
                   <tr key={p.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 font-semibold text-foreground">
                       {fmt(Number(p.amount))}
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      <div className="font-medium">{owner?.full_name ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {owner?.email ?? owner?.phone ?? "No contact details"}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -372,7 +389,7 @@ export default async function AdminPaymentsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-foreground">
-                      {p.hostels?.[0]?.name ?? "—"}
+                      {hostel?.name ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {p.method ? (METHOD_LABELS[p.method] ?? p.method) : "—"}
@@ -388,7 +405,8 @@ export default async function AdminPaymentsPage() {
                       })}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

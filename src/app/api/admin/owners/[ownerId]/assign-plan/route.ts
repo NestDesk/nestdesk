@@ -88,6 +88,30 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
+  const nowDate = new Date();
+
+  const { data: activeSubscription } = await admin
+    .from("subscriptions")
+    .select("id, custom_plan_id, status, ends_at")
+    .eq("owner_id", parsedOwnerId.data)
+    .in("status", ["active", "grace_period"])
+    .or(`ends_at.is.null,ends_at.gt.${nowDate.toISOString()}`)
+    .eq("custom_plan_id", parsed.data.customPlanId)
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{
+      id: string;
+      custom_plan_id: string | null;
+      status: string | null;
+      ends_at: string | null;
+    }>();
+
+  if (activeSubscription) {
+    return NextResponse.json(
+      { error: "This owner is already on this custom plan and it is still active." },
+      { status: 409 },
+    );
+  }
 
   const { data: previousAssignment } = await admin
     .from("owner_custom_institution_plans")

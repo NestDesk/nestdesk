@@ -37,6 +37,10 @@ import { Label } from "../../../components/ui/label";
 export const dynamic = "force-dynamic";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
+import {
+  PropertyOccupancyAccordion,
+  type OccupancyProperty,
+} from "../../../components/occupancy/PropertyOccupancyAccordion";
 import { normalizeOwnerPlan, PLAN_BADGE_CLASSES } from "../../../lib/subscriptions";
 import { formatDateInIndia } from "../../../lib/date";
 
@@ -46,6 +50,10 @@ type OwnerRow = {
   email: string | null;
   phone: string | null;
   plan: string;
+  plan_label: string;
+  custom_plan_name: string | null;
+  subscription_starts_at: string | null;
+  subscription_ends_at: string | null;
   unused_credit_paise: number;
   onboarding_completed: boolean;
   hostel_count: number;
@@ -73,6 +81,10 @@ export default function AdminOwnersPage() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [offset, setOffset] = useState(0);
   const limit = 50;
+  
+  const [occupancyModalOpen, setOccupancyModalOpen] = useState(false);
+  const [occupancyLoading, setOccupancyLoading] = useState(false);
+  const [occupancyProperties, setOccupancyProperties] = useState<OccupancyProperty[]>([]);
 
   const fetchOwners = useCallback(async (q: string, off: number) => {
     setLoading(true);
@@ -125,6 +137,23 @@ export default function AdminOwnersPage() {
     setAssignModalOpen(true);
   }
 
+  async function openOccupancyDialog(owner: OwnerRow) {
+    setSelectedOwner(owner);
+    setOccupancyModalOpen(true);
+    setOccupancyLoading(true);
+    try {
+      const res = await fetch(`/api/admin/owners/${owner.id}/occupancy`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setOccupancyProperties(data.properties || []);
+    } catch {
+      toast.error("Failed to load occupancy data.");
+      setOccupancyProperties([]);
+    } finally {
+      setOccupancyLoading(false);
+    }
+  }
+
   async function assignPlanToOwner() {
     if (!selectedOwner || !selectedCustomPlanId) return;
     setSavingAssignment(true);
@@ -175,7 +204,7 @@ export default function AdminOwnersPage() {
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 gap-2 rounded-xl"
+          className="h-11 w-full gap-2 rounded-xl sm:h-9 sm:w-auto"
           onClick={() => fetchOwners(search, offset)}
           disabled={loading}
         >
@@ -185,13 +214,13 @@ export default function AdminOwnersPage() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search by name or email…"
-          className="h-10 rounded-xl pl-9 text-sm"
+          className="h-11 w-full rounded-xl pl-9 text-base sm:h-10 sm:text-sm"
         />
       </div>
 
@@ -269,12 +298,29 @@ export default function AdminOwnersPage() {
                             </p>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center rounded-full border border-border/30 px-2.5 py-0.5 text-[11px] font-semibold uppercase ${PLAN_BADGE_CLASSES[plan] ?? ""}`}
-                          >
-                            {plan}
-                          </span>
+                        <td className="px-4 py-3 align-top">
+                          <div className="space-y-1">
+                            <span
+                              className={`inline-flex items-center rounded-full border border-border/30 px-2.5 py-0.5 text-[11px] font-semibold uppercase ${PLAN_BADGE_CLASSES[plan] ?? ""}`}
+                            >
+                              {owner.custom_plan_name ?? owner.plan_label ?? plan}
+                            </span>
+                            <p className="text-[11px] text-muted-foreground">
+                              {owner.custom_plan_name
+                                ? `Base plan: ${owner.plan_label || plan}`
+                                : `Plan: ${owner.plan_label || plan}`}
+                            </p>
+                            {(owner.subscription_starts_at || owner.subscription_ends_at) && (
+                              <p className="text-[11px] text-muted-foreground">
+                                {owner.subscription_starts_at
+                                  ? `Start: ${formatDateInIndia(owner.subscription_starts_at, { day: "numeric", month: "short", year: "numeric" })}`
+                                  : "Start: —"}
+                                {owner.subscription_ends_at
+                                  ? ` · End: ${formatDateInIndia(owner.subscription_ends_at, { day: "numeric", month: "short", year: "numeric" })}`
+                                  : " · End: Ongoing"}
+                              </p>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="flex items-center justify-end gap-1 font-medium text-foreground">
@@ -322,6 +368,11 @@ export default function AdminOwnersPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onClick={() => openOccupancyDialog(owner)}
+                              >
+                                Show Details
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => openAssignDialog(owner)}
                               >
@@ -392,6 +443,32 @@ export default function AdminOwnersPage() {
                   {savingAssignment ? "Saving…" : "Assign plan"}
                 </Button>
               </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={occupancyModalOpen} onOpenChange={setOccupancyModalOpen}>
+            <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Occupancy Details</DialogTitle>
+                <DialogDescription>
+                  Showing properties and occupancy for {selectedOwner?.full_name}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                {occupancyLoading ? (
+                  <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                    Loading occupancy data...
+                  </div>
+                ) : occupancyProperties.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8">
+                    <p className="text-sm text-muted-foreground">
+                      No properties found for this owner.
+                    </p>
+                  </div>
+                ) : (
+                  <PropertyOccupancyAccordion properties={occupancyProperties} />
+                )}
+              </div>
             </DialogContent>
           </Dialog>
 

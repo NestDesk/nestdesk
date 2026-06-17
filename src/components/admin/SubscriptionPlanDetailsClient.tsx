@@ -15,7 +15,10 @@ import { formatDateInIndia } from "../../lib/date";
 
 const planOrder = ["free", "starter", "micro", "pro", "institution"] as const;
 
-type PlanCounts = Record<string, number>;
+type PlanCounts = Record<
+  string,
+  { total: number; active: number; expired: number }
+>;
 
 type HostelsRow = {
   id: string;
@@ -121,9 +124,15 @@ export default function SubscriptionPlanDetailsClient({ planCounts }: Props) {
           >
             <div>
               <p className="font-medium text-foreground">{formatPlanName(plan)}</p>
-              <p className="text-sm text-muted-foreground">
-                {planCounts[plan] ?? 0} subscriptions
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>{planCounts[plan]?.total ?? 0} subscriptions</span>
+                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  {planCounts[plan]?.active ?? 0} active
+                </span>
+                <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  {planCounts[plan]?.expired ?? 0} expired
+                </span>
+              </div>
             </div>
             <Badge variant="secondary">View</Badge>
           </button>
@@ -166,6 +175,7 @@ export default function SubscriptionPlanDetailsClient({ planCounts }: Props) {
                         <th className="px-4 py-3">Plan</th>
                         <th className="px-4 py-3">Custom plan</th>
                         <th className="px-4 py-3">Account</th>
+                        <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Bought on</th>
                         <th className="px-4 py-3">Activated</th>
                         <th className="px-4 py-3">Expired / ends</th>
@@ -187,6 +197,17 @@ export default function SubscriptionPlanDetailsClient({ planCounts }: Props) {
                             <div className="mt-1 text-xs text-muted-foreground">
                               {subscription.owner?.email ?? "No email available"}
                             </div>
+                          </td>
+                          <td className="px-4 py-4 align-top text-muted-foreground">
+                            <span
+                              className={
+                                subscription.status === "active"
+                                  ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600"
+                                  : "rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700"
+                              }
+                            >
+                              {subscription.status === "active" ? "Active" : "Expired"}
+                            </span>
                           </td>
                           <td className="px-4 py-4 align-top text-muted-foreground">
                             {formatDate(subscription.created_at)}

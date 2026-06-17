@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Building2, CreditCard, Megaphone, ShieldCheck, UserRound, Wrench } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, Megaphone, UserRound, Wrench } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Navbar, NavbarLogo } from "../../components/layout/Navbar";
@@ -114,11 +114,11 @@ export default async function HelpPage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="rounded-xl border border-border p-4">
                       <h4 className="font-semibold text-foreground mb-1 mt-0">Add a Hostel/PG</h4>
-                      <p>Navigate to <strong>Hostels</strong> and fill in the facility name, type (PG, Hostel, rental), and full address. Once saved, it will be listed as 'Setup Incomplete'.</p>
+                      <p>Navigate to <strong>Hostels</strong> and fill in the facility name, type (PG, Hostel, rental), and full address. Once saved, it will be listed as &apos;Setup Incomplete&apos;.</p>
                     </div>
                     <div className="rounded-xl border border-border p-4">
                       <h4 className="font-semibold text-foreground mb-1 mt-0">Create Rooms</h4>
-                      <p>Click into the property to build 'Floors', and then generate 'Rooms'. Set the rent values and capacity for each bed space.</p>
+                      <p>Click into the property to build &apos;Floors&apos;, and then generate &apos;Rooms&apos;. Set the rent values and capacity for each bed space.</p>
                     </div>
                   </div>
                   <p className="bg-primary/5 text-primary p-3 rounded-xl border border-primary/20">
@@ -133,11 +133,11 @@ export default async function HelpPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm text-muted-foreground">
                   <ul className="grid gap-3 md:grid-cols-2">
-                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Dashboard:</strong> Overviews of occupancy limits, this month's rent collected vs pending, total expenses, and open maintenance tickets.</div></li>
+                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Dashboard:</strong> Overviews of occupancy limits, this month&apos;s rent collected vs pending, total expenses, and open maintenance tickets.</div></li>
                     <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Tenants:</strong> Review incoming requests from your Invite link. Approve tenants, assign rooms, update their billing dates.</div></li>
                     <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Payments:</strong> Log cash or UPI rent collections. View historical payment records and filter by tenant or hostel.</div></li>
                     <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Expenses:</strong> Track your operational costs (Electricity, Staff Salary, Repairs) against your income.</div></li>
-                    <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Maintenance:</strong> View tickets raised by tenants. Update statuses to "In Progress" or "Resolved", leaving comments.</div></li>
+                      <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Maintenance:</strong> View tickets raised by tenants. Update statuses to &quot;In Progress&quot; or &quot;Resolved&quot;, leaving comments.</div></li>
                     <li className="flex gap-2"><div className="text-primary mt-0.5">•</div><div><strong>Notices:</strong> Publish important announcements internally. Tenants see these in their dashboard instantly, avoiding WhatsApp clutter.</div></li>
                   </ul>
                 </CardContent>
@@ -158,17 +158,17 @@ export default async function HelpPage() {
                   <CardTitle className="text-xl">1. Registration through Invite Links</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm text-muted-foreground">
-                  <p>Tenants cannot join in a vacuum. You must scan the owner's QR code or click their Invitation Link. This ensures you are tied straight to their specific PG/Hostel database.</p>
+                  <p>Tenants cannot join in a vacuum. You must scan the owner&apos;s QR code or click their Invitation Link. This ensures you are tied straight to their specific PG/Hostel database.</p>
                   <div className="rounded-xl border border-border p-4 bg-muted/20">
                     <ol className="list-decimal list-inside space-y-2">
-                      <li>Open the owner's invite link. It will show the property name and confirm it is accepting registrations.</li>
+                      <li>Open the owner&apos;s invite link. It will show the property name and confirm it is accepting registrations.</li>
                       <li>Fill out your full name, email, phone number, gender, and Aadhaar info.</li>
                       <li>Complete WhatsApp OTP verification to prove your mobile number.</li>
                       <li>Set your password and enter the system.</li>
                     </ol>
                   </div>
                   <p className="bg-amber-500/5 text-amber-600 p-3 rounded-xl border border-amber-500/20">
-                    <strong>Pending State:</strong> Upon registration, your account is in a "Pending" state. You have access to your dashboard, but features are locked until the owner approves your join request.
+                    <strong>Pending State:</strong> Upon registration, your account is in a &quot;Pending&quot; state. You have access to your dashboard, but features are locked until the owner approves your join request.
                   </p>
                 </CardContent>
               </Card>
@@ -210,10 +210,10 @@ export default async function HelpPage() {
                         <Wrench className="h-5 w-5 text-cyan-600" />
                         <h4 className="font-semibold text-foreground mt-0 mb-0">Raising Maintenance Requests</h4>
                       </div>
-                      <p>If something breaks (e.g. WiFi, Plumbing, Fan), go to the <strong>Maintenance</strong> tab. Click "New Request", select the category, give it a short title, and describe the issue.</p>
+                      <p>If something breaks (e.g. WiFi, Plumbing, Fan), go to the <strong>Maintenance</strong> tab. Click &quot;New Request&quot;, select the category, give it a short title, and describe the issue.</p>
                       <ul className="ml-5 list-disc mt-2 text-xs">
                         <li>The owner is immediately notified.</li>
-                        <li>Track whether the issue is 'Open', 'In Progress', or 'Resolved'.</li>
+                        <li>Track whether the issue is &apos;Open&apos;, &apos;In Progress&apos;, or &apos;Resolved&apos;.</li>
                         <li>Delete or modify your request if the problem resolves on its own.</li>
                       </ul>
                     </div>
@@ -223,7 +223,7 @@ export default async function HelpPage() {
                         <Megaphone className="h-5 w-5 text-cyan-600" />
                         <h4 className="font-semibold text-foreground mt-0 mb-0">Viewing Property Notices</h4>
                       </div>
-                      <p>Forget messy group chats. Under the <strong>Notices</strong> tab, you can read formatted, official announcements from the owner (e.g., 'Water supply offline tomorrow', 'Rent Policy Updates').</p>
+                      <p>Forget messy group chats. Under the <strong>Notices</strong> tab, you can read formatted, official announcements from the owner (e.g., &apos;Water supply offline tomorrow&apos;, &apos;Rent Policy Updates&apos;).</p>
                     </div>
 
                     <div className="rounded-xl border border-border p-4 hover:border-cyan-500/30 transition-colors">
