@@ -645,7 +645,7 @@ export function PricingPlans({
                                     : "bg-emerald-100 text-emerald-700"
                                 }`}
                               >
-                                50% off
+                               Early Bird : 50% off
                               </span>
                             </div>
                           ) : null}
