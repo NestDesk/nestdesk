@@ -15,6 +15,7 @@ import { createClient } from "../lib/supabase/server";
 import { LegalPolicyLauncher } from "../components/legal/LegalPolicyLauncher";
 import { PricingSection } from "../components/layout/PricingSection";
 import { ScreenshotCarousel } from "../components/layout/ScreenshotCarousel";
+import { PromoVideoSection } from "../components/layout/PromoVideoSection";
 import {
   Building2,
   Zap,
@@ -119,11 +120,11 @@ const steps = [
 
 const testimonials = [
   {
-    name: "Ravi Shankar",
-    role: "Owner, Shankar Boys Hostel, Pune",
-    initials: "RS",
+    name: "Sagnik Banerjee",
+    role: "Owner, KOLKATA PG & FLAT RENTALS, Kolkata",
+    initials: "SB",
     quote:
-      "I used to manage 40 tenants in WhatsApp groups and Excel. NestDesk replaced all of that in one weekend. Rent collection alone saves me 3 hours a month.",
+      "I used to manage 40 tenants in WhatsApp groups and Excel. NestDesk replaced all of that, Rent collection alone saves me many hours a month.",
   },
   {
     name: "Divya Menon",
@@ -143,7 +144,7 @@ const testimonials = [
 
 const trustBadges = [
   { icon: BadgeCheck, label: "Property setup in 2 minutes" },
-  { icon: Zap, label: "Fast rent tracking" }, 
+  { icon: Zap, label: "Fast rent tracking" },
   { icon: Building2, label: "Live occupancy visibility" },
   { icon: MessageSquare, label: "Maintenance requests" },
   { icon: MessageCircle, label: "WhatsApp rent reminders" },
@@ -151,6 +152,7 @@ const trustBadges = [
   { icon: Users, label: "Owner + tenant Dashboards" },
 ];
 
+const PROMO_VIDEO_URL = process.env.PROMO_VIDEO_URL;
 /* ─────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────── */
@@ -169,7 +171,8 @@ export default async function LandingPage() {
           "Owner",
         email: user.email ?? "",
         avatarUrl:
-          (user.user_metadata?.avatar_url as string | undefined)?.trim() || null,
+          (user.user_metadata?.avatar_url as string | undefined)?.trim() ||
+          null,
       }
     : null;
 
@@ -243,10 +246,16 @@ export default async function LandingPage() {
         }
         center={
           <>
-            <a href="#demo" className="transition-colors hover:text-foreground">
-              Demo
+            <a
+              href="#video"
+              className="transition-colors hover:text-foreground"
+            >
+              Video
             </a>
-            <a href="#features" className="transition-colors hover:text-foreground">
+            <a
+              href="#features"
+              className="transition-colors hover:text-foreground"
+            >
               Features
             </a>
             <a
@@ -255,10 +264,19 @@ export default async function LandingPage() {
             >
               How it works
             </a>
-            <a href="#pricing" className="transition-colors hover:text-foreground">
+            <a href="#demo" className="transition-colors hover:text-foreground">
+              Demo
+            </a>
+            <a
+              href="#pricing"
+              className="transition-colors hover:text-foreground"
+            >
               Pricing
             </a>
-            <Link href="/help" className="transition-colors hover:text-foreground">
+            <Link
+              href="/help"
+              className="transition-colors hover:text-foreground"
+            >
               Help
             </Link>
           </>
@@ -293,7 +311,7 @@ export default async function LandingPage() {
         <div className="relative mx-auto max-w-7xl px-4 pb-12 pt-10 sm:px-6 sm:pt-14 lg:pt-16">
           <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16">
             {/* Left: Text content */}
-            <div className="flex flex-1 flex-col items-start text-left">
+            <div className="flex flex-1 flex-col items-center text-center lg:items-start lg:text-left">
               <Badge
                 variant="secondary"
                 className="mb-4 gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
@@ -313,11 +331,11 @@ export default async function LandingPage() {
               </h1>
 
               <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl">
-                Tenants, rooms, payments, notices, and maintenance for PGs, colives,
-                hostels, and rental properties in one simple dashboard.
+                Tenants, rooms, payments, notices, and maintenance for PGs,
+                colives, hostels, and rental properties in one simple dashboard.
               </p>
 
-              <div className="mt-8 flex flex-row flex-wrap gap-4">
+              <div className="mt-8 flex flex-row flex-wrap justify-center gap-4 lg:justify-start">
                 <Link href="/register">
                   <Button
                     size="default"
@@ -340,11 +358,11 @@ export default async function LandingPage() {
               </div>
 
               <p className="mt-4 text-sm text-muted-foreground">
-                Free plan available &bull;  No contracts
+                Free plan available &bull; No contracts
               </p>
 
               {/* Trust bar */}
-              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 lg:justify-start">
                 {trustBadges.map(({ icon: Icon, label }) => (
                   <span
                     key={label}
@@ -357,9 +375,11 @@ export default async function LandingPage() {
               </div>
             </div>
 
-            {/* Right: Illustration */}
-            <div className="hidden flex-1 items-center justify-center sm:flex lg:justify-end">
-              <HeroSvg className="animate-float w-full max-w-xs text-primary drop-shadow-xl sm:max-w-sm lg:max-w-lg" />
+            {/* Right: Hero visual (hidden on mobile) */}
+            <div className="hidden w-full flex-1 items-center justify-center lg:flex lg:justify-end">
+              <div className="pointer-events-none relative flex h-full w-full items-center justify-center">
+                <HeroSvg className="w-full max-w-sm text-primary drop-shadow-xl lg:max-w-lg" />
+              </div>
             </div>
           </div>
         </div>
@@ -389,8 +409,8 @@ export default async function LandingPage() {
         <Separator />
       </div>
 
-      {/* ── Demo at a glance ──────────────────── */}
-      <ScreenshotCarousel />
+      {/* ── Video walkthrough ─────────────────── */}
+      <PromoVideoSection videoUrl={PROMO_VIDEO_URL} />
 
       {/* ── Features ───────────────────────────── */}
       <section id="features" className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
@@ -399,8 +419,8 @@ export default async function LandingPage() {
             Built for how managed properties actually work
           </h2>
           <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-            Every feature is designed around real workflows of PGs, colives, hostels,
-            and rental properties, not generic software.
+            Every feature is designed around real workflows of PGs, colives,
+            hostels, and rental properties, not generic software.
           </p>
         </div>
 
@@ -439,7 +459,9 @@ export default async function LandingPage() {
             {steps.map(({ step, title, description }) => (
               <div key={step} className="relative flex flex-col items-start">
                 <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
-                  <span className="text-2xl font-bold text-primary">{step}</span>
+                  <span className="text-2xl font-bold text-primary">
+                    {step}
+                  </span>
                 </div>
                 <h3 className="mb-2 text-xl font-semibold text-foreground">
                   {title}
@@ -490,7 +512,9 @@ export default async function LandingPage() {
                     {initials}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{name}</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {name}
+                    </p>
                     <p className="text-xs text-muted-foreground">{role}</p>
                   </div>
                 </div>
@@ -499,6 +523,9 @@ export default async function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* ── Demo at a glance ──────────────────── */}
+      <ScreenshotCarousel />
 
       {/* ── Pricing ────────────────────────────── */}
       <PricingSection isLoggedIn={Boolean(user)} />
@@ -527,12 +554,15 @@ export default async function LandingPage() {
             {/* Footer nav */}
             <div className="grid gap-10 sm:grid-cols-2 sm:items-start">
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-foreground">Contact</h4>
+                <h4 className="text-sm font-semibold text-foreground">
+                  Contact
+                </h4>
                 <div className="space-y-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <MapPin className="shrink-0 h-4 w-4 text-primary" />
                     <p>
-                      3/45 Vikrant Khand, Gomtinagar, Lucknow, Uttar Pradesh, India
+                      3/45 Vikrant Khand, Gomtinagar, Lucknow, Uttar Pradesh,
+                      India
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
