@@ -1,155 +1,179 @@
-import crypto from "node:crypto";
-import { createAdminClient } from "../supabase/admin";
-import {
-  getDevOtpCode,
-  getOtpMaxAttempts,
-  getOtpTtlSeconds,
-  isMsg91Enabled,
-} from "./config";
-import { sendWhatsAppOtp } from "./whatsapp";
+import { getDevOtpCode, isMsg91Enabled } from "./config";
 
-interface RequestOwnerPhoneOtpInput {
+export interface RequestOwnerPhoneOtpInput {
   phoneE164: string;
-  purpose: string;
+  purpose?: string;
 }
 
-interface VerifyOwnerPhoneOtpInput {
+export interface VerifyOwnerPhoneOtpInput {
   phoneE164: string;
   otpCode: string;
-  purpose: string;
+  purpose?: string;
+  reqId?: string;
+}
+
+export interface RetryOwnerPhoneOtpInput {
+  reqId: string;
+  retryChannel: string | number; // "12" for WhatsApp, "11" for SMS, etc.
 }
 
 export interface OtpRequestResult {
   success: true;
   mode: "msg91" | "mock";
   devOtpHint?: string;
+  reqId?: string;
 }
 
-function hashOtp(otpCode: string): string {
-  return crypto.createHash("sha256").update(otpCode).digest("hex");
+export interface OtpRetryResult {
+  success: boolean;
+  message?: string;
 }
 
-function randomOtp(length = 6): string {
-  const max = 10 ** length;
-  return crypto.randomInt(0, max).toString().padStart(length, "0");
+function normalizeIndianNumber(input: string): string | null {
+  const digits = (input || "").replace(/\D/g, "");
+  if (digits.length === 10) return "91" + digits;
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  if (digits.length === 13 && digits.startsWith("091")) return digits.slice(1);
+  return null;
 }
 
 export async function requestOwnerPhoneOtp(
   input: RequestOwnerPhoneOtpInput,
 ): Promise<OtpRequestResult> {
-  const ttlSeconds = getOtpTtlSeconds();
   const useMsg91 = isMsg91Enabled();
-  const otpCode = useMsg91 ? randomOtp(6) : getDevOtpCode();
-  const otpHash = hashOtp(otpCode);
-  const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
 
-  const admin = createAdminClient();
-
-  const { error: insertError } = await admin.from("phone_otp_challenges").insert({
-    phone_e164: input.phoneE164,
-    purpose: input.purpose,
-    otp_hash: otpHash,
-    attempts: 0,
-    expires_at: expiresAt,
-  });
-
-  if (insertError) {
-    throw new Error(insertError.message);
+  if (!useMsg91) {
+    return {
+      success: true,
+      mode: "mock",
+      devOtpHint:
+        process.env.NODE_ENV === "production" ? undefined : getDevOtpCode(),
+      reqId: "mock_req_id_" + Date.now(),
+    };
   }
 
-  if (useMsg91) {
-    await sendWhatsAppOtp({
-      phoneE164: input.phoneE164,
-      otpCode,
-      expiryMinutes: Math.ceil(ttlSeconds / 60),
-    });
+  const normalized = normalizeIndianNumber(input.phoneE164);
+  if (!normalized) {
+    throw new Error("Invalid Indian mobile number");
+  }
 
-    return { success: true, mode: "msg91" };
+  const widgetId = process.env.MSG91_WIDGET_ID;
+  const tokenAuth = process.env.MSG91_TOKEN_AUTH;
+
+  if (!widgetId || !tokenAuth) {
+    throw new Error("MSG91 Widget config missing");
+  }
+
+  const url = "https://control.msg91.com/api/v5/widget/sendOtp";
+  const payload = {
+    widgetId,
+    tokenAuth,
+    identifier: normalized,
+  };
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await resp.json();
+  console.log("MSG91 sendOtp response:", data);
+
+  if (!resp.ok || data.type === "error") {
+    throw new Error(data.message || "Failed to send OTP");
   }
 
   return {
     success: true,
-    mode: "mock",
-    devOtpHint: process.env.NODE_ENV === "production" ? undefined : otpCode,
+    mode: "msg91",
+    reqId: data.reqId || data.messageData?.reqId || (data.type === "success" && typeof data.message === "string" ? data.message : undefined),
   };
 }
 
 export async function verifyOwnerPhoneOtp(
   input: VerifyOwnerPhoneOtpInput,
 ): Promise<void> {
-  const admin = createAdminClient();
+  const useMsg91 = isMsg91Enabled();
 
-  const { data, error } = await admin
-    .from("phone_otp_challenges")
-    .select("id, otp_hash, attempts, expires_at")
-    .eq("phone_e164", input.phoneE164)
-    .eq("purpose", input.purpose)
-    .is("consumed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    if (!isMsg91Enabled()) {
-      return;
+  if (!useMsg91) {
+    if (input.otpCode !== getDevOtpCode()) {
+      throw new Error("Invalid OTP.");
     }
-    throw new Error("No OTP request found. Please request OTP again.");
-  }
-
-  if (!isMsg91Enabled()) {
-    const { error: consumeError } = await admin
-      .from("phone_otp_challenges")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("id", data.id);
-
-    if (consumeError) {
-      throw new Error(consumeError.message);
-    }
-
     return;
   }
 
-  if (new Date(data.expires_at).getTime() < Date.now()) {
-    throw new Error("OTP expired. Please request a new OTP.");
+  const widgetId = process.env.MSG91_WIDGET_ID;
+  const tokenAuth = process.env.MSG91_TOKEN_AUTH;
+
+  if (!widgetId || !tokenAuth) {
+    throw new Error("MSG91 Widget config missing");
   }
 
-  const maxAttempts = getOtpMaxAttempts();
-  if ((data.attempts ?? 0) >= maxAttempts) {
-    throw new Error("Maximum attempts reached. Request OTP again.");
+  if (!input.reqId) {
+    throw new Error("reqId is missing. Cannot verify OTP.");
   }
 
-  if (!isMsg91Enabled()) {
-    const { error: consumeError } = await admin
-      .from("phone_otp_challenges")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("id", data.id);
+  const url = "https://control.msg91.com/api/v5/widget/verifyOtp";
+  const payload = {
+    widgetId,
+    tokenAuth,
+    reqId: input.reqId,
+    otp: input.otpCode,
+  };
 
-    if (consumeError) {
-      throw new Error(consumeError.message);
-    }
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-    return;
+  const data = await resp.json();
+
+  if (!resp.ok || data.type === "error") {
+    throw new Error(data.message || "Invalid OTP.");
+  }
+}
+
+export async function retryOwnerPhoneOtp(
+  input: RetryOwnerPhoneOtpInput,
+): Promise<OtpRetryResult> {
+  const useMsg91 = isMsg91Enabled();
+
+  if (!useMsg91) {
+    return { success: true, message: "Mock retry successful" };
   }
 
-  const candidate = hashOtp(input.otpCode);
-  if (candidate !== data.otp_hash) {
-    await admin
-      .from("phone_otp_challenges")
-      .update({ attempts: (data.attempts ?? 0) + 1 })
-      .eq("id", data.id);
-    throw new Error("Invalid OTP.");
+  const widgetId = process.env.MSG91_WIDGET_ID;
+  const tokenAuth = process.env.MSG91_TOKEN_AUTH;
+
+  if (!widgetId || !tokenAuth) {
+    throw new Error("MSG91 Widget config missing");
   }
 
-  const { error: consumeError } = await admin
-    .from("phone_otp_challenges")
-    .update({ consumed_at: new Date().toISOString() })
-    .eq("id", data.id);
-
-  if (consumeError) {
-    throw new Error(consumeError.message);
+  if (!input.reqId) {
+    throw new Error("reqId is missing. Cannot retry OTP.");
   }
+
+  const url = "https://control.msg91.com/api/v5/widget/retryOtp";
+  const payload = {
+    widgetId,
+    tokenAuth,
+    reqId: input.reqId,
+    retryChannel: input.retryChannel.toString(),
+  };
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok || data.type === "error") {
+    throw new Error(data.message || "Failed to retry OTP");
+  }
+
+  return { success: true, message: data.message || "Retry sent successfully." };
 }

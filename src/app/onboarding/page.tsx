@@ -129,6 +129,7 @@ export default function OnboardingPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [reqId, setReqId] = useState("");
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -283,6 +284,7 @@ export default function OnboardingPage() {
 
       setOtpCode("");
       setOtpSent(true);
+      if (json.reqId) setReqId(json.reqId);
       setPhoneVerified(false);
       setOtpDialogOpen(true);
       toast.success(json.message ?? "OTP sent to your WhatsApp number.");
@@ -314,7 +316,7 @@ export default function OnboardingPage() {
       const response = await fetch("/api/auth/phone-otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneValue, otpCode, purpose: "register-owner-phone" }),
+        body: JSON.stringify({ phone: phoneValue, otpCode, reqId, purpose: "register-owner-phone" }),
       });
       const json = await response.json();
 
@@ -453,17 +455,19 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendOtp}
-                    disabled={sendingOtp}
-                  >
-                    {sendingOtp ? "Sending..." : "Send OTP"}
-                  </Button>
+                  {!phoneVerified && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendOtp}
+                      disabled={sendingOtp}
+                    >
+                      {sendingOtp ? "Sending..." : "Send OTP"}
+                    </Button>
+                  )}
                   <span className="text-xs text-muted-foreground">
-                    {phoneVerified ? "Phone verified" : "Verify your WhatsApp number to continue"}
+                    {phoneVerified ? "Phone verified ✅" : "Verify your WhatsApp number to continue"}
                   </span>
                 </div>
               </Field>

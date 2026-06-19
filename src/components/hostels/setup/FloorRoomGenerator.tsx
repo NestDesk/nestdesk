@@ -242,9 +242,9 @@ export function FloorRoomGenerator({
   const capacityOptions = [1, 2, 3, 4, 5, 6];
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border/60 bg-card p-4">
+    <div className="space-y-3 rounded-2xl border border-border/60 bg-card p-1 sm:p-1">
       {/* Floor context header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pt-3">
         <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
           {floor.name}
         </span>
@@ -442,10 +442,11 @@ export function FloorRoomGenerator({
         )}
       </div>
 
-      {/* Save button */}
-      <div className="flex items-center justify-between pt-1">
+      {/* Save / reset actions */}
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
         <Button
-          className="rounded-xl gap-2"
+          size="sm"
+          className="w-full rounded-xl gap-2 px-3 py-2 text-sm sm:w-auto"
           onClick={saveRooms}
           disabled={saving || locked || newRooms.length === 0}
         >
@@ -456,8 +457,10 @@ export function FloorRoomGenerator({
           )}
           {saving ? "Saving…" : `Save ${newRooms.length} rooms to ${floor.name}`}
         </Button>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             if (locked) {
               const rangeSize = clamp(
@@ -486,12 +489,12 @@ export function FloorRoomGenerator({
             setLocked(false);
           }}
           disabled={saving}
-          className={`text-xs underline-offset-2 hover:underline ${
+          className={`w-full rounded-xl px-3 py-2 text-[11px] sm:w-auto sm:text-xs ${
             locked ? "font-semibold text-primary" : "text-muted-foreground"
           }`}
         >
           {locked ? "Start Next Batch" : "Reset Draft"}
-        </button>
+        </Button>
       </div>
     </div>
   );

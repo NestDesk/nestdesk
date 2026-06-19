@@ -240,6 +240,7 @@ function TenantRegisterPageContent() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [reqId, setReqId] = useState("");
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -311,6 +312,7 @@ function TenantRegisterPageContent() {
       }
 
       setOtpSent(true);
+      if (json.reqId) setReqId(json.reqId);
       setOtpCode("");
       setPhoneVerified(false);
       setOtpDialogOpen(true);
@@ -320,6 +322,30 @@ function TenantRegisterPageContent() {
       }
     } catch {
       toast.error("Network error while sending OTP.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  async function handleRetryOtp() {
+    if (!reqId) {
+      return handleSendOtp();
+    }
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/tenant/phone-otp/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reqId, retryChannel: "12" }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not retry OTP.");
+        return;
+      }
+      toast.success("OTP resent via WhatsApp successfully.");
+    } catch {
+      toast.error("Network error while retrying OTP.");
     } finally {
       setSendingOtp(false);
     }
@@ -341,7 +367,7 @@ function TenantRegisterPageContent() {
       const response = await fetch("/api/tenant/phone-otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneValue, otpCode }),
+        body: JSON.stringify({ phone: phoneValue, otpCode, reqId }),
       });
       const json = await response.json();
 
@@ -798,7 +824,7 @@ function TenantRegisterPageContent() {
         otpCode={otpCode}
         onOtpChange={setOtpCode}
         onVerify={handleVerifyOtp}
-        onResend={handleSendOtp}
+        onResend={handleRetryOtp}
         sendingOtp={sendingOtp}
         verifyingOtp={verifyingOtp}
         otpSent={otpSent}

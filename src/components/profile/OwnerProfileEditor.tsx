@@ -52,6 +52,7 @@ export function OwnerProfileEditor({
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [reqId, setReqId] = useState("");
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [phoneVerifiedForEdit, setPhoneVerifiedForEdit] = useState(displayValues.phoneVerified);
   const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false);
@@ -156,6 +157,7 @@ export function OwnerProfileEditor({
       const json = (await response.json()) as {
         error?: string;
         devOtpHint?: string;
+        reqId?: string;
       };
 
       if (!response.ok) {
@@ -169,6 +171,7 @@ export function OwnerProfileEditor({
 
       setOtpCode("");
       setOtpSent(true);
+      if (json.reqId) setReqId(json.reqId);
       if (json.devOtpHint) {
         toast.success(`OTP sent. DEV OTP: ${json.devOtpHint}`);
       } else {
@@ -201,7 +204,7 @@ export function OwnerProfileEditor({
       const response = await fetch("/api/owner/phone-otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: form.phone, otpCode }),
+        body: JSON.stringify({ phone: form.phone, otpCode, reqId }),
       });
 
       const json = (await response.json()) as { error?: string };

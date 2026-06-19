@@ -8,6 +8,7 @@ const verifySchema = z.object({
   phone: z.string().min(10, "Enter a valid phone number."),
   otpCode: z.string().regex(/^\d{4,8}$/, "Enter a valid OTP code."),
   purpose: z.literal("register-owner-phone"),
+  reqId: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     await verifyOwnerPhoneOtp({
       phoneE164,
       otpCode: parsed.data.otpCode,
+      reqId: parsed.data.reqId,
       purpose: parsed.data.purpose,
     });
 

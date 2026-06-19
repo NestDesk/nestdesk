@@ -185,7 +185,7 @@ export async function DELETE(
 
   const deletedAt = new Date().toISOString();
 
-  const [floorDeleteResult, roomsDeleteResult] = await Promise.all([
+  const [floorDeleteResult, roomsDeleteResult, remainingFloorsResult] = await Promise.all([
     resolved.admin
       .from("floors")
       .update({ deleted_at: deletedAt })
@@ -196,6 +196,11 @@ export async function DELETE(
       .from("rooms")
       .update({ deleted_at: deletedAt })
       .eq("floor_id", parsedParams.data.floorId)
+      .eq("hostel_id", parsedParams.data.id)
+      .is("deleted_at", null),
+    resolved.admin
+      .from("floors")
+      .select("id")
       .eq("hostel_id", parsedParams.data.id)
       .is("deleted_at", null),
   ]);
@@ -214,5 +219,24 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json({ success: true });
+  const remainingFloors = (remainingFloorsResult.data ?? []).filter(
+    (floor) => floor.id !== parsedParams.data.floorId,
+  );
+  const shouldDeactivate = remainingFloors.length === 0;
+
+  if (shouldDeactivate) {
+    const hostelUpdateResult = await resolved.admin
+      .from("hostels")
+      .update({ is_active: false })
+      .eq("id", parsedParams.data.id);
+
+    if (hostelUpdateResult.error) {
+      return NextResponse.json(
+        { error: hostelUpdateResult.error.message },
+        { status: 500 },
+      );
+    }
+  }
+
+  return NextResponse.json({ success: true, deactivated: shouldDeactivate });
 }
