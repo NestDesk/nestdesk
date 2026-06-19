@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Building2,
   ChevronRight,
   Loader2,
   Minus,
@@ -11,11 +10,20 @@ import {
   Lock,
   ArrowLeftRight,
   X,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { BuildingBlueprint } from "./setup/BuildingBlueprint";
 import { FloorRoomGenerator } from "./setup/FloorRoomGenerator";
 import { ActivatePropertyButton } from "./ActivatePropertyButton";
@@ -49,9 +57,10 @@ export function PropertySetupManager({
   const [floors, setFloors] = useState<Floor[]>(initialFloors);
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [syncing, setSyncing] = useState(false);
+  const [isPropertyActive, setIsPropertyActive] = useState(isActive);
 
   const [step, setStep] = useState<Step>(() => {
-    if (isActive) return "finalize";
+    if (isPropertyActive) return "finalize";
     if (initialFloors.length > 0 && initialRooms.length > 0) return "finalize";
     if (initialFloors.length > 0) return "add-rooms";
     return "building-shell";
@@ -75,49 +84,30 @@ export function PropertySetupManager({
     () => initialFloors[0]?.id ?? null,
   );
 
-  const [addingFloor, setAddingFloor] = useState(false);
-  const [newFloorName, setNewFloorName] = useState("");
-  const [savingFloor, setSavingFloor] = useState(false);
   const [blueprintDirty, setBlueprintDirty] = useState(false);
+  const [floorToDelete, setFloorToDelete] = useState<{
+    id: string;
+    name: string;
+    willDeactivate: boolean;
+  } | null>(null);
+  const [deletingFloorId, setDeletingFloorId] = useState<string | null>(null);
 
-  async function addSingleFloor() {
-    const name = newFloorName.trim();
-    if (!name) return;
-    if (floors.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
-      toast.error(`Floor "${name}" already exists.`);
-      return;
+  function getUniqueAutoFloorName(index: number, usedNames: string[]) {
+    const baseName = autoFloorName(index);
+    const normalized = new Set(usedNames.map((name) => name.trim().toLowerCase()));
+
+    if (!normalized.has(baseName.trim().toLowerCase())) {
+      return baseName;
     }
-    setSavingFloor(true);
-    try {
-      const res = await fetch(`/api/hostels/${hostelId}/floors`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const payload = await res.json();
-      if (!res.ok) {
-        toast.error(payload.error ?? "Failed to add floor.");
-        return;
-      }
-      toast.success(`Floor "${name}" added.`);
-      setNewFloorName("");
-      setAddingFloor(false);
-      await syncFromDatabase(true);
-      // Select the new floor
-      const allRes = await fetch(`/api/hostels/${hostelId}/floors`, {
-        cache: "no-store",
-      });
-      const allPay = await allRes.json();
-      const updated: Floor[] = allPay.floors ?? [];
-      const created = updated.find(
-        (f) => f.name.toLowerCase() === name.toLowerCase(),
-      );
-      if (created) setActiveFloorId(created.id);
-    } catch {
-      toast.error("Network error adding floor.");
-    } finally {
-      setSavingFloor(false);
+
+    let suffix = 2;
+    let candidate = `${baseName} ${suffix}`;
+    while (normalized.has(candidate.trim().toLowerCase())) {
+      suffix += 1;
+      candidate = `${baseName} ${suffix}`;
     }
+
+    return candidate;
   }
 
   function updateShellCount(newCount: number) {
@@ -125,7 +115,17 @@ export function PropertySetupManager({
     setShellFloorCount(clamped);
     setShellNames((prev) => {
       const next = [...prev];
-      while (next.length < clamped) next.push(autoFloorName(next.length));
+      const usedNames = [
+        ...floors.map((floor) => floor.name),
+        ...next.map((name) => name),
+      ];
+
+      while (next.length < clamped) {
+        const nextName = getUniqueAutoFloorName(next.length, usedNames);
+        next.push(nextName);
+        usedNames.push(nextName);
+      }
+
       return next.slice(0, clamped);
     });
   }
@@ -133,6 +133,47 @@ export function PropertySetupManager({
   function removeShellFloor(idx: number) {
     setShellNames((prev) => prev.filter((_, i) => i !== idx));
     setShellFloorCount((c) => Math.max(1, c - 1));
+  }
+
+  async function deleteFloor(floorId: string, floorName: string) {
+    const willDeactivate = floors.length === 1;
+    setFloorToDelete({ id: floorId, name: floorName, willDeactivate });
+  }
+
+  async function confirmDeleteFloor() {
+    if (!floorToDelete) return;
+
+    setDeletingFloorId(floorToDelete.id);
+    try {
+      const res = await fetch(`/api/hostels/${hostelId}/floors/${floorToDelete.id}`, {
+        method: "DELETE",
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast.error(payload.error ?? "Failed to delete floor.");
+        return;
+      }
+
+      const remainingFloors = floors.filter((floor) => floor.id !== floorToDelete.id);
+      const deactivated = Boolean(payload.deactivated);
+
+      toast.success(
+        deactivated
+          ? `Deleted ${floorToDelete.name} and deactivated the property because no floors remain.`
+          : `Deleted ${floorToDelete.name} and its rooms.`,
+      );
+      setFloorToDelete(null);
+      setIsPropertyActive((current) => (deactivated ? false : current));
+      await syncFromDatabase(true);
+      if (activeFloorId === floorToDelete.id) {
+        setActiveFloorId(remainingFloors[0]?.id ?? null);
+      }
+    } catch {
+      toast.error("Network error deleting floor.");
+    } finally {
+      setDeletingFloorId(null);
+    }
   }
 
   const syncFromDatabase = useCallback(
@@ -176,6 +217,26 @@ export function PropertySetupManager({
       setActiveFloorId(floors[0].id);
     }
   }, [floors, activeFloorId]);
+
+  useEffect(() => {
+    if (step !== "building-shell") return;
+
+    const savedNames = floors
+      .map((floor) => floor.name.trim())
+      .filter(Boolean);
+
+    if (savedNames.length > 0) {
+      setShellFloorCount(savedNames.length);
+      setShellNames(savedNames);
+      return;
+    }
+
+    const fallbackCount = Math.max(floors.length, 1);
+    setShellFloorCount(fallbackCount);
+    setShellNames(
+      Array.from({ length: fallbackCount }, (_, index) => autoFloorName(index)),
+    );
+  }, [step, floors]);
 
   async function createBuildingShell() {
     if (creatingShell) return;
@@ -312,7 +373,7 @@ export function PropertySetupManager({
     "building-shell": floorsCount > 0,
     "add-rooms": roomsCount > 0,
     blueprint: isSetupReady,
-    finalize: isActive,
+    finalize: isPropertyActive,
   };
 
   function goToStep(target: Step) {
@@ -407,68 +468,70 @@ export function PropertySetupManager({
               primaryAction:
                 "Confirm setup checklist, activate the property, and share invite details.",
               doneWhen: "Property is active and ready for tenant onboarding.",
-              supportText: isActive
+              supportText: isPropertyActive
                 ? "Property is already active."
                 : "Activation is ready once checklist is complete.",
             };
 
   return (
-    <div id="floors-section" className="space-y-6">
+    <div id="floors-section" className="w-full space-y-4 sm:space-y-6">
       {/* Step indicator */}
-      <div className="flex items-center gap-0">
-        {steps.map((s, i) => {
-          const done = completionByStep[s.key];
-          const active = s.key === step;
-          const reachable =
-            s.key === "building-shell"
-              ? true
-              : s.key === "add-rooms"
-                ? canGoToAddRooms
-                : s.key === "blueprint"
-                  ? canGoToBlueprint
-                  : canGoToFinalize;
-          return (
-            <div key={s.key} className="flex items-center">
-              <button
-                type="button"
-                onClick={() => goToStep(s.key)}
-                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : done
-                      ? "bg-primary/15 text-primary hover:bg-primary/20"
-                      : reachable
-                        ? "text-muted-foreground hover:text-foreground"
-                        : "cursor-not-allowed text-muted-foreground/50"
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
-                    active ? "bg-white/20" : done ? "bg-primary/20" : "bg-muted"
+      <div className="overflow-x-auto pb-1">
+        <div className="flex min-w-max items-center gap-1.5 sm:gap-2">
+          {steps.map((s, i) => {
+            const done = completionByStep[s.key];
+            const active = s.key === step;
+            const reachable =
+              s.key === "building-shell"
+                ? true
+                : s.key === "add-rooms"
+                  ? canGoToAddRooms
+                  : s.key === "blueprint"
+                    ? canGoToBlueprint
+                    : canGoToFinalize;
+            return (
+              <div key={s.key} className="flex shrink-0 items-center">
+                <button
+                  type="button"
+                  onClick={() => goToStep(s.key)}
+                  className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium transition-colors sm:px-3 sm:py-2 sm:text-sm ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : done
+                        ? "bg-primary/15 text-primary hover:bg-primary/20"
+                        : reachable
+                          ? "text-muted-foreground hover:text-foreground"
+                          : "cursor-not-allowed text-muted-foreground/50"
                   }`}
                 >
-                  {done ? <Check className="h-3 w-3" /> : s.num}
-                </span>
-                {s.label}
-              </button>
-              {i < steps.length - 1 && (
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
-              )}
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold sm:text-[11px] ${
+                      active ? "bg-white/20" : done ? "bg-primary/20" : "bg-muted"
+                    }`}
+                  >
+                    {done ? <Check className="h-3 w-3" /> : s.num}
+                  </span>
+                  {s.label}
+                </button>
+                {i < steps.length - 1 && (
+                  <ChevronRight className="ml-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 sm:ml-1 sm:h-4 sm:w-4" />
+                )}
+              </div>
+            );
+          })}
+          {syncing && (
+            <div className="ml-2 flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Syncing…
             </div>
-          );
-        })}
-        {syncing && (
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Syncing…
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      <Card className="rounded-xl border-border/60 bg-muted/20">
-        <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
+      <Card className="w-full rounded-2xl border-border/60 bg-muted/20">
+        <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Step {stepIndex + 1} of {steps.length}
               </p>
@@ -486,7 +549,7 @@ export function PropertySetupManager({
                           : "bg-muted text-muted-foreground"
                 }`}
                 title={
-                  isActive
+                  isPropertyActive
                     ? "Setup complete"
                     : isSetupReady
                       ? "Ready for activation"
@@ -497,7 +560,7 @@ export function PropertySetupManager({
                           : "Not started"
                 }
               >
-                {isActive
+                {isPropertyActive
                   ? "100% Complete"
                   : isSetupReady
                     ? "Ready to Activate"
@@ -518,7 +581,7 @@ export function PropertySetupManager({
               Done when: {activeGuidance.doneWhen}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
             <span className="rounded-full bg-background px-2.5 py-1 text-muted-foreground">
               Floors: {floorsCount}
             </span>
@@ -534,50 +597,49 @@ export function PropertySetupManager({
 
       {/* ─── STEP 1: Building Shell ────────────────────────────────────────── */}
       {step === "building-shell" && (
-        <Card className="rounded-2xl border-border/70">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Building2 className="h-5 w-5 text-primary" />
+        <Card className="w-full rounded-2xl border-border/70">
+          <div className="p-2">
+            <div className="flex items-center gap-2 text-base">
               How many floors does your property have?
-            </CardTitle>
+            </div>
             <p className="text-sm text-muted-foreground">
               Set the number of floors and confirm their names. We auto-suggest names
               — edit any you like.
             </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          </div>
+          <CardContent className="space-y-4 sm:space-y-6">
             {/* Floor count stepper */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
                 size="icon"
                 variant="outline"
-                className="h-10 w-10 rounded-xl"
+                className="h-9 w-9 rounded-xl sm:h-10 sm:w-10"
                 onClick={() => updateShellCount(shellFloorCount - 1)}
                 disabled={shellFloorCount <= 1}
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="min-w-[2ch] text-center text-2xl font-bold tabular-nums">
+              <span className="min-w-[2ch] text-center text-xl font-bold tabular-nums sm:text-2xl">
                 {shellFloorCount}
               </span>
               <Button
                 type="button"
                 size="icon"
                 variant="outline"
-                className="h-10 w-10 rounded-xl"
+                className="h-9 w-9 rounded-xl sm:h-10 sm:w-10"
                 onClick={() => updateShellCount(shellFloorCount + 1)}
                 disabled={shellFloorCount >= 20}
               >
                 <Plus className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs text-muted-foreground sm:text-sm">
                 floor{shellFloorCount !== 1 ? "s" : ""}
               </span>
             </div>
 
             {/* Basement toggle */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={() => setHasBasement((v) => !v)}
@@ -721,14 +783,24 @@ export function PropertySetupManager({
                         {autoPrefix(name, idx)}01…
                       </span>
                     )}
-                    {!alreadySaved && shellNames.length > 1 && (
+                    {(alreadySaved || shellNames.length > 1) && (
                       <button
                         type="button"
-                        onClick={() => removeShellFloor(idx)}
+                        onClick={() => {
+                          if (alreadySaved && savedFloor) {
+                            void deleteFloor(savedFloor.id, savedFloor.name);
+                          } else {
+                            removeShellFloor(idx);
+                          }
+                        }}
                         className="ml-1 shrink-0 rounded-lg p-1 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="Remove floor"
+                        aria-label={alreadySaved ? "Delete floor" : "Remove floor"}
                       >
-                        <X className="h-3.5 w-3.5" />
+                        {alreadySaved ? (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <X className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     )}
                   </div>
@@ -744,66 +816,6 @@ export function PropertySetupManager({
               </p>
             )}
 
-            {/* Re-add a missing / accidentally deleted floor */}
-            {floors.length > 0 && (
-              <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-3">
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Accidentally deleted a floor? Add it back below.
-                </p>
-                {addingFloor ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      value={newFloorName}
-                      onChange={(e) => setNewFloorName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addSingleFloor();
-                        if (e.key === "Escape") {
-                          setAddingFloor(false);
-                          setNewFloorName("");
-                        }
-                      }}
-                      placeholder="e.g. Ground Floor"
-                      className="h-9 w-44 rounded-xl border border-border/60 bg-background px-3 text-sm outline-none focus:border-primary"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="rounded-xl h-9"
-                      onClick={addSingleFloor}
-                      disabled={savingFloor || !newFloorName.trim()}
-                    >
-                      {savingFloor ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        "Add Floor"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="rounded-xl h-9"
-                      onClick={() => {
-                        setAddingFloor(false);
-                        setNewFloorName("");
-                      }}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAddingFloor(true)}
-                    className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Re-add a floor
-                  </button>
-                )}
-              </div>
-            )}
 
             {hasShellDuplicates && (
               <p className="text-xs text-destructive">
@@ -811,9 +823,9 @@ export function PropertySetupManager({
               </p>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
-                className="rounded-xl gap-2"
+                className="w-full rounded-xl gap-2 sm:w-auto"
                 onClick={createBuildingShell}
                 disabled={creatingShell || hasShellDuplicates}
               >
@@ -823,7 +835,7 @@ export function PropertySetupManager({
               {floors.length > 0 && (
                 <Button
                   variant="ghost"
-                  className="rounded-xl"
+                  className="w-full rounded-xl sm:w-auto"
                   onClick={() => goToStep("add-rooms")}
                 >
                   Continue With Existing Floors
@@ -836,7 +848,7 @@ export function PropertySetupManager({
 
       {/* ─── STEP 2: Add Rooms ────────────────────────────────────────────── */}
       {step === "add-rooms" && (
-        <Card className="rounded-2xl border-border/70" id="rooms-section">
+        <Card className="w-full rounded-2xl border-border/70" id="rooms-section">
           <CardContent>
             {floors.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border/60 py-12 text-center">
@@ -853,7 +865,7 @@ export function PropertySetupManager({
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+                <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-muted-foreground">
                     Floor coverage: {floorsCount - floorsWithoutRoomsCount}/
                     {floorsCount} floor
@@ -864,7 +876,7 @@ export function PropertySetupManager({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 rounded-lg text-[11px]"
+                      className="h-7 w-full rounded-lg text-[11px] sm:w-auto sm:self-auto"
                       onClick={() => setActiveFloorId(nextFloorNeedingRooms.id)}
                     >
                       Next floor needing rooms: {nextFloorNeedingRooms.name}
@@ -878,95 +890,44 @@ export function PropertySetupManager({
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {floors.map((floor) => {
-                    const floorRooms = rooms.filter((r) => r.floor_id === floor.id);
-                    const totalBeds = floorRooms.reduce(
-                      (sum, r) => sum + r.capacity,
-                      0,
-                    );
-                    const active = activeFloorId === floor.id;
-                    return (
-                      <button
-                        key={floor.id}
-                        type="button"
-                        onClick={() => setActiveFloorId(floor.id)}
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
-                          active
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        }`}
-                      >
-                        {floor.name}
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                            floorRooms.length > 0
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                              : "bg-muted text-muted-foreground"
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {floors.map((floor) => {
+                      const floorRooms = rooms.filter((r) => r.floor_id === floor.id);
+                      const totalBeds = floorRooms.reduce(
+                        (sum, r) => sum + r.capacity,
+                        0,
+                      );
+                      const active = activeFloorId === floor.id;
+                      return (
+                        <button
+                          key={floor.id}
+                          type="button"
+                          onClick={() => setActiveFloorId(floor.id)}
+                          className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                            active
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                           }`}
                         >
-                          {floorRooms.length} room
-                          {floorRooms.length !== 1 ? "s" : ""}
-                          {totalBeds > 0 &&
-                            ` · ${totalBeds} bed${totalBeds !== 1 ? "s" : ""}`}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          {floor.name}
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              floorRooms.length > 0
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {floorRooms.length} room
+                            {floorRooms.length !== 1 ? "s" : ""}
+                            {totalBeds > 0 &&
+                              ` · ${totalBeds} bed${totalBeds !== 1 ? "s" : ""}`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                  {/* Inline add-floor */}
-                  {addingFloor ? (
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        autoFocus
-                        value={newFloorName}
-                        onChange={(e) => setNewFloorName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") addSingleFloor();
-                          if (e.key === "Escape") {
-                            setAddingFloor(false);
-                            setNewFloorName("");
-                          }
-                        }}
-                        placeholder="Floor name"
-                        className="h-9 w-32 rounded-xl border border-border/60 bg-background px-3 text-sm outline-none focus:border-primary"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="rounded-xl h-9"
-                        onClick={addSingleFloor}
-                        disabled={savingFloor || !newFloorName.trim()}
-                      >
-                        {savingFloor ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          "Add"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="rounded-xl h-9"
-                        onClick={() => {
-                          setAddingFloor(false);
-                          setNewFloorName("");
-                        }}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setAddingFloor(true)}
-                      className="flex items-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add Floor
-                    </button>
-                  )}
                 </div>
 
                 {activeFloorId && floors.find((f) => f.id === activeFloorId) ? (
@@ -982,10 +943,10 @@ export function PropertySetupManager({
                   />
                 ) : null}
 
-                <div className="flex justify-start pt-4">
+                <div className="flex justify-stretch pt-4 sm:justify-start">
                   <Button
                     type="button"
-                    className="rounded-xl gap-1.5"
+                    className="w-full rounded-xl gap-1.5 sm:w-auto"
                     onClick={() => goToStep("blueprint")}
                     disabled={floors.length === 0}
                   >
@@ -1010,11 +971,11 @@ export function PropertySetupManager({
           <div>
             <h3 className="font-semibold">Property Blueprint</h3>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
-                className="rounded-xl gap-1.5"
+                className="w-full rounded-xl gap-1.5 sm:w-auto"
                 onClick={() => goToStep("add-rooms")}
               >
                 <ChevronRight className="h-4 w-4 rotate-180" />
@@ -1022,7 +983,7 @@ export function PropertySetupManager({
               </Button>
               <Button
                 variant="outline"
-                className="rounded-xl gap-1.5"
+                className="w-full rounded-xl gap-1.5 sm:w-auto"
                 onClick={() => {
                   goToStep("add-rooms");
                   setAddingFloor(true);
@@ -1032,7 +993,7 @@ export function PropertySetupManager({
                 Add Floor
               </Button>
               <Button
-                className="rounded-xl gap-1.5"
+                className="w-full rounded-xl gap-1.5 sm:w-auto"
                 onClick={() => goToStep("finalize")}
                 disabled={!canGoToFinalize}
               >
@@ -1053,7 +1014,7 @@ export function PropertySetupManager({
 
       {/* ─── STEP 4: Final Review ─────────────────────────────────────────── */}
       {step === "finalize" && (
-        <Card className="rounded-2xl border-border/70">
+        <Card className="w-full rounded-2xl border-border/70">
           <CardHeader>
             <CardTitle className="text-base">Final Review and Activation</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -1067,7 +1028,7 @@ export function PropertySetupManager({
                 Setup Checklist
               </p>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-foreground">
                     At least one floor is saved
                   </span>
@@ -1089,7 +1050,7 @@ export function PropertySetupManager({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-foreground">At least one room is saved</span>
                   {roomsCount > 0 ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
@@ -1109,7 +1070,7 @@ export function PropertySetupManager({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-foreground">
                     All floors have rooms (recommended)
                   </span>
@@ -1140,12 +1101,12 @@ export function PropertySetupManager({
                 {roomsCount}
               </p>
 
-              {isActive ? (
+              {isPropertyActive ? (
                 <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
                   This property is active and ready for tenant onboarding.
                 </div>
               ) : canGoToFinalize ? (
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <ActivatePropertyButton
                     hostelId={hostelId}
                     disabled={!isPhoneVerified}
@@ -1168,7 +1129,7 @@ export function PropertySetupManager({
               )}
             </div>
 
-            {isActive && tenantJoinToken ? (
+            {isPropertyActive && tenantJoinToken ? (
               <PropertyCardInvite
                 joinToken={tenantJoinToken}
                 propertyName={propertyName}
@@ -1176,11 +1137,11 @@ export function PropertySetupManager({
               />
             ) : null}
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-xl"
+                className="w-full rounded-xl sm:w-auto"
                 onClick={() => goToStep("blueprint")}
               >
                 Back to Blueprint
@@ -1189,6 +1150,51 @@ export function PropertySetupManager({
           </CardContent>
         </Card>
       )}
+
+      <Dialog
+        open={Boolean(floorToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setFloorToDelete(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl border-border/70 bg-card p-5 shadow-xl">
+          <DialogHeader>
+            <DialogTitle>Delete floor?</DialogTitle>
+            <DialogDescription>
+              This will remove {floorToDelete?.name ?? "this floor"} and all rooms
+              under it.
+              {floorToDelete?.willDeactivate
+                ? " Since no floors would remain, the property will be deactivated."
+                : " This action cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex-row justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFloorToDelete(null)}
+              disabled={Boolean(deletingFloorId)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void confirmDeleteFloor()}
+              disabled={Boolean(deletingFloorId)}
+            >
+              {deletingFloorId ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </span>
+              ) : (
+                "Delete floor"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

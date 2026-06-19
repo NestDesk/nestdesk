@@ -135,6 +135,7 @@ export default function TenantProfilePage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [reqId, setReqId] = useState("");
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -209,6 +210,7 @@ export default function TenantProfilePage() {
         return;
       }
       setOtpSent(true);
+      if (json.reqId) setReqId(json.reqId);
       setOtpCode("");
       setPhoneVerified(false);
       setOtpDialogOpen(true);
@@ -239,7 +241,7 @@ export default function TenantProfilePage() {
       const response = await fetch("/api/tenant/phone-otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalizedPhone, otpCode }),
+        body: JSON.stringify({ phone: normalizedPhone, otpCode, reqId }),
       });
       const json = await response.json();
       if (!response.ok) {

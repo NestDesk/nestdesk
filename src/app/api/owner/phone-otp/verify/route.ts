@@ -8,6 +8,7 @@ import { verifyOwnerPhoneOtp } from "../../../../../lib/otp/service";
 const verifySchema = z.object({
   phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number."),
   otpCode: z.string().regex(/^\d{4,8}$/, "Enter a valid OTP code."),
+  reqId: z.string().optional(),
 });
 
 function getClientIp(req: NextRequest): string {
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
     await verifyOwnerPhoneOtp({
       phoneE164: normalizedPhone,
       otpCode: parsed.data.otpCode,
+      reqId: parsed.data.reqId,
       purpose: "verify-owner-phone",
     });
 

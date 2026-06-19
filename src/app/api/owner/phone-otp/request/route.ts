@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       success: true,
       mode: result.mode,
       devOtpHint: result.devOtpHint,
+      reqId: result.reqId,
       message:
         result.mode === "msg91"
           ? "OTP sent to your WhatsApp number."

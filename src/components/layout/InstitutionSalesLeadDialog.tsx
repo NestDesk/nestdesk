@@ -70,6 +70,7 @@ export function InstitutionSalesLeadDialog({
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [reqId, setReqId] = useState("");
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -255,6 +256,7 @@ export function InstitutionSalesLeadDialog({
 
       setOtpCode("");
       setOtpSent(true);
+      if (json.reqId) setReqId(json.reqId);
       setOtpDialogOpen(true);
       toast.success(json.message ?? "OTP sent to your WhatsApp number.");
       if (json.devOtpHint) {
@@ -287,6 +289,7 @@ export function InstitutionSalesLeadDialog({
         body: JSON.stringify({
           phone: digitsOnly,
           otpCode,
+          reqId,
           purpose: "register-owner-phone",
         }),
       });

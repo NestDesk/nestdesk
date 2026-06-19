@@ -19,7 +19,9 @@ export default async function PropertySetupPage({ params }: Props) {
 
   const { data: property } = await supabase
     .from("hostels")
-    .select("id, name, property_type, is_active, tenant_join_token, property_code")
+    .select(
+      "id, name, property_type, is_active, tenant_join_token, property_code",
+    )
     .eq("id", propertyId)
     .single();
 
@@ -35,7 +37,9 @@ export default async function PropertySetupPage({ params }: Props) {
       .is("deleted_at", null),
     supabase
       .from("rooms")
-      .select("id, floor_id, room_number, capacity, rent_amount, status, created_at")
+      .select(
+        "id, floor_id, room_number, capacity, rent_amount, status, created_at",
+      )
       .eq("hostel_id", propertyId)
       .is("deleted_at", null),
   ]);
@@ -58,33 +62,17 @@ export default async function PropertySetupPage({ params }: Props) {
   const isPhoneVerified = owner?.phone_verified ?? false;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
+    <div className="w-full space-y-2 sm:space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             Setup Property
           </h2>
-          <p className="text-muted-foreground">{property.name}</p>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            {property.name}
+          </p>
         </div>
-
-        <Button asChild variant="outline" className="rounded-xl">
-          <Link href="/hostels">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Properties
-          </Link>
-        </Button>
       </div>
-
-      <Card className="rounded-2xl border-border/70">
-        <CardContent className="flex flex-wrap items-center gap-2 p-4 text-sm text-muted-foreground">
-          <Badge variant={property.is_active ? "default" : "secondary"}>
-            {property.is_active ? "Active" : "Inactive"}
-          </Badge>
-          <span>Property type: {property.property_type}</span>
-          <span>Floors: {floors.length}</span>
-          <span>Rooms: {rooms.length}</span>
-        </CardContent>
-      </Card>
 
       <PropertySetupManager
         hostelId={property.id}
