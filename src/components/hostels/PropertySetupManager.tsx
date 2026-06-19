@@ -79,6 +79,7 @@ export function PropertySetupManager({
   const [hasBasement, setHasBasement] = useState(false);
   const [basementName, setBasementName] = useState("Basement");
   const [creatingShell, setCreatingShell] = useState(false);
+  const [, setAddingFloor] = useState(false);
 
   const [activeFloorId, setActiveFloorId] = useState<string | null>(
     () => initialFloors[0]?.id ?? null,

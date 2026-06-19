@@ -1,10 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "../../../../../lib/supabase/server";
-import { Badge } from "../../../../../components/ui/badge";
-import { Button } from "../../../../../components/ui/button";
-import { Card, CardContent } from "../../../../../components/ui/card";
 import { PropertySetupManager } from "../../../../../components/hostels/PropertySetupManager";
 
 type Props = {
