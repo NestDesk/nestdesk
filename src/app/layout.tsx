@@ -1,11 +1,9 @@
-/// <reference path="../types/globals.d.ts" />
-
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "../providers/ThemeProvider";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
-// @ts-ignore - Next.js handles global CSS imports through the bundler
+
 import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
