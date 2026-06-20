@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Building2, CreditCard, Megaphone, UserRound, Wrench } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -7,6 +8,13 @@ import { ThemeToggle } from "../../components/layout/ThemeToggle";
 import { LandingMobileNav } from "../../components/layout/LandingMobileNav";
 import { LandingAccountMenu, type LandingAccountUser } from "../../components/layout/LandingAccountMenu";
 import { createClient } from "../../lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Help Center",
+  description:
+    "Find guides and answers for managing your PG or hostel with NestDesk — from tenant onboarding to rent and maintenance.",
+  alternates: { canonical: "/help" },
+};
 
 export default async function HelpPage() {
   const supabase = await createClient();

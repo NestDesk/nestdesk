@@ -19,7 +19,12 @@ const PUBLIC_PATHS = [
   "/reset-password",
   "/join",
   "/help",
+  "/manifest.webmanifest",
+  "/robots.txt",
+  "/sitemap.xml",
 ];
+
+const PUBLIC_PREFIXES = ["/.well-known/", "/.well-known"];
 // Paths that require guest state (redirect logged-in users away)
 const AUTH_ONLY_PATHS = [
   "/login",
@@ -75,7 +80,9 @@ function isPublic(pathname: string) {
     pathname === "/api/subscription-plans" ||
     pathname === "/api/tenant/register" ||
     pathname.startsWith("/api/tenant/phone-otp/") ||
-    pathname.startsWith("/api/owner/phone-otp/")
+    pathname.startsWith("/api/owner/phone-otp/") ||
+    pathname === "/manifest.webmanifest" ||
+    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   );
 }
 

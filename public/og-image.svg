@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="NestDesk property management dashboard">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <rect x="48" y="48" width="1104" height="534" rx="28" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <rect x="88" y="94" width="260" height="180" rx="20" fill="#1d4ed8"/>
+  <rect x="368" y="94" width="320" height="110" rx="20" fill="#1e293b"/>
+  <rect x="708" y="94" width="404" height="208" rx="20" fill="#0f766e"/>
+  <rect x="88" y="308" width="1024" height="200" rx="20" fill="#172033"/>
+  <circle cx="150" cy="154" r="44" fill="#ffffff" fill-opacity="0.2"/>
+  <rect x="120" y="136" width="84" height="18" rx="9" fill="#ffffff" fill-opacity="0.9"/>
+  <rect x="120" y="164" width="64" height="12" rx="6" fill="#ffffff" fill-opacity="0.75"/>
+  <rect x="388" y="124" width="180" height="16" rx="8" fill="#ffffff" fill-opacity="0.9"/>
+  <rect x="388" y="152" width="220" height="12" rx="6" fill="#ffffff" fill-opacity="0.6"/>
+  <rect x="728" y="124" width="120" height="16" rx="8" fill="#ffffff" fill-opacity="0.9"/>
+  <rect x="728" y="152" width="240" height="12" rx="6" fill="#ffffff" fill-opacity="0.7"/>
+  <rect x="120" y="352" width="220" height="16" rx="8" fill="#ffffff" fill-opacity="0.9"/>
+  <rect x="120" y="384" width="340" height="12" rx="6" fill="#ffffff" fill-opacity="0.6"/>
+  <rect x="520" y="352" width="160" height="16" rx="8" fill="#38bdf8" fill-opacity="0.9"/>
+  <rect x="520" y="384" width="220" height="12" rx="6" fill="#38bdf8" fill-opacity="0.7"/>
+  <text x="88" y="550" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#f8fafc">NestDesk</text>
+  <text x="260" y="550" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#94a3b8">PG • Hostel • Co-living property management</text>
+</svg>

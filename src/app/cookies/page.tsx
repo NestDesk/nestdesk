@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import { LegalPolicyContent } from "../../components/legal/legal-policy-content";
+
+export const metadata: Metadata = {
+  title: "Cookie Policy",
+  description:
+    "Learn how NestDesk uses cookies and similar tracking technologies on its platform.",
+  alternates: { canonical: "/cookies" },
+  robots: { index: true, follow: true },
+};
 
 export default function CookiePolicyPage() {
   return (

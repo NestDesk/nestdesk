@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import { LegalPolicyContent } from "../../components/legal/legal-policy-content";
+
+export const metadata: Metadata = {
+  title: "Refund Policy",
+  description:
+    "Understand NestDesk's refund and cancellation policy for subscription plans.",
+  alternates: { canonical: "/refund" },
+  robots: { index: true, follow: true },
+};
 
 export default function RefundPolicyPage() {
   return (
