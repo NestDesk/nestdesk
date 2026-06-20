@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "../components/ui/button";
 import { Navbar, NavbarLogo } from "../components/layout/Navbar";
@@ -153,6 +154,55 @@ const trustBadges = [
 ];
 
 const PROMO_VIDEO_URL = process.env.PROMO_VIDEO_URL;
+
+export const metadata: Metadata = {
+  title: "PG & Hostel Management Software | NestDesk",
+  description:
+    "NestDesk helps PG owners, hostel managers, and co-living operators manage tenants, collect rent, send notices, and track maintenance from one dashboard.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "PG & Hostel Management Software | NestDesk",
+    description:
+      "Manage tenants, rent, notices, and maintenance for your PG, hostel, or co-living space with NestDesk.",
+    url: "/",
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      name: "NestDesk",
+      url: "https://nestdesk.in",
+      logo: "https://nestdesk.in/favicon.ico",
+      contactPoint: {
+        "@type": "ContactPoint",
+        email: "support@nestdesk.in",
+        contactType: "customer support",
+      },
+    },
+    {
+      "@type": "WebSite",
+      url: "https://nestdesk.in",
+      name: "NestDesk",
+      description:
+        "Modern property management platform for PGs, co-living spaces, hostels, and rentals.",
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "NestDesk",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "INR",
+        description: "Free plan available",
+      },
+    },
+  ],
+};
 /* ─────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────── */
@@ -177,7 +227,12 @@ export default async function LandingPage() {
     : null;
 
   return (
-    <div className="relative min-h-screen overflow-x-clip bg-background bg-mesh-light dark:bg-mesh-dark">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="relative min-h-screen overflow-x-clip bg-background bg-mesh-light dark:bg-mesh-dark">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-background to-background dark:from-primary/[0.1] dark:via-background dark:to-background" />
       <div className="pointer-events-none absolute -left-32 top-28 -z-10 h-80 w-80 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
       <div className="pointer-events-none absolute -right-28 top-44 -z-10 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/15" />
@@ -596,6 +651,7 @@ export default async function LandingPage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

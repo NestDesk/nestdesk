@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import { LegalPolicyContent } from "../../components/legal/legal-policy-content";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "Read NestDesk's Privacy Policy to understand how we collect, use, and protect your data.",
+  alternates: { canonical: "/privacy" },
+  robots: { index: true, follow: true },
+};
 
 export default function PrivacyPolicyPage() {
   return (
