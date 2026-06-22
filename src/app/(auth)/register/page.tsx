@@ -22,6 +22,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { normalizeOwnerPlan, formatPlanLabel } from "../../../lib/subscriptions";
 import { PrivacyPolicyLink } from "../../../components/legal/PrivacyPolicyLink";
+import { VerificationPending } from "../../../components/auth/VerificationPending";
 
 const registerSchema = z
   .object({
@@ -185,6 +186,14 @@ function RegisterPageBody() {
     reValidateMode: "onChange",
   });
 
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(true);
+
   const allPasswordRulesMet = STRENGTH_RULES.every((rule) =>
     rule.test(passwordValue),
   );
@@ -233,17 +242,94 @@ function RegisterPageBody() {
         return;
       }
 
-      if (json.redirectTo) {
-        toast.success(json.message ?? "Registration successful. Continuing...");
-        router.push(json.redirectTo);
-        return;
-      }
-
-      toast.success(json.message ?? "Registration successful. Continuing...");
-      router.push("/onboarding");
+      setVerificationSent(true);
+      setVerificationEmail(data.email);
+      setVerificationMessage(
+        json.message ||
+          "Verification OTP has been sent to your email id. Check your inbox.",
+      );
+      toast.success(json.message ?? "Verification email sent.");
     } catch {
       toast.error("Network error. Please try again.");
     }
+  }
+
+  async function handleResendEmailOtp() {
+    if (!verificationEmail) {
+      toast.error("Unable to resend OTP. Email is missing.");
+      return;
+    }
+
+    setSendingEmailOtp(true);
+    try {
+      const response = await fetch("/api/auth/email-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: verificationEmail }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not resend verification email.");
+        return;
+      }
+
+      setOtpSent(true);
+      toast.success(json.message ?? "Verification email resent.");
+    } catch {
+      toast.error("Network error while resending verification email.");
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  }
+
+  async function handleVerifyEmailOtp() {
+    if (!/^[0-9]{4,8}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit email OTP code.");
+      return;
+    }
+
+    setVerifyingEmailOtp(true);
+    try {
+      const response = await fetch("/api/auth/email-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: verificationEmail,
+          otpCode,
+        }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Email OTP verification failed.");
+        return;
+      }
+
+      toast.success(json.message ?? "Email verified successfully.");
+      setOtpCode("");
+      router.push("/onboarding");
+    } catch {
+      toast.error("Network error while verifying email OTP.");
+    } finally {
+      setVerifyingEmailOtp(false);
+    }
+  }
+
+  if (verificationSent) {
+    return (   
+        <VerificationPending
+          email={verificationEmail}
+          message={verificationMessage}
+          otpCode={otpCode}
+          onOtpChange={setOtpCode}
+          onVerify={handleVerifyEmailOtp}
+          onResend={handleResendEmailOtp}
+          sendingOtp={sendingEmailOtp}
+          verifyingOtp={verifyingEmailOtp}
+          otpSent={otpSent}
+        />
+     );
   }
 
   return (

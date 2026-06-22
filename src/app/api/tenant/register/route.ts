@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { validateSupabaseEnv } from "../../../../lib/supabase/env-check";
+import {
+  applySupabaseCookies,
+  isExistingUserError,
+  registerWithEmailPassword,
+  updateAuthUserPasswordAndOptionalEmail,
+} from "../../../../lib/auth";
+import { normalizeIndianPhone } from "../../../../lib/phone";
 import {
   isValidAadhaarNumber,
   normalizeAadhaarNumber,
 } from "../../../../lib/aadhaar";
 import { encryptAadhaar, hashAadhaar } from "../../../../lib/aadhaar-encryption";
-import {
-  applySupabaseCookies,
-  isExistingUserError,
-  registerWithEmailPassword,
-} from "../../../../lib/auth";
 
 function getClientIp(req: NextRequest): string {
   return (
@@ -104,6 +108,81 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const admin = createAdminClient();
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin;
+  const { url, anonKey } = validateSupabaseEnv();
+  const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookies) {
+        cookiesToSet.push(...cookies);
+      },
+    },
+  });
+
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser();
+  let authUserId = currentUser?.id ?? null;
+  const authUserEmail = currentUser?.email?.trim().toLowerCase() ?? null;
+  let signUpCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+
+  if (!authUserId) {
+    const {
+      data: authData,
+      error: createError,
+      cookiesToSet: signUpCookiesResult,
+    } = await registerWithEmailPassword(request, {
+      email,
+      password,
+      metadata: { full_name: fullName, role: "tenant" },
+      emailConfirmRedirectTo: `${appUrl}/auth/callback?next=/tenant/profile`,
+    });
+
+    if (createError) {
+      if (isExistingUserError(createError.message)) {
+        return NextResponse.json(
+          { error: "An account with this email already exists. Please sign in." },
+          { status: 409 },
+        );
+      }
+
+      return NextResponse.json({ error: createError.message }, { status: 400 });
+    }
+
+    signUpCookies = signUpCookiesResult;
+    authUserId = authData.user?.id ?? authData.session?.user?.id ?? null;
+
+    if (!authUserId) {
+      return NextResponse.json(
+        { error: "Account creation failed. Please try again." },
+        { status: 500 },
+      );
+    }
+  } else {
+    if (authUserEmail && authUserEmail !== email.trim().toLowerCase()) {
+      return NextResponse.json(
+        {
+          error:
+            "Authenticated user email does not match the email provided for tenant registration.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const { error: updateError } = await updateAuthUserPasswordAndOptionalEmail(
+      request,
+      authUserId,
+      password,
+    );
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 400 });
+    }
+  }
+
   // ── 1. Verify hostel is active and token matches ────────────────────────
   const { data: hostel, error: hostelError } = await admin
     .from("hostels")
@@ -153,34 +232,55 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const {
-    data: authData,
-    error: createError,
-    cookiesToSet,
-  } = await registerWithEmailPassword(request, {
-    email,
-    password,
-    metadata: { full_name: fullName, role: "tenant" },
-  });
+  const normalizedPhone = phone ? normalizeIndianPhone(phone) : null;
 
-  if (createError) {
-    if (isExistingUserError(createError.message)) {
-      return NextResponse.json(
-        { error: "An account with this email already exists. Please sign in." },
-        { status: 409 },
-      );
-    }
-    return NextResponse.json({ error: createError.message }, { status: 400 });
-  }
+  const duplicatePhoneCheck = await admin
+    .from("owners")
+    .select("id")
+    .eq("phone_verified", true)
+    .in("phone", normalizedPhone ? [normalizedPhone, normalizedPhone.slice(-10)] : [""])
+    .maybeSingle();
 
-  if (!authData.user?.id) {
+  if (duplicatePhoneCheck.error) {
     return NextResponse.json(
-      { error: "Account creation failed. Please try again." },
+      { error: duplicatePhoneCheck.error.message },
       { status: 500 },
     );
   }
 
-  const authUserId = authData.user.id;
+  if (duplicatePhoneCheck.data) {
+    return NextResponse.json(
+      {
+        error:
+          "This mobile number is already registered to another verified owner account.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const tenantPhoneConflict = await admin
+    .from("tenants")
+    .select("id")
+    .eq("phone_verified", true)
+    .in("phone", normalizedPhone ? [normalizedPhone, normalizedPhone.slice(-10)] : [""])
+    .maybeSingle();
+
+  if (tenantPhoneConflict.error) {
+    return NextResponse.json(
+      { error: tenantPhoneConflict.error.message },
+      { status: 500 },
+    );
+  }
+
+  if (tenantPhoneConflict.data) {
+    return NextResponse.json(
+      {
+        error:
+          "This mobile number is already registered to another verified tenant account.",
+      },
+      { status: 409 },
+    );
+  }
 
   // ── 3. Insert tenant row ─────────────────────────────────────────────────
   const { error: tenantError } = await admin.from("tenants").insert({
@@ -189,9 +289,10 @@ export async function POST(request: NextRequest) {
     hostel_id: hostelId,
     full_name: fullName,
     email,
-    phone: phone || null,
-    phone_verified: phoneVerified && Boolean(phone),
-    phone_verified_at: phoneVerified && Boolean(phone) ? new Date().toISOString() : null,
+    phone: normalizedPhone || null,
+    phone_verified: phoneVerified && Boolean(normalizedPhone),
+    phone_verified_at:
+      phoneVerified && Boolean(normalizedPhone) ? new Date().toISOString() : null,
     occupation_type: occupationType,
     institution_name: institutionName,
     gender,
@@ -261,11 +362,16 @@ export async function POST(request: NextRequest) {
 
   const payload = {
     success: true,
-    redirectTo: "/tenant/profile",
-    message: "Account created successfully.",
+    message:
+      "Verification OTP has been sent to your email id. Check your inbox.",
   };
+
+  if (signUpCookies.length) {
+    cookiesToSet.push(...signUpCookies);
+  }
 
   const response = NextResponse.json(payload);
   applySupabaseCookies(response, cookiesToSet);
   return response;
 }
+

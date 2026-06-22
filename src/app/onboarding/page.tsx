@@ -339,7 +339,7 @@ export default function OnboardingPage() {
 
   async function handleOwnerSubmit(data: OwnerForm) {
     if (!phoneVerified) {
-      toast.error("Verify your phone number before completing onboarding.");
+      await handleSendOtp();
       return;
     }
 
@@ -454,20 +454,11 @@ export default function OnboardingPage() {
                     })}
                   />
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {!phoneVerified && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSendOtp}
-                      disabled={sendingOtp}
-                    >
-                      {sendingOtp ? "Sending..." : "Send OTP"}
-                    </Button>
-                  )}
+                <div className="mt-2">
                   <span className="text-xs text-muted-foreground">
-                    {phoneVerified ? "Phone verified ✅" : "Verify your WhatsApp number to continue"}
+                    {phoneVerified
+                      ? "Phone verified ✅"
+                      : "A WhatsApp OTP prompt will appear when you finish setup."}
                   </span>
                 </div>
               </Field>
@@ -565,7 +556,7 @@ export default function OnboardingPage() {
 
               <Button
                 type="submit"
-                disabled={submitting || !phoneVerified}
+                disabled={submitting}
                 className="mt-2 w-full rounded-xl font-semibold"
               >
                 {submitting ? (

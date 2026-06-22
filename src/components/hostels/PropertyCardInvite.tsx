@@ -109,7 +109,7 @@ export function PropertyCardInvite({
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(11);
       const instructions = [
-        "1. Open the join link or scan the QR code with a phone camera.",
+        "1. Open the www.nestdesk.in/join link or scan the QR code with a phone camera.",
         "2. Enter the property code if asked, or continue with the invite link.",
         "3. Fill in the tenant details and create a password to complete account setup.",
         "4. Once registered, the tenant can sign in and view their account and property details.",

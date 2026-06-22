@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   Home,
+  InfoIcon,
   Loader2,
   MapPin,
   XCircle,
@@ -31,6 +32,7 @@ import { ThemeToggle } from "../../../components/layout/ThemeToggle";
 import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../lib/aadhaar";
 import { TenantConsentLink } from "../../../components/legal/TenantConsentLink";
 import { OtpVerificationDialog } from "../../../components/ui/otp-verification-dialog";
+import { VerificationPending } from "../../../components/auth/VerificationPending";
 import { cn } from "../../../lib/utils";
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -387,52 +389,173 @@ function TenantRegisterPageContent() {
     }
   }
 
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [pendingTenantData, setPendingTenantData] = useState<TenantRegisterForm | null>(null);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
+  const [emailOtpSent, setEmailOtpSent] = useState(true);
+
+  async function sendEmailVerificationOtp(email: string) {
+    setSendingEmailOtp(true);
+    setEmailOtpSent(false);
+
+    try {
+      const response = await fetch("/api/auth/email-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send verification email.");
+        return false;
+      }
+
+      setVerificationSent(true);
+      setVerificationEmail(email);
+      setVerificationMessage(
+        json.message ??  "Verification OTP has been sent to your email id. Check your inbox.",
+      );
+      setEmailOtpSent(true);
+      setOtpCode("");
+      toast.success(json.message ?? "Verification email sent.");
+      return true;
+    } catch {
+      toast.error("Network error while sending verification email.");
+      return false;
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  }
+
   async function onSubmit(data: TenantRegisterForm) {
     if (!phoneVerified) {
       toast.error("Verify your phone number before creating the tenant account.");
       return;
     }
 
+    const emailSent = await sendEmailVerificationOtp(data.email);
+    if (emailSent) {
+      setPendingTenantData(data);
+    }
+  }
+
+  async function handleResendEmailOtp() {
+    const email = verificationEmail || pendingTenantData?.email;
+    if (!email) {
+      toast.error("Unable to resend OTP. Email is missing.");
+      return;
+    }
+
+    setSendingEmailOtp(true);
     try {
-      const res = await fetch("/api/tenant/register", {
+      const response = await fetch("/api/auth/email-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not resend verification email.");
+        return;
+      }
+
+      setVerificationEmail(email);
+      setEmailOtpSent(true);
+      setOtpCode("");
+      toast.success(json.message ?? "Verification email resent.");
+    } catch {
+      toast.error("Network error while resending verification email.");
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  }
+
+  async function handleVerifyEmailOtp() {
+    if (!/^[0-9]{4,8}$/.test(otpCode)) {
+      toast.error("Enter the 6-digit email OTP code.");
+      return;
+    }
+
+    if (!pendingTenantData) {
+      toast.error("Unable to complete registration. Please start again.");
+      return;
+    }
+
+    setVerifyingEmailOtp(true);
+    try {
+      const response = await fetch("/api/auth/email-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: verificationEmail,
+          otpCode,
+        }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Email OTP verification failed.");
+        return;
+      }
+
+      const registerResponse = await fetch("/api/tenant/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
           hostelId,
-          fullName: data.fullName,
-          email: data.email,
-          phone: data.phone,
+          fullName: pendingTenantData.fullName,
+          email: pendingTenantData.email,
+          phone: pendingTenantData.phone,
           phoneVerified,
-          password: data.password,
-          occupationType: data.occupationType,
-          institutionName: data.institutionName,
-          gender: data.gender,
-          aadharNumber: data.aadharNumber
-            ? normalizeAadhaarNumber(data.aadharNumber)
+          password: pendingTenantData.password,
+          occupationType: pendingTenantData.occupationType,
+          institutionName: pendingTenantData.institutionName,
+          gender: pendingTenantData.gender,
+          aadharNumber: pendingTenantData.aadharNumber
+            ? normalizeAadhaarNumber(pendingTenantData.aadharNumber)
             : "",
-          consentGiven: data.consentGiven,
+          consentGiven: pendingTenantData.consentGiven,
         }),
       });
+      const registerJson = await registerResponse.json();
 
-      const json = await res.json();
-
-      if (!res.ok) {
-        toast.error(json.error ?? "Registration failed.");
+      if (!registerResponse.ok) {
+        toast.error(registerJson.error ?? "Tenant registration failed.");
         return;
       }
 
-      if (json.redirectTo) {
-        toast.success(json.message ?? "Registration successful. Continuing...");
-        router.push(json.redirectTo);
-        return;
-      }
-
-      toast.success("Registration successful. Continuing...");
-      router.push("/tenant/profile");
+      toast.success(registerJson.message ?? "Account created successfully.");
+      setOtpCode("");
+      router.push("/tenant/dashboard");
     } catch {
-      toast.error("Network error. Please try again.");
+      toast.error("Network error while verifying email OTP.");
+    } finally {
+      setVerifyingEmailOtp(false);
     }
+  }
+
+  if (verificationSent) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-2xl items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.14),_transparent_55%)] px-4 py-8 sm:px-6">
+        <VerificationPending
+          email={verificationEmail}
+          message={verificationMessage}
+          otpCode={otpCode}
+          onOtpChange={setOtpCode}
+          onVerify={handleVerifyEmailOtp}
+          onResend={handleResendEmailOtp}
+          sendingOtp={sendingEmailOtp}
+          verifyingOtp={verifyingEmailOtp}
+          otpSent={emailOtpSent}
+        />
+      </div>
+    );
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -568,7 +691,10 @@ function TenantRegisterPageContent() {
                         onClick={handleSendOtp}
                         disabled={sendingOtp || !watch("phone") || !/^\d{10}$/.test(normalizePhoneNumber(watch("phone") ?? ""))}
                       >
-                        Verify phone number
+                        <span className="inline-flex items-center gap-2">
+                          <InfoIcon color="orange" />
+                          Verify phone number
+                        </span>
                       </Button>
                       <span className="text-xs text-muted-foreground">
                         Use the OTP dialog to send and verify your code.

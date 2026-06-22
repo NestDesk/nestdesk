@@ -323,9 +323,10 @@ export async function POST(request: NextRequest) {
 
   const duplicatePhoneCheck = await admin
     .from("owners")
-    .select("id, full_name, email")
+    .select("id, full_name, email, phone_verified, onboarding_completed")
     .eq("phone", normalizedPhone)
     .neq("user_id", user.id)
+    .or("phone_verified.eq.true,onboarding_completed.eq.true")
     .maybeSingle();
 
   if (duplicatePhoneCheck.error) {
@@ -339,7 +340,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "This mobile number is already registered to another owner account.",
+          "This mobile number is already registered to another verified or completed owner account.",
       },
       { status: 409 },
     );
