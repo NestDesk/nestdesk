@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveUserAccountRole, resolveUserRedirectPath } from "./lib/auth";
 import { validateSupabaseEnv } from "./lib/supabase/env-check";
 import { createAdminClient } from "./lib/supabase/admin";
 import {
@@ -86,6 +87,27 @@ function isPublic(pathname: string) {
   );
 }
 
+function inferPreferredRole(pathname: string, redirectTo?: string | null) {
+  if (pathname.startsWith("/tenant") || pathname === "/tenant") {
+    return "tenant" as const;
+  }
+
+  if (redirectTo && redirectTo.startsWith("/tenant")) {
+    return "tenant" as const;
+  }
+
+  if (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/onboarding" ||
+    pathname.startsWith("/subscriptions")
+  ) {
+    return "owner" as const;
+  }
+
+  return null;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -123,14 +145,18 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth-only pages
   if (isLoggedIn && AUTH_ONLY_PATHS.includes(pathname)) {
-    let dest: string;
-    if (pathname.startsWith("/tenant/")) {
-      dest = "/tenant/dashboard";
-    } else if (user.email === COMPANY_ADMIN_EMAIL) {
-      dest = "/admin";
-    } else {
-      dest = "/dashboard";
-    }
+    const requestedRedirectTo = request.nextUrl.searchParams.get("redirectTo");
+    const safeRedirectTarget =
+      requestedRedirectTo &&
+      requestedRedirectTo.startsWith("/") &&
+      !requestedRedirectTo.startsWith("//")
+        ? requestedRedirectTo
+        : null;
+
+    const preferredRole = inferPreferredRole(pathname, safeRedirectTarget);
+    const dest =
+      safeRedirectTarget ??
+      (await resolveUserRedirectPath(user.id, { preferredRole }));
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
@@ -152,7 +178,27 @@ export async function middleware(request: NextRequest) {
     user.email !== COMPANY_ADMIN_EMAIL &&
     pathname.startsWith("/admin")
   ) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const roleState = await resolveUserAccountRole(user.id);
+    const fallbackPath = roleState.role === "tenant" ? "/tenant/dashboard" : "/dashboard";
+    return NextResponse.redirect(new URL(fallbackPath, request.url));
+  }
+
+  if (isLoggedIn && user.email !== COMPANY_ADMIN_EMAIL) {
+    const roleState = await resolveUserAccountRole(user.id);
+
+    if (pathname.startsWith("/tenant") && roleState.role !== "tenant") {
+      const fallbackPath = roleState.role === "owner" ? "/dashboard" : "/onboarding";
+      return NextResponse.redirect(new URL(fallbackPath, request.url));
+    }
+
+    if (
+      (pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/subscriptions") ||
+        pathname === "/onboarding") &&
+      roleState.role === "tenant"
+    ) {
+      return NextResponse.redirect(new URL("/tenant/dashboard", request.url));
+    }
   }
 
   if (

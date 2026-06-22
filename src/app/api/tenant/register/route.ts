@@ -6,8 +6,10 @@ import { validateSupabaseEnv } from "../../../../lib/supabase/env-check";
 import {
   applySupabaseCookies,
   isExistingUserError,
+  loginWithEmailPassword,
   registerWithEmailPassword,
   updateAuthUserPasswordAndOptionalEmail,
+  upsertAuthUserMetadata,
 } from "../../../../lib/auth";
 import { normalizeIndianPhone } from "../../../../lib/phone";
 import {
@@ -181,6 +183,16 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 400 });
     }
+  }
+
+  const { error: metadataError } = await upsertAuthUserMetadata(authUserId, {
+    full_name: fullName,
+    name: fullName,
+    role: "tenant",
+  });
+
+  if (metadataError) {
+    return NextResponse.json({ error: metadataError.message }, { status: 400 });
   }
 
   // ── 1. Verify hostel is active and token matches ────────────────────────
@@ -360,14 +372,30 @@ export async function POST(request: NextRequest) {
     ip_address: ip,
   });
 
+  const loginResult = await loginWithEmailPassword(request, email, password);
+  if (loginResult.error || !loginResult.data.session) {
+    return NextResponse.json(
+      {
+        error:
+          loginResult.error?.message ??
+          "Account created, but we could not start your session. Please sign in manually.",
+      },
+      { status: 500 },
+    );
+  }
+
   const payload = {
     success: true,
-    message:
-      "Verification OTP has been sent to your email id. Check your inbox.",
+    message: "Account created successfully. Redirecting to your dashboard...",
+    redirectTo: "/tenant/dashboard",
   };
 
   if (signUpCookies.length) {
     cookiesToSet.push(...signUpCookies);
+  }
+
+  if (loginResult.cookiesToSet.length) {
+    cookiesToSet.push(...loginResult.cookiesToSet);
   }
 
   const response = NextResponse.json(payload);

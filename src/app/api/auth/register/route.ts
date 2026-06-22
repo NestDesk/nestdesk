@@ -5,6 +5,7 @@ import {
   applySupabaseCookies,
   isExistingUserError,
   registerWithEmailPassword,
+  upsertAuthUserMetadata,
 } from "../../../../lib/auth";
 
 function buildValidationDetails(issues: z.ZodIssue[]) {
@@ -97,6 +98,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Account creation failed. Please try again.", details: ["Missing user ID from Supabase sign-up response."] },
       { status: 500 },
+    );
+  }
+
+  const { error: metadataError } = await upsertAuthUserMetadata(authUserId, {
+    full_name: fullName,
+    name: fullName,
+    role: "owner",
+  });
+
+  if (metadataError) {
+    return NextResponse.json(
+      { error: metadataError.message || "Failed to save your profile name." },
+      { status: 400 },
     );
   }
 

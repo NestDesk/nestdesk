@@ -18,6 +18,25 @@ type RegisterWithEmailPasswordInput = {
   emailConfirmRedirectTo?: string;
 };
 
+export type AccountRole = "owner" | "tenant" | "unknown";
+
+type ResolveUserRedirectPathOptions = {
+  preferredRole?: AccountRole | null;
+};
+
+function normalizeAccountRole(value: unknown): AccountRole | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "owner" || normalized === "tenant") {
+    return normalized;
+  }
+
+  return null;
+}
+
 type ExchangeAuthInput = {
   code?: string;
   tokenHash?: string;
@@ -257,6 +276,18 @@ export async function updateAuthUserPasswordAndOptionalEmail(
   return { data: result.data, error: null };
 }
 
+export async function upsertAuthUserMetadata(
+  userId: string,
+  metadata: Record<string, unknown>,
+) {
+  const admin = createAdminClient();
+  const result = await admin.auth.admin.updateUserById(userId, {
+    user_metadata: metadata,
+  });
+
+  return { data: result.data, error: result.error };
+}
+
 export async function loginWithEmailPassword(
   request: NextRequest,
   email: string,
@@ -303,12 +334,39 @@ export async function exchangeAuthForSession(
   };
 }
 
-export async function resolveUserRedirectPath(userId: string) {
+export async function resolveUserAccountRole(userId: string) {
   const admin = createAdminClient();
 
   const { data: userData } = await admin.auth.admin.getUserById(userId);
   if (userData?.user?.email === "support@nestdesk.in") {
-    return "/admin";
+    return {
+      role: "owner" as const,
+      redirectPath: "/admin",
+    };
+  }
+
+  const metadataRole = normalizeAccountRole(
+    userData?.user?.user_metadata?.role ?? userData?.user?.app_metadata?.role,
+  );
+
+  if (metadataRole === "tenant") {
+    return {
+      role: "tenant" as const,
+      redirectPath: "/tenant/dashboard",
+    };
+  }
+
+  if (metadataRole === "owner") {
+    const { data: owner } = await admin
+      .from("owners")
+      .select("onboarding_completed")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    return {
+      role: "owner" as const,
+      redirectPath: owner?.onboarding_completed ? "/dashboard" : "/onboarding",
+    };
   }
 
   const { data: owner } = await admin
@@ -318,7 +376,10 @@ export async function resolveUserRedirectPath(userId: string) {
     .maybeSingle();
 
   if (owner) {
-    return owner.onboarding_completed ? "/dashboard" : "/onboarding";
+    return {
+      role: "owner" as const,
+      redirectPath: owner.onboarding_completed ? "/dashboard" : "/onboarding",
+    };
   }
 
   const { data: tenant } = await admin
@@ -327,5 +388,32 @@ export async function resolveUserRedirectPath(userId: string) {
     .eq("auth_user_id", userId)
     .maybeSingle();
 
-  return tenant ? "/tenant/dashboard" : "/onboarding";
+  if (tenant) {
+    return {
+      role: "tenant" as const,
+      redirectPath: "/tenant/dashboard",
+    };
+  }
+
+  return {
+    role: "unknown" as const,
+    redirectPath: "/onboarding",
+  };
+}
+
+export async function resolveUserRedirectPath(
+  userId: string,
+  options?: ResolveUserRedirectPathOptions,
+) {
+  const roleState = await resolveUserAccountRole(userId);
+
+  if (options?.preferredRole === "tenant" && roleState.role === "tenant") {
+    return "/tenant/dashboard";
+  }
+
+  if (options?.preferredRole === "owner" && roleState.role === "owner") {
+    return roleState.redirectPath;
+  }
+
+  return roleState.redirectPath;
 }

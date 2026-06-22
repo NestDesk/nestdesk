@@ -395,6 +395,7 @@ function TenantRegisterPageContent() {
   const [pendingTenantData, setPendingTenantData] = useState<TenantRegisterForm | null>(null);
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
+  const [registeringTenant, setRegisteringTenant] = useState(false);
   const [emailOtpSent, setEmailOtpSent] = useState(true);
 
   async function sendEmailVerificationOtp(email: string) {
@@ -503,6 +504,9 @@ function TenantRegisterPageContent() {
         return;
       }
 
+      setVerificationMessage("Email verified. Creating your tenant account...");
+      setRegisteringTenant(true);
+
       const registerResponse = await fetch("/api/tenant/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -527,16 +531,24 @@ function TenantRegisterPageContent() {
 
       if (!registerResponse.ok) {
         toast.error(registerJson.error ?? "Tenant registration failed.");
+        setVerificationMessage(
+          registerJson.error ??
+            "Tenant registration failed. Please try again or contact support.",
+        );
         return;
       }
 
       toast.success(registerJson.message ?? "Account created successfully.");
       setOtpCode("");
-      router.push("/tenant/dashboard");
+      router.replace(registerJson.redirectTo ?? "/tenant/dashboard");
     } catch {
       toast.error("Network error while verifying email OTP.");
+      setVerificationMessage(
+        "We could not complete account creation. Please try again.",
+      );
     } finally {
       setVerifyingEmailOtp(false);
+      setRegisteringTenant(false);
     }
   }
 
@@ -551,7 +563,8 @@ function TenantRegisterPageContent() {
           onVerify={handleVerifyEmailOtp}
           onResend={handleResendEmailOtp}
           sendingOtp={sendingEmailOtp}
-          verifyingOtp={verifyingEmailOtp}
+          verifyingOtp={verifyingEmailOtp || registeringTenant}
+          processingMessage={registeringTenant ? "Creating your account…" : undefined}
           otpSent={emailOtpSent}
         />
       </div>

@@ -15,6 +15,7 @@ interface Props {
   onResend?: () => void;
   sendingOtp?: boolean;
   verifyingOtp?: boolean;
+  processingMessage?: string;
   otpSent?: boolean;
 }
 
@@ -27,6 +28,7 @@ export function VerificationPending({
   onResend,
   sendingOtp = false,
   verifyingOtp = false,
+  processingMessage,
   otpSent = true,
 }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(180);
@@ -163,7 +165,9 @@ export function VerificationPending({
                 onClick={onVerify}
                 disabled={verifyingOtp || otpCode.length !== 6}
               >
-                {verifyingOtp ? "Verifying..." : "Verify code"}
+                {verifyingOtp
+                  ? processingMessage ?? "Verifying..."
+                  : "Verify code"}
               </Button>
             </div>
           </div>

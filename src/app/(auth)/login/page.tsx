@@ -85,7 +85,7 @@ function LoginPageContent() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, redirectTo }),
       });
 
       const json = await res.json();
@@ -102,7 +102,7 @@ function LoginPageContent() {
         return;
       }
 
-      router.push(json.redirectTo ?? redirectTo);
+      router.replace(json.redirectTo ?? redirectTo);
     } catch {
       toast.error("Network error. Please try again.");
     }

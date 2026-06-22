@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { resolveUserAccountRole } from "../../lib/auth";
 import { createClient } from "../../lib/supabase/server";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { DashboardShell } from "../../components/layout/DashboardShell";
@@ -22,6 +23,15 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const roleState = await resolveUserAccountRole(user.id);
+  if (roleState.role === "tenant") {
+    redirect("/tenant/dashboard");
+  }
+
+  if (roleState.role === "unknown") {
+    redirect("/onboarding");
+  }
+
   // Check onboarding completion
   const admin = createAdminClient();
   const { data: owner } = await admin
@@ -31,16 +41,6 @@ export default async function DashboardLayout({
     .maybeSingle();
 
   if (!owner) {
-    const { data: tenant } = await admin
-      .from("tenants")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    if (tenant) {
-      redirect("/tenant/dashboard");
-    }
-
     redirect("/onboarding");
   }
 
