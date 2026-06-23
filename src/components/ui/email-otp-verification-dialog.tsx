@@ -6,10 +6,10 @@ import { Button } from "./button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./dialog";
 import { Input } from "./input";
 
-interface OtpVerificationDialogProps {
+interface EmailOtpVerificationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  phone: string;
+  email: string;
   otpCode: string;
   onOtpChange: (value: string) => void;
   onVerify: () => void;
@@ -19,10 +19,10 @@ interface OtpVerificationDialogProps {
   otpSent: boolean;
 }
 
-export function OtpVerificationDialog({
+export function EmailOtpVerificationDialog({
   open,
   onOpenChange,
-  phone,
+  email,
   otpCode,
   onOtpChange,
   onVerify,
@@ -30,7 +30,7 @@ export function OtpVerificationDialog({
   sendingOtp,
   verifyingOtp,
   otpSent,
-}: OtpVerificationDialogProps) {
+}: EmailOtpVerificationDialogProps) {
   const [secondsLeft, setSecondsLeft] = useState(180);
   const otpDigits = useMemo(() => otpCode.padEnd(6, "").slice(0, 6).split(""), [otpCode]);
 
@@ -59,16 +59,13 @@ export function OtpVerificationDialog({
 
   function handleKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Backspace") {
-      event.preventDefault();
-      const hasValueAtCurrent = Boolean(otpCode[index]);
-      const targetIndex = hasValueAtCurrent ? index : Math.max(0, index - 1);
-      const next = otpCode.slice(0, targetIndex) + otpCode.slice(targetIndex + 1);
-      const nextCode = (next.slice(0, 6)).padEnd(6, "");
-      onOtpChange(nextCode.slice(0, 6));
-
-      const input = document.getElementById(`otp-digit-${targetIndex}`) as HTMLInputElement | null;
-      input?.focus();
-      input?.select();
+      if (otpCode[index] || index > 0) {
+        const next = otpCode.slice(0, index) + otpCode.slice(index + 1);
+        onOtpChange(next.slice(0, 6));
+        const input = document.getElementById(`otp-digit-${index}`) as HTMLInputElement | null;
+        input?.focus();
+        input?.select();
+      }
     }
 
     if (event.key === "ArrowLeft" && index > 0) {
@@ -104,9 +101,9 @@ export function OtpVerificationDialog({
               <LockKeyhole className="h-5 w-5" />
             </div>
             <div className="space-y-1">
-              <DialogTitle className="text-xl font-semibold">Verify your phone number</DialogTitle>
+              <DialogTitle className="text-xl font-semibold">Verify your email</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                Enter the 6-digit code sent to +91 {phone || "your mobile number"}.
+                Enter the 6-digit code sent to {email || "your email address"}.
               </DialogDescription>
             </div>
           </DialogHeader>

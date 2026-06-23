@@ -184,16 +184,19 @@ function ForgotPasswordPageContent() {
           </form>
         )}
 
-        <Button
-          asChild
-          variant="ghost"
-          className="mt-6 w-full rounded-xl border border-border/60 text-foreground/70 hover:bg-muted hover:text-foreground"
-        >
-          <Link href="/login">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to sign in
-          </Link>
-        </Button>
+        <div className="mt-6 space-y-3 text-center text-sm text-muted-foreground">
+          
+          <Button
+            asChild
+            variant="ghost"
+            className="w-full rounded-xl border border-border/60 text-foreground/70 hover:bg-muted hover:text-foreground"
+          >
+            <Link href="/login">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to sign in
+            </Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

@@ -1,3 +1,5 @@
+import { normalizeIndianPhoneDigits } from "./phone";
+
 export type TenantProfileCompletionInput = {
   full_name?: string | null;
   email?: string | null;
@@ -39,7 +41,10 @@ const REQUIREMENTS: Requirement[] = [
   {
     key: "phone",
     label: "Phone number",
-    isComplete: (input) => /^\d{10}$/.test(input.phone ?? ""),
+    isComplete: (input) => {
+      const normalizedPhone = normalizeIndianPhoneDigits(input.phone ?? "");
+      return /^\d{10}$/.test(normalizedPhone);
+    },
   },
   {
     key: "occupation_type",

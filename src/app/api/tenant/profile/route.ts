@@ -7,6 +7,7 @@ import {
   normalizeAadhaarNumber,
 } from "../../../../lib/aadhaar";
 import { encryptAadhaar, hashAadhaar } from "../../../../lib/aadhaar-encryption";
+import { normalizeIndianPhone, normalizeIndianPhoneDigits } from "../../../../lib/phone";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
@@ -116,7 +117,8 @@ const updateSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters.").max(100),
   phone: z
     .string()
-    .regex(/^\d{10}$/, "Phone must be exactly 10 digits.")
+    .trim()
+    .refine((value) => !value || normalizeIndianPhoneDigits(value).length === 10, "Phone must be a valid Indian mobile number.")
     .or(z.literal(""))
     .optional(),
   occupationType: z
@@ -180,14 +182,22 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const normalizedPhoneDigits = parsed.data.phone
+    ? normalizeIndianPhoneDigits(parsed.data.phone)
+    : "";
+  const normalizedPhone = normalizedPhoneDigits
+    ? normalizeIndianPhone(normalizedPhoneDigits)
+    : null;
+
   const currentPhone = (await admin.from("tenants").select("phone").eq("id", tenant.id).maybeSingle()).data?.phone ?? null;
-  const phoneChanged = parsed.data.phone !== undefined && parsed.data.phone !== currentPhone;
+  const currentPhoneDigits = normalizeIndianPhoneDigits(currentPhone ?? "");
+  const phoneChanged = parsed.data.phone !== undefined && normalizedPhoneDigits !== currentPhoneDigits;
 
   const { error } = await admin
     .from("tenants")
     .update({
       full_name: parsed.data.fullName,
-      phone: parsed.data.phone || null,
+      phone: normalizedPhone,
       phone_verified: phoneChanged ? false : undefined,
       phone_verified_at: phoneChanged ? null : undefined,
       occupation_type: parsed.data.occupationType,

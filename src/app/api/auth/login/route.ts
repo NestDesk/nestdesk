@@ -5,11 +5,13 @@ import {
   applySupabaseCookies,
   loginWithEmailPassword,
   resolveUserRedirectPath,
+  type AccountRole,
 } from "../../../../lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  redirectTo: z.string().optional(),
 });
 
 function getClientIp(req: NextRequest): string {
@@ -18,6 +20,31 @@ function getClientIp(req: NextRequest): string {
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     "unknown"
   );
+}
+
+function isTenantRoute(pathname: string) {
+  return pathname === "/tenant" || pathname.startsWith("/tenant/");
+}
+
+function inferPreferredRole(redirectTo?: string): AccountRole | null {
+  if (!redirectTo || !redirectTo.startsWith("/")) {
+    return null;
+  }
+
+  if (isTenantRoute(redirectTo)) {
+    return "tenant";
+  }
+
+  if (
+    redirectTo === "/dashboard" ||
+    redirectTo.startsWith("/dashboard/") ||
+    redirectTo === "/onboarding" ||
+    redirectTo.startsWith("/subscriptions")
+  ) {
+    return "owner";
+  }
+
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -37,7 +64,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, redirectTo } = parsed.data;
   const ip = getClientIp(request);
   const userAgent = request.headers.get("user-agent") ?? "unknown";
 
@@ -102,10 +129,12 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 5. Determine redirect based on user role ──────────────────────────────
-  const redirectTo = await resolveUserRedirectPath(data.user.id);
+  const resolvedRedirectTo = await resolveUserRedirectPath(data.user.id, {
+    preferredRole: inferPreferredRole(redirectTo),
+  });
 
   // ── 6. Build response and attach session cookies ─────────────────────────
-  const response = NextResponse.json({ success: true, redirectTo });
+  const response = NextResponse.json({ success: true, redirectTo: resolvedRedirectTo });
   applySupabaseCookies(response, cookiesToSet);
 
   return response;

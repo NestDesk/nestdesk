@@ -5,6 +5,7 @@ import {
   applySupabaseCookies,
   isExistingUserError,
   registerWithEmailPassword,
+  upsertAuthUserMetadata,
 } from "../../../../lib/auth";
 
 function buildValidationDetails(issues: z.ZodIssue[]) {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
 
   const { email, password, fullName, consentGiven } = parsed.data;
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin;
   const {
     data,
     error: createError,
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
     email,
     password,
     metadata: { full_name: fullName, role: "owner" },
+    emailConfirmRedirectTo: `${appUrl}/auth/callback?next=/onboarding`,
   });
 
   if (createError) {
@@ -83,24 +86,38 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Account creation failed.",
+        error: createError.message || "Account creation failed.",
         details: buildSupabaseErrorDetails(createError.message),
       },
       { status: 400 },
     );
   }
 
-  if (!data.user?.id) {
+  const authUserId = data.user?.id ?? data.session?.user?.id;
+  if (!authUserId) {
     return NextResponse.json(
-      { error: "Account creation failed. Please try again." },
+      { error: "Account creation failed. Please try again.", details: ["Missing user ID from Supabase sign-up response."] },
       { status: 500 },
     );
   }
 
+  const { error: metadataError } = await upsertAuthUserMetadata(authUserId, {
+    full_name: fullName,
+    name: fullName,
+    role: "owner",
+  });
+
+  if (metadataError) {
+    return NextResponse.json(
+      { error: metadataError.message || "Failed to save your profile name." },
+      { status: 400 },
+    );
+  }
+
   const admin = createAdminClient();
-  if (consentGiven && data.user.id) {
+  if (consentGiven && authUserId) {
     await admin.from("consent_records").insert({
-      user_id: data.user.id,
+      user_id: authUserId,
       consent_type: "data_collection",
       consent_given: true,
       ip_address:
@@ -113,8 +130,8 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json({
     success: true,
-    redirectTo: "/onboarding",
-    message: "Account created successfully.",
+    message:
+      "Verification OTP has been sent to your email id. Check your inbox.",
   });
 
   applySupabaseCookies(response, cookiesToSet);

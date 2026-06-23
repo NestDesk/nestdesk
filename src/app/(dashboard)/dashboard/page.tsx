@@ -240,13 +240,16 @@ export default async function DashboardPage() {
 
             const tenantStart =
               tenant.rent_start_date ?? tenant.join_date ?? monthStart;
-            const startDate = tenantStart < monthStart ? monthStart : tenantStart;
+            const startDate =
+              tenantStart < monthStart ? monthStart : tenantStart;
             const tenantEnd = tenant.move_out_date ?? monthEnd;
             const endDate = tenantEnd > monthEnd ? monthEnd : tenantEnd;
 
             if (startDate > endDate) return sum;
 
-            return sum + calculateRent(agreed, startDate, endDate).payableAmount;
+            return (
+              sum + calculateRent(agreed, startDate, endDate).payableAmount
+            );
           }, 0);
 
           const tenantCountByRoom = new Map<string, number>();
@@ -359,15 +362,16 @@ export default async function DashboardPage() {
             0,
           );
 
-          const { data: recentPaymentRows, error: recentPaymentsError } = await admin
-            .from("payments")
-            .select(
-              "id, tenant_id, hostel_id, amount, status, method, paid_on, created_at",
-            )
-            .in("hostel_id", hostelIds)
-            .order("paid_on", { ascending: false })
-            .order("created_at", { ascending: false })
-            .limit(10);
+          const { data: recentPaymentRows, error: recentPaymentsError } =
+            await admin
+              .from("payments")
+              .select(
+                "id, tenant_id, hostel_id, amount, status, method, paid_on, created_at",
+              )
+              .in("hostel_id", hostelIds)
+              .order("paid_on", { ascending: false })
+              .order("created_at", { ascending: false })
+              .limit(10);
 
           if (recentPaymentsError) {
             console.error(
@@ -450,7 +454,6 @@ export default async function DashboardPage() {
     thisMonthRevenueExpected - thisMonthRentPaid,
     0,
   );
-  const isFreePlan = normalizeOwnerPlan(currentPlan) === "free";
   const stats = [
     {
       label: "Occupancy",
@@ -549,8 +552,8 @@ export default async function DashboardPage() {
                     Welcome to NestDesk — add your first property
                   </h3>
                   <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                    Add your first property to start managing rooms, tenants, and
-                    rent collection.
+                    Add your first property to start managing rooms, tenants,
+                    and rent collection.
                   </p>
                 </div>
               </div>
@@ -618,7 +621,10 @@ export default async function DashboardPage() {
             </div>
 
             <div className="shrink-0">
-              <Button asChild className="rounded-lg pl-4 pr-4 py-0.5 text-[10px]">
+              <Button
+                asChild
+                className="rounded-lg pl-4 pr-4 py-0.5 text-[10px]"
+              >
                 <Link href="/subscriptions">
                   Manage
                   <ArrowRight className="h-4 w-4 ml-2" />
@@ -644,8 +650,8 @@ export default async function DashboardPage() {
                     Verify your phone number
                   </h3>
                   <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                    Verify your phone on profile to activate properties and receive
-                    tenant updates.
+                    Verify your phone on profile to activate properties and
+                    receive tenant updates.
                   </p>
                 </div>
               </div>
@@ -677,8 +683,8 @@ export default async function DashboardPage() {
                   <span className="font-medium text-foreground">
                     {setupProperty.name}
                   </span>{" "}
-                  has no floors or rooms configured yet. Set up the floor plan to
-                  start managing tenants.
+                  has no floors or rooms configured yet. Set up the floor plan
+                  to start managing tenants.
                 </p>
                 <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground/70">
                   <MapPin className="h-3 w-3" />
@@ -698,41 +704,44 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {hasProperties && !setupRequired && inactiveCount > 0 && activeCount === 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/8 to-amber-400/4 p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15">
-                <AlertCircle className="h-6 w-6 text-amber-500" />
+      {hasProperties &&
+        !setupRequired &&
+        inactiveCount > 0 &&
+        activeCount === 0 && (
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/8 to-amber-400/4 p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15">
+                  <AlertCircle className="h-6 w-6 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">
+                    {inactiveCount === 1
+                      ? "Your property is inactive"
+                      : `All ${inactiveCount} properties are inactive`}
+                  </h3>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {inactiveCount === 1
+                      ? "Your property has been added and the floor plan is ready. Activate it to start accepting tenants and managing rooms."
+                      : `You have ${inactiveCount} properties with floor plans ready. Activate them to start accepting tenants and managing rooms.`}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">
-                  {inactiveCount === 1
-                    ? "Your property is inactive"
-                    : `All ${inactiveCount} properties are inactive`}
-                </h3>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {inactiveCount === 1
-                    ? "Your property has been added and the floor plan is ready. Activate it to start accepting tenants and managing rooms."
-                    : `You have ${inactiveCount} properties with floor plans ready. Activate them to start accepting tenants and managing rooms.`}
-                </p>
+              <div className="shrink-0">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="rounded-xl gap-2 border-amber-400/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                >
+                  <Link href="/hostels">
+                    Go to My Properties
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
-            </div>
-            <div className="shrink-0">
-              <Button
-                asChild
-                variant="outline"
-                className="rounded-xl gap-2 border-amber-400/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
-              >
-                <Link href="/hostels">
-                  Go to My Properties
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {openMaintenanceCount > 0 && (
         <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/8 to-amber-400/4 p-6">
@@ -764,105 +773,85 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {isFreePlan ? (
-        <Card className="rounded-2xl border-border/70">
-          <CardHeader>
-            <CardTitle className="text-base">Dashboard insights</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-              <p className="font-semibold text-foreground">
-                Dashboard insights are locked on the Free plan.
-              </p>
-              <p className="mt-2">
-                Upgrade to Starter or higher to unlock occupancy, rent collection,
-                expense, and cash flow analytics on your dashboard.
-              </p>
-              <Button asChild variant="outline" size="sm" className="mt-3">
-                <Link href="/subscriptions">Upgrade Plan</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {stats.map(
-            ({
-              label,
-              subtitle,
-              value,
-              icon: Icon,
-              change,
-              description,
-              badge,
-              progress,
-              progressLabel,
-              gradient,
-              iconColor,
-              iconBg,
-            }) => (
-              <Card
-                key={label}
-                className={`card-hover rounded-2xl bg-gradient-to-br ${gradient} border-border/60`}
-              >
-                <CardHeader className="flex flex-row items-center justify-between px-3 py-2">
-                  <div>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      {label}
-                    </CardTitle>
-                    {subtitle ? (
-                      <p className="mt-1 text-[11px] uppercase text-muted-foreground">
-                        {subtitle}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-                  >
-                    <Icon className={`h-4 w-4 ${iconColor}`} />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3 pt-2">
-                  <div className="text-2xl font-bold text-foreground">{value}</div>
-                  {progress !== undefined ? (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                        <span>{progressLabel ?? "Collected"}</span>
-                        <span className="font-semibold text-foreground">
-                          {progress}%
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all"
-                          style={{
-                            width: `${Math.min(Math.max(progress, 0), 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                  {description ? (
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      {description}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {stats.map(
+          ({
+            label,
+            subtitle,
+            value,
+            icon: Icon,
+            change,
+            description,
+            badge,
+            progress,
+            progressLabel,
+            gradient,
+            iconColor,
+            iconBg,
+          }) => (
+            <Card
+              key={label}
+              className={`card-hover rounded-2xl bg-gradient-to-br ${gradient} border-border/60`}
+            >
+              <CardHeader className="flex flex-row items-center justify-between px-3 py-2">
+                <div>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {label}
+                  </CardTitle>
+                  {subtitle ? (
+                    <p className="mt-1 text-[11px] uppercase text-muted-foreground">
+                      {subtitle}
                     </p>
                   ) : null}
-                  {badge ? (
-                    <div className="mt-4 inline-flex items-center rounded-full bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
-                      {badge}
+                </div>
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
+                >
+                  <Icon className={`h-4 w-4 ${iconColor}`} />
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-2">
+                <div className="text-2xl font-bold text-foreground">
+                  {value}
+                </div>
+                {progress !== undefined ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                      <span>{progressLabel ?? "Collected"}</span>
+                      <span className="font-semibold text-foreground">
+                        {progress}%
+                      </span>
                     </div>
-                  ) : (
-                    <p className="mt-4 text-xs text-muted-foreground">{change}</p>
-                  )}
-                  {badge && change ? (
-                    <p className="mt-2 text-xs text-muted-foreground">{change}</p>
-                  ) : null}
-                </CardContent>
-              </Card>
-            ),
-          )}
-        </div>
-      )}
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-all"
+                        style={{
+                          width: `${Math.min(Math.max(progress, 0), 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                {description ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {description}
+                  </p>
+                ) : null}
+                {badge ? (
+                  <div className="mt-4 inline-flex items-center rounded-full bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
+                    {badge}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-xs text-muted-foreground">{change}</p>
+                )}
+                {badge && change ? (
+                  <p className="mt-2 text-xs text-muted-foreground">{change}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ),
+        )}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="rounded-2xl border-border/70">
@@ -870,17 +859,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-base">Recent Payments</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-0">
-            {isFreePlan ? (
-              <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-                Recent payments are not available on the Free plan. Upgrade to
-                Starter or higher to unlock payment activity on the dashboard.
-                <div className="mt-3">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/subscriptions">Upgrade Plan</Link>
-                  </Button>
-                </div>
-              </div>
-            ) : hasProperties ? (
+            {hasProperties ? (
               recentPayments.length > 0 ? (
                 <div className="space-y-2">
                   <div className="hidden text-[10px] uppercase tracking-[0.15em] text-muted-foreground sm:grid sm:grid-cols-[1.15fr_0.85fr_0.6fr_auto] sm:gap-3 sm:px-1">
@@ -910,7 +889,10 @@ export default async function DashboardPage() {
                             {payment.hostel_name}
                           </div>
                           <div className="text-sm font-semibold text-foreground whitespace-nowrap">
-                            Rs. {new Intl.NumberFormat("en-IN").format(payment.amount)}
+                            Rs.{" "}
+                            {new Intl.NumberFormat("en-IN").format(
+                              payment.amount,
+                            )}
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-1 text-sm text-foreground sm:justify-end sm:text-right">
                             <span className="text-xs uppercase text-muted-foreground sm:hidden">
@@ -957,22 +939,13 @@ export default async function DashboardPage() {
             <CardTitle className="text-base">Room Occupancy</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-0">
-            {isFreePlan ? (
-              <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-                Room occupancy analytics are not available on the Free plan. Upgrade
-                to Starter or higher to unlock room and bed occupancy insights.
-                <div className="mt-3">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/subscriptions">Upgrade Plan</Link>
-                  </Button>
-                </div>
-              </div>
-            ) : hasProperties ? (
+            {hasProperties ? (
               <div className="space-y-3">
                 <div>
                   <div className="flex items-end justify-between gap-3">
                     <p className="text-2xl font-bold text-foreground">
-                      {occupancySummary.occupiedBeds} / {occupancySummary.totalBeds}
+                      {occupancySummary.occupiedBeds} /{" "}
+                      {occupancySummary.totalBeds}
                     </p>
                     <p className="text-xs font-medium text-muted-foreground">
                       {bedOccupancyRate}% bed occupancy
@@ -1034,7 +1007,9 @@ export default async function DashboardPage() {
                       {hostelOccupancy.slice(0, 4).map((row) => {
                         const rowRate =
                           row.totalBeds > 0
-                            ? Math.round((row.occupiedBeds / row.totalBeds) * 100)
+                            ? Math.round(
+                                (row.occupiedBeds / row.totalBeds) * 100,
+                              )
                             : 0;
 
                         return (
@@ -1066,7 +1041,8 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No rooms available yet. Complete property setup to view occupancy.
+                No rooms available yet. Complete property setup to view
+                occupancy.
               </p>
             )}
           </CardContent>

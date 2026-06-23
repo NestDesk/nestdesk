@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { validateSupabaseEnv } from "../../../../lib/supabase/env-check";
 
 const resetPasswordSchema = z.object({
   password: z
@@ -29,12 +28,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { url, anonKey } = validateSupabaseEnv();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   const cookiesToSet: Array<{
     name: string;
     value: string;
     options: Record<string, unknown>;
   }> = [];
+
+  if (!url || !anonKey) {
+    return NextResponse.json(
+      { error: "Supabase environment variables are not configured." },
+      { status: 500 },
+    );
+  }
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {

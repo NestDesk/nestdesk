@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { resolveUserAccountRole } from "../../lib/auth";
 import { createClient } from "../../lib/supabase/server";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { LogOut, Sparkles } from "lucide-react";
@@ -33,6 +34,15 @@ export default async function TenantLayout({
     redirect("/login");
   }
 
+  const roleState = await resolveUserAccountRole(user.id);
+  if (roleState.role === "owner") {
+    redirect("/dashboard");
+  }
+
+  if (roleState.role === "unknown") {
+    redirect("/onboarding");
+  }
+
   const admin = createAdminClient();
   const { data: tenant } = await admin
     .from("tenants")
@@ -43,8 +53,7 @@ export default async function TenantLayout({
     .maybeSingle();
 
   if (!tenant) {
-    // Not a tenant account — redirect to owner dashboard or login
-    redirect("/dashboard");
+    redirect("/onboarding");
   }
 
   const hostel =

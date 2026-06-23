@@ -143,6 +143,7 @@ type TenantProfileDetail = {
   hostel_name: string;
   hostel_location: string | null;
   room_id: string | null;
+  room_number: string | null;
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -158,6 +159,7 @@ type TenantProfileDetail = {
   profile_completion_missing: string[];
   agreed_rent_amount: number | null;
   security_deposit: number | null;
+  security_deposit_returned: number | null;
   join_date: string | null;
   rent_start_date: string | null;
   move_out_date: string | null;
@@ -207,7 +209,9 @@ const STATUS_OPTIONS: Array<{ value: TenantStatus; label: string }> = [
 ];
 
 function normalizePhone(value: string) {
-  return value.replace(/\D/g, "").slice(0, 10);
+  const digits = value.replace(/\D/g, "");
+  const withoutCountryCode = digits.startsWith("91") ? digits.slice(2) : digits;
+  return withoutCountryCode.slice(0, 10);
 }
 
 function normalizeRentInput(value: string) {
@@ -679,7 +683,7 @@ export default function OwnerTenantsPage() {
         ...prev,
         [tenant.id]: {
           fullName: tenant.full_name,
-          phone: tenant.phone ?? "",
+          phone: normalizePhone(tenant.phone ?? ""),
           status: tenant.status,
           roomId: tenant.room_id,
           agreedRentAmount:
@@ -759,7 +763,9 @@ export default function OwnerTenantsPage() {
       return;
     }
 
-    if (!draft.phone || !/^\d{10}$/.test(draft.phone.replace(/\D/g, ""))) {
+    const normalizedPhone = normalizePhone(draft.phone);
+
+    if (!normalizedPhone || normalizedPhone.length !== 10) {
       toast.error("Valid 10-digit phone number is required.");
       return;
     }
@@ -814,7 +820,7 @@ export default function OwnerTenantsPage() {
     try {
       const payload = {
         fullName: draft.fullName.trim(),
-        phone: draft.phone.trim(),
+        phone: normalizedPhone,
         status: draft.status,
         roomId: draft.status === "active" ? draft.roomId : null,
         agreedRentAmount: draft.agreedRentAmount
@@ -1500,12 +1506,12 @@ export default function OwnerTenantsPage() {
                             <span
                               className={cn(
                                 "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                                tenant.profile_completion_percentage >= 100
+                                tenant.status === "active"
                                   ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
                                   : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
                               )}
                             >
-                              Profile {tenant.profile_completion_percentage}%
+                              {tenant.status === "active" ? "KYC done" : `Profile ${tenant.profile_completion_percentage}%`}
                             </span>
 
                             {coverage ? (
@@ -1613,19 +1619,24 @@ export default function OwnerTenantsPage() {
                               Phone Number
                               <span className="ml-1 text-rose-500">*</span>
                             </Label>
-                            <Input
-                              id={`phone-${tenant.id}`}
-                              value={draft.phone}
-                              onChange={(e) =>
-                                updateDraft(
-                                  tenant.id,
-                                  "phone",
-                                  normalizePhone(e.target.value),
-                                )
-                              }
-                              placeholder="10-digit number"
-                              className="h-9 text-sm"
-                            />
+                            <div className="flex items-center overflow-hidden rounded-md border border-input bg-background shadow-sm">
+                              <div className="flex h-9 items-center border-r border-input bg-muted/40 px-3 text-sm font-medium text-foreground">
+                                +91
+                              </div>
+                              <Input
+                                id={`phone-${tenant.id}`}
+                                value={draft.phone}
+                                onChange={(e) =>
+                                  updateDraft(
+                                    tenant.id,
+                                    "phone",
+                                    normalizePhone(e.target.value),
+                                  )
+                                }
+                                placeholder="9876543210"
+                                className="h-9 flex-1 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1639,48 +1650,6 @@ export default function OwnerTenantsPage() {
                           Stay &amp; Billing
                         </p>
                         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {/* Status */}
-                          <div className="space-y-1.5">
-                            <Label
-                              htmlFor={`status-${tenant.id}`}
-                              className="text-xs font-medium"
-                            >
-                              Status
-                            </Label>
-                            <select
-                              id={`status-${tenant.id}`}
-                              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                              value={draft.status}
-                              disabled={savingId === tenant.id}
-                              onChange={(e) =>
-                                updateDraft(
-                                  tenant.id,
-                                  "status",
-                                  e.target.value as TenantStatus,
-                                )
-                              }
-                            >
-                              {STATUS_OPTIONS.map((option) => (
-                                <option
-                                  key={option.value}
-                                  value={option.value}
-                                  disabled={
-                                    option.value === "active" &&
-                                    !draft.securityDeposit
-                                  }
-                                  title={
-                                    option.value === "active" &&
-                                    !draft.securityDeposit
-                                      ? "Fill security deposit before activating"
-                                      : undefined
-                                  }
-                                >
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
                           {/* Room */}
                           <div className="space-y-1.5">
                             <Label
@@ -1836,6 +1805,48 @@ export default function OwnerTenantsPage() {
                               placeholder="Select rent start date"
                               className="h-9 w-full text-sm"
                             />
+                          </div>
+
+                          {/* Status */}
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor={`status-${tenant.id}`}
+                              className="text-xs font-medium"
+                            >
+                              Status
+                            </Label>
+                            <select
+                              id={`status-${tenant.id}`}
+                              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                              value={draft.status}
+                              disabled={savingId === tenant.id}
+                              onChange={(e) =>
+                                updateDraft(
+                                  tenant.id,
+                                  "status",
+                                  e.target.value as TenantStatus,
+                                )
+                              }
+                            >
+                              {STATUS_OPTIONS.map((option) => (
+                                <option
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={
+                                    option.value === "active" &&
+                                    !draft.securityDeposit
+                                  }
+                                  title={
+                                    option.value === "active" &&
+                                    !draft.securityDeposit
+                                      ? "Fill security deposit before activating"
+                                      : undefined
+                                  }
+                                >
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -2031,6 +2042,43 @@ export default function OwnerTenantsPage() {
                   <p className="text-xs text-muted-foreground">Profile Completion</p>
                   <p className="text-sm font-medium text-foreground">
                     {reviewTenant.profile_completion_percentage}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Room Assigned</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {reviewTenant.room_number ||
+                    (reviewTenant.room_id
+                      ? `Room ${allRoomsForHostel(reviewTenant.hostel_id, reviewTenant.room_id).find((room) => room.id === reviewTenant.room_id)?.room_number ?? reviewTenant.room_id}`
+                      : "-")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Agreed Rent</p>
+                  <p className="text-sm font-medium text-foreground">
+                    ₹{reviewTenant.agreed_rent_amount ?? 0}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Security Deposit</p>
+                  <p className="text-sm font-medium text-foreground">
+                    ₹{reviewTenant.security_deposit ?? 0}
+                  </p>
+                </div>
+                {reviewTenant.status === "moved_out" ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Security Returned</p>
+                    <p className="text-sm font-medium text-foreground">
+                      ₹{reviewTenant.security_deposit_returned ?? 0}
+                    </p>
+                  </div>
+                ) : null}
+                <div>
+                  <p className="text-xs text-muted-foreground">Move-out Date</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {reviewTenant.move_out_date
+                      ? formatDate(reviewTenant.move_out_date)
+                      : "-"}
                   </p>
                 </div>
               </div>

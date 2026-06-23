@@ -85,7 +85,7 @@ function LoginPageContent() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, redirectTo }),
       });
 
       const json = await res.json();
@@ -102,7 +102,7 @@ function LoginPageContent() {
         return;
       }
 
-      router.push(json.redirectTo ?? redirectTo);
+      router.replace(json.redirectTo ?? redirectTo);
     } catch {
       toast.error("Network error. Please try again.");
     }
@@ -174,16 +174,19 @@ function LoginPageContent() {
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Label htmlFor="password" className="text-foreground">
                 Password
               </Label>
-              <Link
-                href="/forgot-password"
-                className="text-xs font-medium text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
-              >
-                Forgot password?
-              </Link>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <Link
+                  href="/forgot-password"
+                  className="font-medium text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+                >
+                  Forgot password?
+                </Link>
+               
+              </div>
             </div>
             <div className="relative">
               <Input
