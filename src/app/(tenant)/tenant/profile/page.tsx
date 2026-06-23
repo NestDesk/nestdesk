@@ -42,6 +42,7 @@ import {
   isValidAadhaarNumber,
   normalizeAadhaarNumber,
 } from "../../../../lib/aadhaar";
+import { normalizeIndianPhoneDigits } from "../../../../lib/phone";
 
 type TenantProfile = {
   id: string;
@@ -165,10 +166,12 @@ export default function TenantProfilePage() {
     const res = await fetch("/api/tenant/profile", { cache: "no-store" });
     const j = (await res.json()) as { tenant?: TenantProfile; error?: string };
     if (j.tenant) {
+      const nextPhone = normalizeIndianPhoneDigits(j.tenant.phone ?? "");
+
       setProfile(j.tenant);
       setFullName(j.tenant.full_name);
-      setPhone(j.tenant.phone ?? "");
-      setOriginalPhone(j.tenant.phone ?? "");
+      setPhone(nextPhone);
+      setOriginalPhone(nextPhone);
       setPhoneVerified(Boolean(j.tenant.phone_verified));
       setIsPhoneEditing(false);
       setIsEditingDetails(false);
@@ -191,7 +194,7 @@ export default function TenantProfilePage() {
   }, []);
 
   async function handleSendOtp() {
-    const normalizedPhone = phone.trim().replace(/\D/g, "");
+    const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
     if (!/^\d{10}$/.test(normalizedPhone)) {
       toast.error("Enter a valid 10-digit phone number before requesting OTP.");
       return;
@@ -226,7 +229,7 @@ export default function TenantProfilePage() {
   }
 
   async function handleVerifyOtp() {
-    const normalizedPhone = phone.trim().replace(/\D/g, "");
+    const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
     if (!/^\d{10}$/.test(normalizedPhone)) {
       toast.error("Enter a valid 10-digit phone number first.");
       return;
@@ -265,7 +268,7 @@ export default function TenantProfilePage() {
       return;
     }
 
-    const normalizedPhone = phone.trim();
+    const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
     if (!normalizedPhone) {
       toast.error("Phone number is required.");
       return;
@@ -276,7 +279,7 @@ export default function TenantProfilePage() {
       return;
     }
 
-    const hasPhoneChanged = normalizedPhone !== originalPhone.replace(/\D/g, "");
+    const hasPhoneChanged = normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
     if (hasPhoneChanged && !phoneVerified) {
       toast.error("Verify your updated phone number before saving the profile.");
       return;
@@ -298,7 +301,7 @@ export default function TenantProfilePage() {
         aadharNumber?: string;
       } = {
         fullName: fullName.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         occupationType,
         institutionName: institutionName.trim(),
       };
@@ -394,7 +397,9 @@ export default function TenantProfilePage() {
   const StatusIcon = statusCfg.icon;
   const completion = profile?.profile_completion_percentage ?? 0;
 
-  const normalizedPhone = phone.trim();
+  const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
+  const hasPhoneChanged =
+    normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
   const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
   const isAadhaarValid =
     !normalizedAadhaar || isValidAadhaarNumber(normalizedAadhaar);
@@ -546,7 +551,7 @@ export default function TenantProfilePage() {
               </h2>
               <Badge
                 variant={statusCfg.variant}
-                className={`flex items-center gap-1 border ${statusCfg.chipClassName}`}
+                className={`flex items-center gap-1 whitespace-nowrap border ${statusCfg.chipClassName}`}
               >
                 <StatusIcon className="h-3 w-3" />
                 {statusCfg.label}
@@ -565,7 +570,7 @@ export default function TenantProfilePage() {
             </div>
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 transition-all"
                 style={{ width: `${completion}%` }}
               />
             </div>
@@ -722,14 +727,14 @@ export default function TenantProfilePage() {
                   </span>
                 )}
 
-                {isPhoneEditing && !phoneVerified && (
+                {isPhoneEditing && !phoneVerified && hasPhoneChanged && (
                   <>
                     <Button
                       type="button"
                       variant="secondary"
                       size="sm"
                       onClick={handleSendOtp}
-                      disabled={sendingOtp || !/^\d{10}$/.test(phone.trim().replace(/\D/g, ""))}
+                      disabled={sendingOtp || !/^\d{10}$/.test(normalizedPhone)}
                     >
                       {sendingOtp ? "Sending OTP..." : otpSent ? "Resend OTP" : "Send OTP"}
                     </Button>

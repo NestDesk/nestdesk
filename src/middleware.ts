@@ -37,13 +37,17 @@ const AUTH_ONLY_PATHS = [
 
 const FREE_PLAN_ALLOWED_PATHS = [
   "/dashboard",
-  "/dashboard/tenants",
-  "/dashboard/payments",
-  "/dashboard/subscriptions",
-  "/dashboard/hostels",
-  "/dashboard/profile",
-  "/dashboard/settings",
+  "/tenants",
+  "/payments",
+  "/subscriptions",
+  "/hostels",
+  "/profile",
+  "/settings",
 ];
+
+function isTenantRoute(pathname: string) {
+  return pathname === "/tenant" || pathname.startsWith("/tenant/");
+}
 
 function isFreePlanAllowedPath(pathname: string) {
   return FREE_PLAN_ALLOWED_PATHS.some(
@@ -88,11 +92,11 @@ function isPublic(pathname: string) {
 }
 
 function inferPreferredRole(pathname: string, redirectTo?: string | null) {
-  if (pathname.startsWith("/tenant") || pathname === "/tenant") {
+  if (isTenantRoute(pathname)) {
     return "tenant" as const;
   }
 
-  if (redirectTo && redirectTo.startsWith("/tenant")) {
+  if (redirectTo && isTenantRoute(redirectTo)) {
     return "tenant" as const;
   }
 
@@ -164,7 +168,7 @@ export async function middleware(request: NextRequest) {
   if (isLoggedIn && user.email === COMPANY_ADMIN_EMAIL) {
     if (
       pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/tenant") ||
+      isTenantRoute(pathname) ||
       pathname.startsWith("/onboarding") ||
       pathname.startsWith("/subscriptions")
     ) {
@@ -186,7 +190,7 @@ export async function middleware(request: NextRequest) {
   if (isLoggedIn && user.email !== COMPANY_ADMIN_EMAIL) {
     const roleState = await resolveUserAccountRole(user.id);
 
-    if (pathname.startsWith("/tenant") && roleState.role !== "tenant") {
+    if (isTenantRoute(pathname) && roleState.role !== "tenant") {
       const fallbackPath = roleState.role === "owner" ? "/dashboard" : "/onboarding";
       return NextResponse.redirect(new URL(fallbackPath, request.url));
     }

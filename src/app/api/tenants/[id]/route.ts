@@ -136,7 +136,7 @@ export async function GET(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state)",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state), rooms(room_number)",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -157,6 +157,8 @@ export async function GET(
     city: string;
     state: string;
   } | null;
+  // @ts-expect-error supabase nested select type
+  const room = tenant.rooms as { room_number: string | null } | null;
   const completion = getTenantProfileCompletion(tenant);
 
   const [profilePhotoUrl, aadharFrontUrl, aadharBackUrl, alternateIdUrl] =
@@ -175,6 +177,7 @@ export async function GET(
       hostel_location:
         [hostel?.city, hostel?.state].filter(Boolean).join(", ") || null,
       room_id: tenant.room_id,
+      room_number: room?.room_number ?? null,
       full_name: tenant.full_name,
       email: tenant.email,
       phone: tenant.phone,

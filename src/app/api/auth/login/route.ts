@@ -22,12 +22,16 @@ function getClientIp(req: NextRequest): string {
   );
 }
 
+function isTenantRoute(pathname: string) {
+  return pathname === "/tenant" || pathname.startsWith("/tenant/");
+}
+
 function inferPreferredRole(redirectTo?: string): AccountRole | null {
   if (!redirectTo || !redirectTo.startsWith("/")) {
     return null;
   }
 
-  if (redirectTo.startsWith("/tenant")) {
+  if (isTenantRoute(redirectTo)) {
     return "tenant";
   }
 

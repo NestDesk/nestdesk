@@ -31,24 +31,40 @@ const STATUS_CONFIG = {
     variant: "secondary" as const,
     icon: Clock,
     color: "text-amber-500",
+    badgeClassName:
+      "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300",
+    summary: "Pending approval",
+    description: "Your registration is awaiting review from the property owner.",
   },
   active: {
     label: "Active",
     variant: "default" as const,
     icon: CheckCircle2,
     color: "text-emerald-500",
+    badgeClassName:
+      "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300",
+    summary: "Active live status",
+    description: "Your tenant account is currently active and live.",
   },
   moved_out: {
     label: "Moved Out",
     variant: "outline" as const,
     icon: Home,
     color: "text-muted-foreground",
+    badgeClassName:
+      "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-500/40 dark:bg-slate-500/15 dark:text-slate-300",
+    summary: "Moved out",
+    description: "Your stay has been marked as moved out for this property.",
   },
   rejected: {
     label: "Rejected",
     variant: "destructive" as const,
     icon: AlertCircle,
     color: "text-destructive",
+    badgeClassName:
+      "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300",
+    summary: "Registration not approved",
+    description: "Your account was not approved by the property owner.",
   },
 };
 
@@ -262,13 +278,13 @@ export default async function TenantDashboardPage() {
                     <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       Account status
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">Active live status</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{statusCfg.summary}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Your tenant account is currently active and live.
+                      {statusCfg.description}
                     </p>
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusCfg.badgeClassName}`}>
                   <StatusIcon className={`h-3.5 w-3.5 ${statusCfg.color}`} />
                   {statusCfg.label}
                 </span>
@@ -296,12 +312,14 @@ export default async function TenantDashboardPage() {
               </div>
               <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted/80">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-cyan-400 transition-all"
-                  style={{ width: "100%" }}
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 transition-all"
+                  style={{ width: `${completion.percentage}%` }}
                 />
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                All profile completion steps are finished, so your account is ready to go.
+                {completion.completeCount === completion.totalCount
+                  ? "All profile completion steps are finished, so your account is ready to go."
+                  : `${completion.totalCount - completion.completeCount} step(s) still need attention.`}
               </p>
             </div>
           </CardContent>
