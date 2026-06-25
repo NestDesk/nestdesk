@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Send, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Card, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import {
   Dialog,
@@ -40,12 +40,6 @@ type ReminderUsage = {
   count: number;
   limit: number;
   cooldown_until?: string | null;
-};
-
-type ReminderResult = {
-  tenantId: string;
-  sent: boolean;
-  reason?: string;
 };
 
 const REMINDER_LIMIT = 3;

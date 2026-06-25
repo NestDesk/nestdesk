@@ -8,7 +8,6 @@ import { Input } from "../../ui/input";
 import {
   occupancyColor,
   occupancyLabel,
-  bedIcons,
   OCCUPANCY_PER_ROOM,
   STATUS_CONFIG,
 } from "./helpers";
@@ -49,9 +48,6 @@ export function BuildingBlueprint({
   });
   const [savingRoomId, setSavingRoomId] = useState<string | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
-  const [quickSavingRoomId, setQuickSavingRoomId] = useState<string | null>(
-    null,
-  );
   const hasDraftEdits = editingFloorId !== null || editingRoomId !== null;
 
   useEffect(() => {
@@ -78,41 +74,6 @@ export function BuildingBlueprint({
       return (await response.json()) as { error?: string };
     } catch {
       return null;
-    }
-  }
-
-  async function quickUpdateCapacity(room: Room, newCapacity: number) {
-    if (quickSavingRoomId || room.capacity === newCapacity) return;
-    const occupancy = room.occupancy ?? 0;
-    if (newCapacity < occupancy) {
-      toast.error(
-        `Capacity cannot be reduced below current tenant count (${occupancy}).`,
-      );
-      return;
-    }
-    setQuickSavingRoomId(room.id);
-    try {
-      const res = await fetch(`/api/hostels/${hostelId}/rooms/${room.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          floorId: room.floor_id,
-          roomNumber: room.room_number,
-          capacity: newCapacity,
-          rentAmount: room.rent_amount,
-          status: room.status,
-        }),
-      });
-      const payload = await parsePayload(res);
-      if (!res.ok) {
-        toast.error(payload?.error ?? "Failed to update capacity.");
-        return;
-      }
-      await onSync();
-    } catch {
-      toast.error("Network error.");
-    } finally {
-      setQuickSavingRoomId(null);
     }
   }
 
@@ -447,7 +408,6 @@ export function BuildingBlueprint({
                         occupancy > 0 ||
                         room.status === "occupied" ||
                         room.status === "occupied_partial";
-                      const statusChangeDisabled = occupancy > 0;
 
                       return (
                         <div

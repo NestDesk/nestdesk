@@ -311,12 +311,6 @@ function addDays(dateStr: string, days: number) {
   return toISODate(d);
 }
 
-function getMonthEndDate(dateStr: string) {
-  const [year, month] = dateStr.split("-").map(Number);
-  const lastDay = new Date(year, month, 0).getDate();
-  return toISODate(new Date(year, month - 1, lastDay));
-}
-
 function calculatePendingBreakdown(
   monthlyRent: number,
   pendingFrom: string,
