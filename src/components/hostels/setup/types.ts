@@ -23,6 +23,7 @@ export type Room = {
   rent_amount: number | null;
   status: RoomStatus;
   created_at: string;
+  occupancy?: number;
 };
 
 // A preview room not yet saved to DB (used in wizard stage 2)

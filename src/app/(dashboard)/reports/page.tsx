@@ -701,7 +701,7 @@ const defCols = [
   defCol.accessor("hostel_name", { header: "Property" }),
   defCol.accessor("room_number", { header: "Room" }),
   defCol.accessor("amount", {
-    header: "Amount",
+    header: "Pending Till Today",
     cell: (c) => fmt(c.getValue()),
     sortingFn: "basic",
   }),
@@ -710,7 +710,7 @@ const defCols = [
     header: "Status",
     cell: (c) => <StatusBadge status={c.getValue()} />,
   }),
-  defCol.accessor("aging_days", { header: "Aging (d)", sortingFn: "basic" }),
+  defCol.accessor("aging_days", { header: "Aging (days)", sortingFn: "basic" }),
   defCol.accessor("bucket", { header: "Bucket" }),
 ];
 
@@ -1180,8 +1180,8 @@ function ReportsShell() {
 
 export default function ReportsPage() {
   return (
-    <main className="mx-auto w-full max-w-7xl p-4 md:p-6">
-      <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-border/70 bg-card/90 p-4 shadow-sm md:flex-row md:items-end md:justify-between md:p-5">
+    <main className="mx-auto w-full max-w-7xl">
+      <header className="mb-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:p-5">
         <div className="flex items-start gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Analytics</p>

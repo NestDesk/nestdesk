@@ -208,7 +208,7 @@ export async function middleware(request: NextRequest) {
   if (
     isLoggedIn &&
     user.email !== COMPANY_ADMIN_EMAIL &&
-    pathname.startsWith("/dashboard") &&
+    (pathname.startsWith("/dashboard") || pathname === "/rent-reminders" || pathname.startsWith("/rent-reminders/")) &&
     !isFreePlanAllowedPath(pathname)
   ) {
     const admin = createAdminClient();

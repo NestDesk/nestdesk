@@ -404,9 +404,9 @@ export default function OwnerTenantsPage() {
     rejected: 0,
   });
   const [hostels, setHostels] = useState<HostelSummary[]>([]);
-  const [roomsByHostel, setRoomsByHostel] = useState<Record<string, RoomSummary[]>>(
-    {},
-  );
+  const [roomsByHostel, setRoomsByHostel] = useState<
+    Record<string, RoomSummary[]>
+  >({});
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("active");
@@ -421,7 +421,9 @@ export default function OwnerTenantsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewTenant, setReviewTenant] = useState<TenantProfileDetail | null>(null);
+  const [reviewTenant, setReviewTenant] = useState<TenantProfileDetail | null>(
+    null,
+  );
   const [approveSaving, setApproveSaving] = useState(false);
   const [approvalDraft, setApprovalDraft] = useState<ApprovalDraft>({
     roomId: "",
@@ -432,31 +434,41 @@ export default function OwnerTenantsPage() {
   });
 
   const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
-  const [recordPaymentTenantId, setRecordPaymentTenantId] = useState<string | null>(
-    null,
-  );
+  const [recordPaymentTenantId, setRecordPaymentTenantId] = useState<
+    string | null
+  >(null);
   const [recordPaymentLoading, setRecordPaymentLoading] = useState(false);
-  const [recordPaymentExistingPayments, setRecordPaymentExistingPayments] = useState<
-    Array<{ tenant_id: string; month: string; billing_end?: string | null }>
-  >([]);
+  const [recordPaymentExistingPayments, setRecordPaymentExistingPayments] =
+    useState<
+      Array<{ tenant_id: string; month: string; billing_end?: string | null }>
+    >([]);
 
   const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
-  const [paymentHistoryTenant, setPaymentHistoryTenant] = useState<TenantRow | null>(
-    null,
-  );
+  const [paymentHistoryTenant, setPaymentHistoryTenant] =
+    useState<TenantRow | null>(null);
   const [paymentHistoryItems, setPaymentHistoryItems] = useState<
     PaymentHistoryItem[]
   >([]);
   const [paymentHistorySummary, setPaymentHistorySummary] =
-    useState<PaymentHistorySummary>({ totalPaid: 0, disputedAmount: 0, total: 0 });
+    useState<PaymentHistorySummary>({
+      totalPaid: 0,
+      disputedAmount: 0,
+      total: 0,
+    });
   const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
   const [paymentCoverageByTenant, setPaymentCoverageByTenant] = useState<
     Record<string, TenantPaymentCoverage>
   >({});
   const [pendingInfoOpen, setPendingInfoOpen] = useState(false);
-  const [pendingInfoTenant, setPendingInfoTenant] = useState<TenantRow | null>(null);
-  const [summaryAccordionValue, setSummaryAccordionValue] = useState<string[]>([]);
-  const [filterAccordionValue, setFilterAccordionValue] = useState<string[]>([]);
+  const [pendingInfoTenant, setPendingInfoTenant] = useState<TenantRow | null>(
+    null,
+  );
+  const [summaryAccordionValue, setSummaryAccordionValue] = useState<string[]>(
+    [],
+  );
+  const [filterAccordionValue, setFilterAccordionValue] = useState<string[]>(
+    [],
+  );
   const [pendingInfoDetail, setPendingInfoDetail] =
     useState<TenantPaymentCoverage | null>(null);
 
@@ -567,7 +579,9 @@ export default function OwnerTenantsPage() {
     setLoading(true);
     try {
       const response = await fetch("/api/tenants", { cache: "no-store" });
-      const json = (await response.json()) as TenantsResponse | { error?: string };
+      const json = (await response.json()) as
+        | TenantsResponse
+        | { error?: string };
 
       if (!response.ok) {
         const error = "error" in json ? json.error : undefined;
@@ -626,7 +640,8 @@ export default function OwnerTenantsPage() {
         (tenant.room_number ?? "").toLowerCase().includes(query) ||
         tenant.hostel_name.toLowerCase().includes(query);
 
-      const matchesStatus = statusFilter === "all" || tenant.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || tenant.status === statusFilter;
       const matchesHostel =
         hostelFilter === "all" || tenant.hostel_id === hostelFilter;
       const coverage = paymentCoverageByTenant[tenant.id];
@@ -634,7 +649,9 @@ export default function OwnerTenantsPage() {
         paymentStatusFilter === "all" ||
         (coverage ? coverage.status === paymentStatusFilter : false);
 
-      return matchesQuery && matchesStatus && matchesHostel && matchesPaymentStatus;
+      return (
+        matchesQuery && matchesStatus && matchesHostel && matchesPaymentStatus
+      );
     });
 
     if (sortOption === "none") {
@@ -655,7 +672,9 @@ export default function OwnerTenantsPage() {
       }
 
       if (sortOption === "profile_completion") {
-        return b.profile_completion_percentage - a.profile_completion_percentage;
+        return (
+          b.profile_completion_percentage - a.profile_completion_percentage
+        );
       }
 
       if (sortOption === "rent_amount") {
@@ -691,7 +710,9 @@ export default function OwnerTenantsPage() {
               ? String(tenant.agreed_rent_amount)
               : "",
           securityDeposit:
-            tenant.security_deposit != null ? String(tenant.security_deposit) : "",
+            tenant.security_deposit != null
+              ? String(tenant.security_deposit)
+              : "",
           securityDepositReturned:
             tenant.security_deposit_returned != null
               ? String(tenant.security_deposit_returned)
@@ -739,7 +760,10 @@ export default function OwnerTenantsPage() {
     });
   }
 
-  function allRoomsForHostel(hostelId: string, currentRoomId: string | null = null) {
+  function allRoomsForHostel(
+    hostelId: string,
+    currentRoomId: string | null = null,
+  ) {
     const allRooms = roomsByHostel[hostelId] ?? [];
     return allRooms.sort((a, b) => {
       // Current room first, then sort by room number in ascending order
@@ -781,7 +805,9 @@ export default function OwnerTenantsPage() {
     }
 
     if (draft.status === "moved_out" && draft.securityDepositReturned === "") {
-      toast.error("Security deposit returned amount is required when moving out.");
+      toast.error(
+        "Security deposit returned amount is required when moving out.",
+      );
       return;
     }
 
@@ -835,7 +861,8 @@ export default function OwnerTenantsPage() {
             : null,
         joinDate: draft.joinDate || null,
         rentStartDate: draft.rentStartDate || null,
-        moveOutDate: draft.status === "moved_out" ? draft.moveOutDate || null : null,
+        moveOutDate:
+          draft.status === "moved_out" ? draft.moveOutDate || null : null,
       };
 
       const response = await fetch(`/api/tenants/${tenant.id}`, {
@@ -971,7 +998,9 @@ export default function OwnerTenantsPage() {
     setApprovalDraft({
       roomId: tenant.room_id ?? "",
       agreedRentAmount:
-        tenant.agreed_rent_amount !== null ? String(tenant.agreed_rent_amount) : "",
+        tenant.agreed_rent_amount !== null
+          ? String(tenant.agreed_rent_amount)
+          : "",
       securityDeposit:
         tenant.security_deposit !== null ? String(tenant.security_deposit) : "",
       joinDate: tenant.join_date ?? "",
@@ -1133,7 +1162,8 @@ export default function OwnerTenantsPage() {
       counts[tenant.hostel_id].total += 1;
       if (tenant.status === "pending") counts[tenant.hostel_id].pending += 1;
       if (tenant.status === "active") counts[tenant.hostel_id].active += 1;
-      if (tenant.status === "moved_out") counts[tenant.hostel_id].moved_out += 1;
+      if (tenant.status === "moved_out")
+        counts[tenant.hostel_id].moved_out += 1;
     }
     return counts;
   }, [hostels, tenants]);
@@ -1146,8 +1176,8 @@ export default function OwnerTenantsPage() {
             Tenants
           </h1>
           <p className="text-sm text-muted-foreground">
-            Review registrations, approve move-ins, assign rooms, and track tenant
-            status.
+            Review registrations, approve move-ins, assign rooms, and track
+            tenant status.
           </p>
         </div>
       </div>
@@ -1180,13 +1210,18 @@ export default function OwnerTenantsPage() {
                       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                         Total
                       </p>
-                      <p className="text-xl font-bold text-foreground">{summary.total}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {summary.total}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
                     {Object.values(propertyStatusCounts).map((item) => (
                       <div key={item.name}>
-                        {item.name}: <span className="font-semibold text-foreground">{item.total}</span>
+                        {item.name}:{" "}
+                        <span className="font-semibold text-foreground">
+                          {item.total}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1204,13 +1239,18 @@ export default function OwnerTenantsPage() {
                       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                         Active
                       </p>
-                      <p className="text-xl font-bold text-foreground">{summary.active}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {summary.active}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
                     {Object.values(propertyStatusCounts).map((item) => (
                       <div key={item.name}>
-                        {item.name}: <span className="font-semibold text-foreground">{item.active}</span>
+                        {item.name}:{" "}
+                        <span className="font-semibold text-foreground">
+                          {item.active}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1228,13 +1268,18 @@ export default function OwnerTenantsPage() {
                       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                         Pending
                       </p>
-                      <p className="text-xl font-bold text-foreground">{summary.pending}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {summary.pending}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
                     {Object.values(propertyStatusCounts).map((item) => (
                       <div key={item.name}>
-                        {item.name}: <span className="font-semibold text-foreground">{item.pending}</span>
+                        {item.name}:{" "}
+                        <span className="font-semibold text-foreground">
+                          {item.pending}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1252,13 +1297,18 @@ export default function OwnerTenantsPage() {
                       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                         Moved Out
                       </p>
-                      <p className="text-xl font-bold text-foreground">{summary.moved_out}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {summary.moved_out}
+                      </p>
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
                     {Object.values(propertyStatusCounts).map((item) => (
                       <div key={item.name}>
-                        {item.name}: <span className="font-semibold text-foreground">{item.moved_out}</span>
+                        {item.name}:{" "}
+                        <span className="font-semibold text-foreground">
+                          {item.moved_out}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1298,84 +1348,93 @@ export default function OwnerTenantsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-            <select
-              className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All status</option>
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All status</option>
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
 
-            <select
-              className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
-              value={hostelFilter}
-              onChange={(e) => setHostelFilter(e.target.value)}
-            >
-              <option value="all">All properties</option>
-              {hostels.map((hostel) => (
-                <option key={hostel.id} value={hostel.id}>
-                  {hostel.name}
-                </option>
-              ))}
-            </select>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
+                    value={hostelFilter}
+                    onChange={(e) => setHostelFilter(e.target.value)}
+                  >
+                    <option value="all">All properties</option>
+                    {hostels.map((hostel) => (
+                      <option key={hostel.id} value={hostel.id}>
+                        {hostel.name}
+                      </option>
+                    ))}
+                  </select>
 
-            <select
-              className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
-              value={paymentStatusFilter}
-              onChange={(e) =>
-                setPaymentStatusFilter(e.target.value as "all" | "paid" | "pending")
-              }
-            >
-              <option value="all">All rent status</option>
-              <option value="paid">Rent paid</option>
-              <option value="pending">Rent pending</option>
-            </select>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
+                    value={paymentStatusFilter}
+                    onChange={(e) =>
+                      setPaymentStatusFilter(
+                        e.target.value as "all" | "paid" | "pending",
+                      )
+                    }
+                  >
+                    <option value="all">All rent status</option>
+                    <option value="paid">Rent paid</option>
+                    <option value="pending">Rent pending</option>
+                  </select>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-10 min-w-[10rem] justify-between"
-                    >
-                      <span className="truncate text-sm">
-                        {SORT_OPTION_LABELS[sortOption]}
-                      </span>
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onSelect={() => setSortOption("room_number")}>
-                      Room number
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setSortOption("join_date")}>
-                      Joined date
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => setSortOption("profile_completion")}
-                    >
-                      Profile completion
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setSortOption("rent_amount")}>
-                      Rent amount
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setSortOption("none")}>
-                      Clear sorting
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-10 min-w-[10rem] justify-between"
+                      >
+                        <span className="truncate text-sm">
+                          {SORT_OPTION_LABELS[sortOption]}
+                        </span>
+                        <ArrowUpDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem
+                        onSelect={() => setSortOption("room_number")}
+                      >
+                        Room number
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setSortOption("join_date")}
+                      >
+                        Joined date
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setSortOption("profile_completion")}
+                      >
+                        Profile completion
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setSortOption("rent_amount")}
+                      >
+                        Rent amount
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setSortOption("none")}>
+                        Clear sorting
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </CardContent>
             </Card>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -1511,13 +1570,17 @@ export default function OwnerTenantsPage() {
                                   : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
                               )}
                             >
-                              {tenant.status === "active" ? "KYC done" : `Profile ${tenant.profile_completion_percentage}%`}
+                              {tenant.status === "active"
+                                ? "KYC done"
+                                : `Profile ${tenant.profile_completion_percentage}%`}
                             </span>
 
                             {coverage ? (
                               <button
                                 type="button"
-                                onClick={() => openPendingInfo(tenant, coverage)}
+                                onClick={() =>
+                                  openPendingInfo(tenant, coverage)
+                                }
                                 className={cn(
                                   "rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap",
                                   coverage.status === "paid"
@@ -1527,7 +1590,7 @@ export default function OwnerTenantsPage() {
                               >
                                 {coverage.status === "paid"
                                   ? "Rent Paid"
-                                  : `Rent Pending ${formatAmount(coverage.pendingAmount)}`}
+                                  : `Rent Pending till Today ${formatAmount(coverage.pendingAmount)}`}
                               </button>
                             ) : null}
                           </div>
@@ -1606,7 +1669,11 @@ export default function OwnerTenantsPage() {
                               id={`name-${tenant.id}`}
                               value={draft.fullName}
                               onChange={(e) =>
-                                updateDraft(tenant.id, "fullName", e.target.value)
+                                updateDraft(
+                                  tenant.id,
+                                  "fullName",
+                                  e.target.value,
+                                )
                               }
                               className="h-9 text-sm"
                             />
@@ -1683,7 +1750,8 @@ export default function OwnerTenantsPage() {
                                   return aNum - bNum;
                                 })
                                 .map((room) => {
-                                  const available = room.capacity - room.occupancy;
+                                  const available =
+                                    room.capacity - room.occupancy;
                                   const isFull = available === 0;
                                   return (
                                     <option
@@ -1955,8 +2023,8 @@ export default function OwnerTenantsPage() {
           <DialogHeader>
             <DialogTitle>Tenant Profile Review</DialogTitle>
             <DialogDescription>
-              Review complete profile and uploaded documents before approving this
-              tenant as active.
+              Review complete profile and uploaded documents before approving
+              this tenant as active.
             </DialogDescription>
           </DialogHeader>
 
@@ -2039,7 +2107,9 @@ export default function OwnerTenantsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Profile Completion</p>
+                  <p className="text-xs text-muted-foreground">
+                    Profile Completion
+                  </p>
                   <p className="text-sm font-medium text-foreground">
                     {reviewTenant.profile_completion_percentage}%
                   </p>
@@ -2048,9 +2118,9 @@ export default function OwnerTenantsPage() {
                   <p className="text-xs text-muted-foreground">Room Assigned</p>
                   <p className="text-sm font-medium text-foreground">
                     {reviewTenant.room_number ||
-                    (reviewTenant.room_id
-                      ? `Room ${allRoomsForHostel(reviewTenant.hostel_id, reviewTenant.room_id).find((room) => room.id === reviewTenant.room_id)?.room_number ?? reviewTenant.room_id}`
-                      : "-")}
+                      (reviewTenant.room_id
+                        ? `Room ${allRoomsForHostel(reviewTenant.hostel_id, reviewTenant.room_id).find((room) => room.id === reviewTenant.room_id)?.room_number ?? reviewTenant.room_id}`
+                        : "-")}
                   </p>
                 </div>
                 <div>
@@ -2060,14 +2130,18 @@ export default function OwnerTenantsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Security Deposit</p>
+                  <p className="text-xs text-muted-foreground">
+                    Security Deposit
+                  </p>
                   <p className="text-sm font-medium text-foreground">
                     ₹{reviewTenant.security_deposit ?? 0}
                   </p>
                 </div>
                 {reviewTenant.status === "moved_out" ? (
                   <div>
-                    <p className="text-xs text-muted-foreground">Security Returned</p>
+                    <p className="text-xs text-muted-foreground">
+                      Security Returned
+                    </p>
                     <p className="text-sm font-medium text-foreground">
                       ₹{reviewTenant.security_deposit_returned ?? 0}
                     </p>
@@ -2132,7 +2206,8 @@ export default function OwnerTenantsPage() {
                         </a>
                       ) : (
                         <div className="flex h-28 w-full items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
-                          <FileImage className="mr-1 h-3.5 w-3.5" /> Not uploaded
+                          <FileImage className="mr-1 h-3.5 w-3.5" /> Not
+                          uploaded
                         </div>
                       )}
                     </div>
@@ -2177,10 +2252,14 @@ export default function OwnerTenantsPage() {
                         onChange={(e) =>
                           setApprovalDraft((prev) => ({
                             ...prev,
-                            agreedRentAmount: normalizeRentInput(e.target.value),
+                            agreedRentAmount: normalizeRentInput(
+                              e.target.value,
+                            ),
                           }))
                         }
-                        disabled={approveSaving || reviewTenant.status === "active"}
+                        disabled={
+                          approveSaving || reviewTenant.status === "active"
+                        }
                         className="mt-1 h-9 w-full"
                       />
                     </div>
@@ -2198,14 +2277,19 @@ export default function OwnerTenantsPage() {
                             joinDate: value,
                           }))
                         }
-                        disabled={approveSaving || reviewTenant.status === "active"}
+                        disabled={
+                          approveSaving || reviewTenant.status === "active"
+                        }
                         placeholder="Select join date"
                         className="mt-1 h-9 w-full"
                       />
                     </div>
 
                     <div className="sm:col-span-3">
-                      <Label htmlFor="approval-rent-start-date" className="text-xs">
+                      <Label
+                        htmlFor="approval-rent-start-date"
+                        className="text-xs"
+                      >
                         Rent Start Date
                       </Label>
                       <DatePicker
@@ -2217,7 +2301,9 @@ export default function OwnerTenantsPage() {
                             rentStartDate: value,
                           }))
                         }
-                        disabled={approveSaving || reviewTenant.status === "active"}
+                        disabled={
+                          approveSaving || reviewTenant.status === "active"
+                        }
                         placeholder="Select rent start date"
                         className="mt-1 h-9 w-full"
                       />
@@ -2322,14 +2408,19 @@ export default function OwnerTenantsPage() {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {paymentHistoryItems.map((p) => (
-                      <tr key={p.id} className="transition-colors hover:bg-muted/30">
+                      <tr
+                        key={p.id}
+                        className="transition-colors hover:bg-muted/30"
+                      >
                         <td className="px-3 py-2.5 text-xs text-foreground">
                           {formatDate(p.paid_on)}
                         </td>
                         <td className="px-3 py-2.5 text-xs text-foreground">
                           {p.billing_start || p.billing_end ? (
                             <span className="whitespace-pre-line">
-                              {p.billing_start ? formatDate(p.billing_start) : "—"}
+                              {p.billing_start
+                                ? formatDate(p.billing_start)
+                                : "—"}
                               {p.billing_start && p.billing_end ? " - " : ""}
                               {p.billing_end ? formatDate(p.billing_end) : ""}
                             </span>
@@ -2342,7 +2433,8 @@ export default function OwnerTenantsPage() {
                         </td>
                         <td className="px-3 py-2.5 text-xs text-muted-foreground">
                           {p.method
-                            ? (METHOD_LABEL[p.method as PaymentMethod] ?? p.method)
+                            ? (METHOD_LABEL[p.method as PaymentMethod] ??
+                              p.method)
                             : "—"}
                         </td>
                         <td className="px-3 py-2.5 text-xs">
@@ -2387,7 +2479,8 @@ export default function OwnerTenantsPage() {
           <DialogHeader>
             <DialogTitle>Rent Status Details</DialogTitle>
             <DialogDescription>
-              {pendingInfoTenant?.full_name} billing status from rent start date.
+              {pendingInfoTenant?.full_name} billing status from rent start
+              date.
             </DialogDescription>
           </DialogHeader>
 
@@ -2403,15 +2496,17 @@ export default function OwnerTenantsPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p>
-                    Pending Amount: {formatAmount(pendingInfoDetail.pendingAmount)}
+                    Pending Amount:{" "}
+                    {formatAmount(pendingInfoDetail.pendingAmount)}
                   </p>
                   <p>
-                    Pending Period: {formatDate(pendingInfoDetail.pendingFrom)} -{" "}
-                    {formatDate(pendingInfoDetail.pendingTo)}
+                    Pending Period: {formatDate(pendingInfoDetail.pendingFrom)}{" "}
+                    - {formatDate(pendingInfoDetail.pendingTo)}
                   </p>
                   {pendingInfoDetail.coveredTill ? (
                     <p>
-                      Last Paid Till: {formatDate(pendingInfoDetail.coveredTill)}
+                      Last Paid Till:{" "}
+                      {formatDate(pendingInfoDetail.coveredTill)}
                     </p>
                   ) : (
                     <p>No paid period found yet.</p>
