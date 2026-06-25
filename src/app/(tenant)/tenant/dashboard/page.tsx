@@ -23,7 +23,56 @@ import {
   CardTitle,
 } from "../../../../components/ui/card";
 import { formatDateInIndia } from "../../../../lib/date";
+import { calculateRent } from "../../../../lib/billing";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
+
+function parseISODate(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toISODate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(dateStr: string, days: number) {
+  const date = parseISODate(dateStr);
+  date.setDate(date.getDate() + days);
+  return toISODate(date);
+}
+
+function getMonthEndDate(dateStr: string) {
+  const [year, month] = dateStr.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return toISODate(new Date(year, month - 1, lastDay));
+}
+
+function formatDateLabel(dateStr: string | null) {
+  if (!dateStr) return "-";
+  return formatDateInIndia(dateStr, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function calculatePendingCoverage(monthlyRent: number, pendingFrom: string, pendingTo: string) {
+  let cursor = parseISODate(pendingFrom);
+  const end = parseISODate(pendingTo);
+  let total = 0;
+
+  while (cursor <= end) {
+    const periodStart = new Date(cursor);
+    const monthEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0);
+    const periodEnd = monthEnd < end ? monthEnd : end;
+    const calc = calculateRent(monthlyRent, toISODate(periodStart), toISODate(periodEnd));
+    total += calc.payableAmount;
+    cursor = new Date(periodEnd);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return Math.round(total * 100) / 100;
+}
 
 const STATUS_CONFIG = {
   pending: {
@@ -79,7 +128,7 @@ export default async function TenantDashboardPage() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, status, join_date, room_id, hostel_id, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, security_deposit, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
+      "id, full_name, email, phone, status, join_date, rent_start_date, move_out_date, agreed_rent_amount, room_id, hostel_id, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, security_deposit, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -105,6 +154,54 @@ export default async function TenantDashboardPage() {
     tenant.security_deposit != null ? Number(tenant.security_deposit) : null;
   const completion = getTenantProfileCompletion(tenant);
   const maintenanceLimit = 3;
+
+  const { data: latestPaid } = await admin
+    .from("payments")
+    .select("billing_end")
+    .eq("tenant_id", tenant.id)
+    .eq("status", "paid")
+    .not("billing_end", "is", null)
+    .order("billing_end", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const effectiveEnd =
+    tenant.status === "moved_out" && tenant.move_out_date
+      ? tenant.move_out_date
+      : today;
+  const rentStart = tenant.rent_start_date ?? tenant.join_date ?? null;
+  const latestPaidEnd = latestPaid?.billing_end ?? null;
+  const pendingFrom = latestPaidEnd ? addDays(latestPaidEnd, 1) : rentStart;
+  const pendingTo = pendingFrom && pendingFrom <= effectiveEnd ? effectiveEnd : null;
+  const pendingAmount =
+    pendingFrom && pendingTo && tenant.agreed_rent_amount && tenant.agreed_rent_amount > 0
+      ? calculatePendingCoverage(Number(tenant.agreed_rent_amount), pendingFrom, pendingTo)
+      : 0;
+  const currentMonthEnd = getMonthEndDate(today);
+  const billingPeriodEnd =
+    pendingFrom && pendingFrom <= currentMonthEnd
+      ? tenant.status === "moved_out" && tenant.move_out_date
+        ? tenant.move_out_date < currentMonthEnd
+          ? tenant.move_out_date
+          : currentMonthEnd
+        : currentMonthEnd
+      : null;
+  const billingAmount =
+    pendingFrom && billingPeriodEnd && tenant.agreed_rent_amount && tenant.agreed_rent_amount > 0
+      ? calculatePendingCoverage(Number(tenant.agreed_rent_amount), pendingFrom, billingPeriodEnd)
+      : 0;
+  const pendingPeriodLabel =
+    pendingFrom && pendingTo
+      ? `${formatDateLabel(pendingFrom)} - ${formatDateLabel(pendingTo)}`
+      : null;
+  const billingPeriodLabel =
+    pendingFrom && billingPeriodEnd
+      ? `${formatDateLabel(pendingFrom)} - ${formatDateLabel(billingPeriodEnd)}`
+      : null;
+
+  const hasPendingRent = pendingAmount > 0;
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
@@ -257,9 +354,7 @@ export default async function TenantDashboardPage() {
                 <CardTitle className="mt-1 text-lg font-semibold text-foreground">
                   Account Status & Profile Completion
                 </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  A quick snapshot of your live account health and profile readiness.
-                </p>
+                
               </div>
               <div className="rounded-2xl border border-primary/15 bg-background/90 px-3 py-2 text-right shadow-sm">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Progress</div>
@@ -324,6 +419,52 @@ export default async function TenantDashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {hasPendingRent ? (
+          <Card className="rounded-3xl border border-border/70 bg-background/90 shadow-sm sm:col-span-2 lg:col-span-2">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-primary">
+                    Pending Rent Summary
+                  </p>
+                  <CardTitle className="mt-1 text-lg font-semibold text-foreground">
+                    Rent not covered yet
+                  </CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-3xl border border-border/70 bg-background/90 p-4 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Billing period amount
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    ₹{billingAmount.toLocaleString("en-IN")}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {billingPeriodLabel ?? "-"}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-border/70 bg-background/90 p-4 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Pending till today
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    ₹{pendingAmount.toLocaleString("en-IN")}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {pendingPeriodLabel ?? "-"}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This amount shows rent that is not paid or covered yet. Please contact your property owner if you need to update payment status.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="rounded-3xl border border-primary/15 bg-gradient-to-br from-background via-primary/8 to-blue-500/10 shadow-sm sm:col-span-2 lg:col-span-2">
           <CardHeader className="pb-2">
