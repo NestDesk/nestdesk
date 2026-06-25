@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell,
   Building2,
   CalendarDays,
   CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
+  Megaphone,
   Pencil,
   Plus,
   Search,
@@ -548,7 +548,7 @@ export default function OwnerNoticesPage() {
       ) : notices.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Bell className="h-6 w-6 text-primary" />
+            <Megaphone className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">No notices yet</p>
@@ -563,7 +563,7 @@ export default function OwnerNoticesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-16 text-center">
-          <Bell className="h-8 w-8 text-muted-foreground/50" />
+          <Megaphone className="h-8 w-8 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">
             No notices match your filters.
           </p>

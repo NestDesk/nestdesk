@@ -49,7 +49,9 @@ export function BuildingBlueprint({
   });
   const [savingRoomId, setSavingRoomId] = useState<string | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
-  const [quickSavingRoomId, setQuickSavingRoomId] = useState<string | null>(null);
+  const [quickSavingRoomId, setQuickSavingRoomId] = useState<string | null>(
+    null,
+  );
   const hasDraftEdits = editingFloorId !== null || editingRoomId !== null;
 
   useEffect(() => {
@@ -81,6 +83,13 @@ export function BuildingBlueprint({
 
   async function quickUpdateCapacity(room: Room, newCapacity: number) {
     if (quickSavingRoomId || room.capacity === newCapacity) return;
+    const occupancy = room.occupancy ?? 0;
+    if (newCapacity < occupancy) {
+      toast.error(
+        `Capacity cannot be reduced below current tenant count (${occupancy}).`,
+      );
+      return;
+    }
     setQuickSavingRoomId(room.id);
     try {
       const res = await fetch(`/api/hostels/${hostelId}/rooms/${room.id}`, {
@@ -197,6 +206,19 @@ export function BuildingBlueprint({
 
   async function saveRoomEdit(room: Room) {
     const roomNumber = editingRoom.roomNumber.trim().toUpperCase();
+    const occupancy = room.occupancy ?? 0;
+    if (editingRoom.capacity < occupancy) {
+      toast.error(
+        `Capacity cannot be reduced below current tenant count (${occupancy}).`,
+      );
+      return;
+    }
+    if (occupancy > 0 && editingRoom.status !== room.status) {
+      toast.error(
+        "Room status cannot be changed while tenants occupy the room.",
+      );
+      return;
+    }
     if (!roomNumber) {
       toast.error("Enter room number.");
       return;
@@ -205,7 +227,8 @@ export function BuildingBlueprint({
     // Duplicate room number check (other rooms on this property)
     const isDuplicate = rooms.some(
       (r) =>
-        r.id !== room.id && r.room_number.toLowerCase() === roomNumber.toLowerCase(),
+        r.id !== room.id &&
+        r.room_number.toLowerCase() === roomNumber.toLowerCase(),
     );
     if (isDuplicate) {
       toast.error(`Room "${roomNumber}" already exists in this property.`);
@@ -267,9 +290,9 @@ export function BuildingBlueprint({
     }
   }
 
-  const capacitiesPresent = Array.from(new Set(rooms.map((r) => r.capacity))).sort(
-    (a, b) => a - b,
-  );
+  const capacitiesPresent = Array.from(
+    new Set(rooms.map((r) => r.capacity)),
+  ).sort((a, b) => a - b);
 
   if (floors.length === 0) {
     return (
@@ -289,8 +312,8 @@ export function BuildingBlueprint({
     <div className="space-y-3">
       {hasDraftEdits && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          You have unsaved edits in blueprint. Save or cancel them before leaving
-          this step.
+          You have unsaved edits in blueprint. Save or cancel them before
+          leaving this step.
         </div>
       )}
 
@@ -419,12 +442,18 @@ export function BuildingBlueprint({
                       const statusCfg = STATUS_CONFIG[room.status];
                       const isEditingThis = editingRoomId === room.id;
                       const isInactive = room.status === "inactive";
+                      const occupancy = room.occupancy ?? 0;
+                      const cannotDeleteRoom =
+                        occupancy > 0 ||
+                        room.status === "occupied" ||
+                        room.status === "occupied_partial";
+                      const statusChangeDisabled = occupancy > 0;
 
                       return (
                         <div
                           key={room.id}
                           className={`group relative rounded-xl border transition-shadow hover:shadow-md ${
-                            isEditingThis ? "w-52 p-3" : "w-36 p-3"
+                            isEditingThis ? "w-56 p-3" : "w-36 p-3"
                           } ${isInactive ? "opacity-50" : ""} ${occColor}`}
                         >
                           {isEditingThis ? (
@@ -442,65 +471,91 @@ export function BuildingBlueprint({
                                 placeholder="Room no."
                               />
 
-                              {/* Occupancy pills 1-6 */}
+                              {/* Occupancy selector */}
                               <div>
-                                <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide opacity-60">
-                                  Occupancy
+                                <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide">
+                                  Select Room Occupancy
                                 </p>
-                                <div className="flex flex-wrap gap-0.5">
-                                  {OCCUPANCY_PER_ROOM.map((o) => (
-                                    <button
-                                      key={o.value}
-                                      type="button"
-                                      onClick={() =>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex gap-0.5">
+                                    {OCCUPANCY_PER_ROOM.filter(
+                                      (o) => o.value <= 4,
+                                    ).map((o) => (
+                                      <button
+                                        key={o.value}
+                                        type="button"
+                                        onClick={() =>
+                                          setEditingRoom((p) => ({
+                                            ...p,
+                                            capacity: o.value,
+                                          }))
+                                        }
+                                        disabled={o.value < occupancy}
+                                        className={`flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-bold transition-colors ${
+                                          editingRoom.capacity === o.value
+                                            ? "bg-foreground text-background"
+                                            : "bg-foreground/10 hover:bg-foreground/20"
+                                        } ${o.value < occupancy ? "cursor-not-allowed opacity-50" : ""}`}
+                                      >
+                                        {o.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2 py-1">
+                                    
+                                    <input
+                                      type="number"
+                                      min={Math.max(1, occupancy)}
+                                      max={10}
+                                      value={editingRoom.capacity}
+                                      onChange={(e) => {
+                                        const value = Number.parseInt(
+                                          e.target.value,
+                                          10,
+                                        );
+                                        if (Number.isNaN(value)) return;
                                         setEditingRoom((p) => ({
                                           ...p,
-                                          capacity: o.value,
-                                        }))
-                                      }
-                                      className={`flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-bold transition-colors ${
-                                        editingRoom.capacity === o.value
-                                          ? "bg-foreground text-background"
-                                          : "bg-foreground/10 hover:bg-foreground/20"
-                                      }`}
-                                    >
-                                      {o.label}
-                                    </button>
-                                  ))}
+                                          capacity: Math.max(
+                                            1,
+                                            Math.min(10, value),
+                                          ),
+                                        }));
+                                      }}
+                                      className="h-8 w-12 rounded-md border border-border/40 bg-background px-2 text-xs font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary/10"
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
-                              {/* Status pills */}
+                              {/* Status dropdown */}
                               <div>
-                                <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide opacity-60">
-                                  Status
+                                <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide">
+                                  Select Room Status
                                 </p>
-                                <div className="flex flex-wrap gap-0.5">
-                                  {(
-                                    Object.entries(STATUS_CONFIG) as [
-                                      RoomStatus,
-                                      (typeof STATUS_CONFIG)[RoomStatus],
-                                    ][]
-                                  ).map(([key, cfg]) => (
-                                    <button
-                                      key={key}
-                                      type="button"
-                                      onClick={() =>
-                                        setEditingRoom((p) => ({
-                                          ...p,
-                                          status: key,
-                                        }))
-                                      }
-                                      className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold transition-colors ${
-                                        editingRoom.status === key
-                                          ? cfg.color + " ring-1 ring-current"
-                                          : "border-border/40 text-muted-foreground hover:border-primary/30"
-                                      }`}
-                                    >
-                                      {cfg.label}
-                                    </button>
-                                  ))}
-                                </div>
+                                <select
+                                  value={editingRoom.status}
+                                  disabled={occupancy > 0}
+                                  onChange={(e) =>
+                                    setEditingRoom((p) => ({
+                                      ...p,
+                                      status: e.target.value as RoomStatus,
+                                    }))
+                                  }
+                                  className="w-full rounded-md border border-current bg-transparent px-2 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-current/40 disabled:opacity-50"
+                                >
+                                  <option value="vacant">Vacant</option>
+                                  <option value="maintenance">
+                                    Maintenance
+                                  </option>
+                                  <option value="inactive">Inactive</option>
+                                </select>
+                                {occupancy > 0 ? (
+                                  <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                                    Status cannot be changed while the room has any
+                                    active tenants.
+                                  </p>
+                                ) : null}
                               </div>
 
                               <div className="flex gap-1 pt-0.5">
@@ -529,67 +584,50 @@ export function BuildingBlueprint({
                           ) : (
                             /* ── View tile ─────────────────────────────── */
                             <>
-                              <div className="flex items-start justify-between gap-0.5">
-                                <span className="font-bold text-xs leading-tight">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-xs leading-tight whitespace-nowrap">
                                   {room.room_number}
                                 </span>
-                                <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+                                <div className="flex items-center gap-0 opacity-100 transition-opacity">
                                   <button
                                     type="button"
-                                    className="rounded p-0.5 hover:bg-foreground/10"
+                                    className="h-8 w-8 rounded-full p-1 hover:bg-foreground/10"
                                     onClick={() => startRoomEdit(room)}
                                     aria-label="Edit room"
                                   >
-                                    <Pencil className="h-2.5 w-2.5" />
+                                    <Pencil className="h-4 w-4" />
                                   </button>
                                   <button
                                     type="button"
-                                    className="rounded p-0.5 text-destructive hover:bg-destructive/10"
-                                    disabled={deletingRoomId === room.id}
+                                    className="h-8 w-8 rounded-full p-1 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                    disabled={
+                                      deletingRoomId === room.id ||
+                                      cannotDeleteRoom
+                                    }
                                     onClick={() =>
                                       deleteRoom(room.id, room.room_number)
                                     }
                                     aria-label="Delete room"
+                                    title={
+                                      cannotDeleteRoom
+                                        ? "Cannot delete a room with tenants or occupied status."
+                                        : "Delete room"
+                                    }
                                   >
                                     {deletingRoomId === room.id ? (
-                                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                      <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
-                                      <Trash2 className="h-2.5 w-2.5" />
+                                      <Trash2 className="h-4 w-4" />
                                     )}
                                   </button>
                                 </div>
                               </div>
-                              {/* Bed icons */}
-                              <div className="mt-1.5 text-2xl leading-none opacity-70">
-                                {bedIcons(room.capacity)}
+                              {/* Bed count chip */}
+                              <div className="mt-2 inline-flex items-center text-[11px] font-semibold">
+                                {room.capacity} Bed
+                                {room.capacity !== 1 ? "s" : ""}
                               </div>
-                              {/* Occupancy dropdown */}
                               <div className="mt-2">
-                                <select
-                                  value={room.capacity}
-                                  disabled={quickSavingRoomId === room.id}
-                                  onChange={(e) =>
-                                    quickUpdateCapacity(
-                                      room,
-                                      Number.parseInt(e.target.value, 10),
-                                    )
-                                  }
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full rounded-lg border border-current/30 bg-transparent px-1.5 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-current/40 disabled:opacity-50"
-                                >
-                                  {OCCUPANCY_PER_ROOM.map((o) => (
-                                    <option
-                                      key={o.value}
-                                      value={o.value}
-                                      className="bg-background text-foreground"
-                                    >
-                                      {o.value} bed{o.value !== 1 ? "s" : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              {/* Status badge — always visible */}
-                              <div className="mt-1.5">
                                 <span
                                   className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${statusCfg.color}`}
                                 >

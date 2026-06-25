@@ -12,12 +12,13 @@ import {
   CreditCard,
   WalletCards,
   BarChart2,
-  Bell,
+  BellRing,
   Wrench,
   UserCircle2,
   Rocket,
   Settings,
   AlertCircle,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -35,7 +36,8 @@ const navItems = [
   { label: "Payments", href: "/payments", icon: CreditCard },
   { label: "Expenses", href: "/expenses", icon: WalletCards },
   { label: "Occupancy", href: "/occupancy", icon: BedDouble },
-  { label: "Notices", href: "/notices", icon: Bell },
+  { label: "Notices", href: "/notices", icon: Megaphone },
+  { label: "Rent Reminders", href: "/rent-reminders", icon: BellRing },
   { label: "Maintenance", href: "/maintenance", icon: Wrench },
   { label: "My Profile", href: "/profile", icon: UserCircle2 },
   { label: "Reports", href: "/reports", icon: BarChart2 },

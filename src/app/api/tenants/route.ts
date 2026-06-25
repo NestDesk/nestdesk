@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { getTenantProfileCompletion } from "../../../lib/tenant-profile-completion";
+import { calculateRent } from "../../../lib/billing";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
@@ -57,8 +58,49 @@ async function getOwnerContext(): Promise<OwnerContext | NextResponse> {
   return { ownerId: owner.id };
 }
 
+function parseISODate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function toISODate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(dateStr: string, days: number) {
+  const d = parseISODate(dateStr);
+  d.setDate(d.getDate() + days);
+  return toISODate(d);
+}
+
+function getMonthEndDate(dateStr: string) {
+  const [year, month] = dateStr.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return toISODate(new Date(year, month - 1, lastDay));
+}
+
+function calculatePendingCoverage(monthlyRent: number, pendingFrom: string, pendingTo: string) {
+  let cursor = parseISODate(pendingFrom);
+  const end = parseISODate(pendingTo);
+  let totalAmount = 0;
+
+  while (cursor <= end) {
+    const periodStart = new Date(cursor);
+    const monthEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0);
+    const periodEnd = monthEnd < end ? monthEnd : end;
+    const calc = calculateRent(monthlyRent, toISODate(periodStart), toISODate(periodEnd));
+    totalAmount += calc.payableAmount;
+    cursor = new Date(periodEnd);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return Math.round(totalAmount * 100) / 100;
+}
+
 // GET /api/tenants (owner)
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const view = url.searchParams.get("view");
   const ctx = await getOwnerContext();
   if (ctx instanceof NextResponse) {
     return ctx;
@@ -164,6 +206,21 @@ export async function GET() {
     });
   }
 
+  const { data: payments } = await admin
+    .from("payments")
+    .select("tenant_id, billing_end, status")
+    .eq("status", "paid")
+    .in("tenant_id", (tenants ?? []).map((tenant) => tenant.id))
+    .not("billing_end", "is", null);
+
+  const latestPaidByTenant = new Map<string, string>();
+  for (const payment of payments ?? []) {
+    const current = latestPaidByTenant.get(payment.tenant_id);
+    if (!current || (payment.billing_end ?? "") > current) {
+      latestPaidByTenant.set(payment.tenant_id, payment.billing_end ?? "");
+    }
+  }
+
   const tenantRows = await Promise.all(
     (tenants ?? []).map(async (tenant) => {
       const hostel = hostelMap.get(tenant.hostel_id);
@@ -174,7 +231,17 @@ export async function GET() {
         admin,
       );
 
-      return {
+      const latestPaidEnd = latestPaidByTenant.get(tenant.id) ?? null;
+      const effectiveEnd = tenant.status === "moved_out" && tenant.move_out_date
+        ? tenant.move_out_date
+        : new Date().toISOString().slice(0, 10);
+      const pendingFrom = latestPaidEnd ? addDays(latestPaidEnd, 1) : tenant.rent_start_date;
+      const pendingTo = pendingFrom && pendingFrom <= effectiveEnd ? effectiveEnd : null;
+      const pendingAmount = pendingFrom && pendingTo && tenant.agreed_rent_amount && tenant.agreed_rent_amount > 0
+        ? calculatePendingCoverage(Number(tenant.agreed_rent_amount), pendingFrom, pendingTo)
+        : 0;
+
+      const row = {
         id: tenant.id,
         hostel_id: tenant.hostel_id,
         hostel_name: hostel?.name ?? "Property",
@@ -196,6 +263,19 @@ export async function GET() {
         move_out_date: tenant.move_out_date,
         created_at: tenant.created_at,
         updated_at: tenant.updated_at,
+        covered_till: latestPaidEnd,
+        pending_from: pendingFrom,
+        pending_to: pendingTo,
+        pending_amount: pendingAmount,
+      };
+
+      if (view === "reminder") {
+        return row;
+      }
+
+      return {
+        ...row,
+        profile_photo_url: profilePhotoUrl,
       };
     }),
   );

@@ -101,9 +101,37 @@ export async function GET(
     return NextResponse.json({ error: roomsResult.error.message }, { status: 500 });
   }
 
+  const rooms = roomsResult.data ?? [];
+  const roomIds = rooms.map((room) => room.id);
+  const occupancyCounts = new Map<string, number>();
+
+  if (roomIds.length > 0) {
+    const tenantCountResult = await resolved.admin
+      .from("tenants")
+      .select("room_id")
+      .in("room_id", roomIds)
+      .eq("status", "active")
+      .is("deleted_at", null);
+
+    if (tenantCountResult.error) {
+      return NextResponse.json({ error: tenantCountResult.error.message }, { status: 500 });
+    }
+
+    for (const tenant of tenantCountResult.data ?? []) {
+      if (!tenant.room_id) continue;
+      occupancyCounts.set(
+        tenant.room_id,
+        (occupancyCounts.get(tenant.room_id) ?? 0) + 1,
+      );
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    rooms: roomsResult.data ?? [],
+    rooms: rooms.map((room) => ({
+      ...room,
+      occupancy: occupancyCounts.get(room.id) ?? 0,
+    })),
   });
 }
 
