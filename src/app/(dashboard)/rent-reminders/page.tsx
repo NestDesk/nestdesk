@@ -50,19 +50,20 @@ type ReminderResult = {
 
 const REMINDER_LIMIT = 3;
 
-function formatCooldown(until: Date | null) {
+function formatCooldown(until: Date | null, now = Date.now()) {
   if (!until) return "a moment";
 
-  const remainingMs = Math.max(0, until.getTime() - Date.now());
-  const totalMinutes = Math.floor(remainingMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const remainingMs = Math.max(0, until.getTime() - now);
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return `${hours}h ${minutes}m ${seconds}s`;
   }
 
-  return `${minutes}m`;
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
 function formatCurrency(amount: number | null) {
@@ -139,13 +140,131 @@ function getTenantReminderDetails(tenant: TenantReminderRow) {
   };
 }
 
+function TenantReminderCard({
+  tenant,
+  usage,
+  isSelected,
+  toggleSelection,
+  sending,
+}: {
+  tenant: TenantReminderRow;
+  usage?: ReminderUsage;
+  isSelected: boolean;
+  toggleSelection: (tenantId: string) => void;
+  sending: boolean;
+}) {
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const limit = usage?.limit ?? REMINDER_LIMIT;
+  const used = Math.min(usage?.count ?? 0, limit);
+  const remaining = Math.max(0, limit - used);
+  const cooldownUntil = usage?.cooldown_until ? new Date(usage.cooldown_until) : null;
+  const cooldownActive = cooldownUntil ? cooldownUntil.getTime() > currentTime : false;
+  const reminderDetails = getTenantReminderDetails(tenant);
+  const pendingAmount = reminderDetails.pendingAmount;
+  const billingAmount = reminderDetails.billingAmount;
+  const billingPeriodLabel = reminderDetails.billingPeriodLabel;
+  const pendingPeriodLabel = reminderDetails.pendingPeriodLabel;
+
+  return (
+    <Card
+      className={cn(
+        "overflow-hidden border border-border/70 bg-card/95 shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md",
+        isSelected && "border-primary/50 bg-primary/[0.03] shadow-sm",
+        (remaining <= 0 || cooldownActive) && "border-dashed border-amber-300/70 bg-card/80 opacity-80 dark:border-amber-700/50",
+      )}
+    >
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-1 gap-3">
+              <label className={cn("mt-0.5 flex shrink-0 items-start", remaining > 0 ? "cursor-pointer" : "cursor-not-allowed") }>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleSelection(tenant.id)}
+                  disabled={remaining <= 0 || cooldownActive || sending}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </label>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-base font-semibold text-foreground">{tenant.full_name}</div>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span>{tenant.hostel_name}</span>
+                  {tenant.room_number ? (
+                    <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 shadow-sm dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-300">
+                      Room {tenant.room_number}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-background/70 px-3 py-2 sm:min-w-[240px] sm:shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                    Billing period
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-foreground">₹{formatCurrency(billingAmount)}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{billingPeriodLabel}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                    Till today
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-foreground">₹{formatCurrency(pendingAmount)}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{pendingPeriodLabel}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="-mt-1 rounded-xl border border-border/60 bg-muted/25 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="rounded-full px-2.5 py-1 text-xs">
+                Phone: {tenant.phone || "-"}
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-2.5 py-1 text-xs">
+                Rent: ₹{formatCurrency(tenant.agreed_rent_amount)}/month
+              </Badge>
+              <Badge
+                className={cn(
+                  "w-fit rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm",
+                  cooldownActive
+                    ? "bg-orange-500 text-orange-950 ring-1 ring-orange-400/40"
+                    : remaining > 0
+                    ? "bg-emerald-600 text-emerald-50 ring-1 ring-emerald-500/40 dark:bg-emerald-500 dark:text-emerald-950"
+                    : "bg-rose-600 text-rose-50 ring-1 ring-rose-500/40 dark:bg-rose-500 dark:text-rose-950",
+                )}
+              >
+                {cooldownActive ? (
+                  <span className="whitespace-nowrap">Wait {formatCooldown(cooldownUntil, currentTime)}</span>
+                ) : remaining > 0 ? (
+                  `${remaining} reminder${remaining === 1 ? "" : "s"} left`
+                ) : (
+                  "0 reminders left"
+                )}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RentRemindersPage() {
   const [tenants, setTenants] = useState<TenantReminderRow[]>([]);
   const [usageByTenant, setUsageByTenant] = useState<Record<string, ReminderUsage>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);
-  const [cooldownTick, setCooldownTick] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loadingOpen, setLoadingOpen] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
@@ -159,11 +278,6 @@ export default function RentRemindersPage() {
       billingPeriodLabel: string | null;
     }>
   >([]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setCooldownTick((value) => value + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -207,27 +321,15 @@ export default function RentRemindersPage() {
     });
   }, [tenants]);
 
-  const selectableTenants = useMemo(() => {
-    return reminderTenants.filter((tenant) => {
-      const usage = usageByTenant[tenant.id];
-      const limit = usage?.limit ?? REMINDER_LIMIT;
-      const used = Math.min(usage?.count ?? 0, limit);
-      const remaining = Math.max(0, limit - used);
-      const cooldownUntil = usage?.cooldown_until ? new Date(usage.cooldown_until) : null;
-      const cooldownActive = cooldownUntil ? cooldownUntil.getTime() > Date.now() : false;
-      return remaining > 0 && !cooldownActive;
-    });
-  }, [reminderTenants, usageByTenant, cooldownTick]);
-
   const selectedRecipients = useMemo(
     () =>
-      selectableTenants
+      reminderTenants
         .filter((tenant) => selectedTenantIds.includes(tenant.id))
         .map((tenant) => ({
           ...tenant,
           reminderDetails: getTenantReminderDetails(tenant),
         })),
-    [selectableTenants, selectedTenantIds],
+    [reminderTenants, selectedTenantIds],
   );
 
   function toggleSelection(tenantId: string) {
@@ -344,106 +446,16 @@ export default function RentRemindersPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {reminderTenants.map((tenant) => {
-            const usage = usageByTenant[tenant.id];
-            const limit = usage?.limit ?? REMINDER_LIMIT;
-            const used = Math.min(usage?.count ?? 0, limit);
-            const remaining = Math.max(0, limit - used);
-            const cooldownUntil = usage?.cooldown_until ? new Date(usage.cooldown_until) : null;
-            const cooldownActive = cooldownUntil ? cooldownUntil.getTime() > Date.now() : false;
-            const isSelected = selectedTenantIds.includes(tenant.id);
-            const reminderDetails = getTenantReminderDetails(tenant);
-            const pendingAmount = reminderDetails.pendingAmount;
-            const billingAmount = reminderDetails.billingAmount;
-            const billingPeriodLabel = reminderDetails.billingPeriodLabel;
-            const pendingPeriodLabel = reminderDetails.pendingPeriodLabel;
-
-            return (
-              <Card
-                key={tenant.id}
-                className={cn(
-                  "overflow-hidden border border-border/70 bg-card/95 shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md",
-                  isSelected && "border-primary/50 bg-primary/[0.03] shadow-sm",
-                  (remaining <= 0 || cooldownActive) && "border-dashed border-amber-300/70 bg-card/80 opacity-80 dark:border-amber-700/50",
-                )}
-              >
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex min-w-0 flex-1 gap-3">
-                        <label className={cn("mt-0.5 flex shrink-0 items-start", remaining > 0 ? "cursor-pointer" : "cursor-not-allowed") }>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelection(tenant.id)}
-                            disabled={remaining <= 0 || cooldownActive || sending}
-                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                          />
-                        </label>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-base font-semibold text-foreground">{tenant.full_name}</div>
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                            <span>{tenant.hostel_name}</span>
-                            {tenant.room_number ? (
-                              <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 shadow-sm dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-300">
-                                Room {tenant.room_number}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-background/70 px-3 py-2 sm:min-w-[240px] sm:shrink-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                              Billing period
-                            </div>
-                            <div className="mt-0.5 text-sm font-semibold text-foreground">₹{formatCurrency(billingAmount)}</div>
-                            <div className="mt-0.5 text-xs text-muted-foreground">{billingPeriodLabel}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                              Till today
-                            </div>
-                            <div className="mt-0.5 text-sm font-semibold text-foreground">₹{formatCurrency(pendingAmount)}</div>
-                            <div className="mt-0.5 text-xs text-muted-foreground">{pendingPeriodLabel}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="-mt-1 rounded-xl border border-border/60 bg-muted/25 px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="rounded-full px-2.5 py-1 text-xs">
-                          Phone: {tenant.phone || "-"}
-                        </Badge>
-                        <Badge variant="outline" className="rounded-full px-2.5 py-1 text-xs">
-                          Rent: ₹{formatCurrency(tenant.agreed_rent_amount)}/month
-                        </Badge>
-                        <Badge
-                          className={cn(
-                            "w-fit rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm",
-                            remaining > 0 && !cooldownActive
-                              ? "bg-emerald-600 text-emerald-50 ring-1 ring-emerald-500/40 dark:bg-emerald-500 dark:text-emerald-950"
-                              : "bg-rose-600 text-rose-50 ring-1 ring-rose-500/40 dark:bg-rose-500 dark:text-rose-950",
-                          )}
-                        >
-                          {cooldownActive ? (
-                            <span className="whitespace-nowrap">Wait {formatCooldown(cooldownUntil)}</span>
-                          ) : remaining > 0 ? (
-                            `${remaining} reminder${remaining === 1 ? "" : "s"} left`
-                          ) : (
-                            "0 reminders left"
-                          )}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {reminderTenants.map((tenant) => (
+            <TenantReminderCard
+              key={tenant.id}
+              tenant={tenant}
+              usage={usageByTenant[tenant.id]}
+              isSelected={selectedTenantIds.includes(tenant.id)}
+              toggleSelection={toggleSelection}
+              sending={sending}
+            />
+          ))}
         </div>
       )}
 
