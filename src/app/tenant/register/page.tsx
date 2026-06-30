@@ -33,7 +33,6 @@ import { isValidAadhaarNumber, normalizeAadhaarNumber } from "../../../lib/aadha
 import { TenantConsentLink } from "../../../components/legal/TenantConsentLink";
 import { OtpVerificationDialog } from "../../../components/ui/otp-verification-dialog";
 import { EmailOtpVerificationDialog } from "../../../components/ui/email-otp-verification-dialog";
-import { VerificationPending } from "../../../components/auth/VerificationPending";
 import { ValidationChecklist } from "../../../components/auth/ValidationChecklist";
 import { cn } from "../../../lib/utils";
 
@@ -507,10 +506,6 @@ function TenantRegisterPageContent() {
     }
   }
 
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [pendingTenantData, setPendingTenantData] = useState<TenantRegisterForm | null>(null);
   const [registeringTenant, setRegisteringTenant] = useState(false);
 
   async function onSubmit(data: TenantRegisterForm) {

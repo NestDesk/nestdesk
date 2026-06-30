@@ -22,7 +22,6 @@ import {
 import { cn } from "../../../lib/utils";
 import { normalizeOwnerPlan, formatPlanLabel } from "../../../lib/subscriptions";
 import { PrivacyPolicyLink } from "../../../components/legal/PrivacyPolicyLink";
-import { VerificationPending } from "../../../components/auth/VerificationPending";
 import { EmailOtpVerificationDialog } from "../../../components/ui/email-otp-verification-dialog";
 import { ValidationChecklist } from "../../../components/auth/ValidationChecklist";
 
@@ -188,13 +187,6 @@ function RegisterPageBody() {
     reValidateMode: "onChange",
   });
 
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
-  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
-  const [otpSent, setOtpSent] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
   const [emailOtpCode, setEmailOtpCode] = useState("");
   const [emailOtpDialogOpen, setEmailOtpDialogOpen] = useState(false);
@@ -370,86 +362,6 @@ function RegisterPageBody() {
     } catch {
       toast.error("Network error. Please try again.");
     }
-  }
-
-  async function handleResendEmailOtp() {
-    if (!verificationEmail) {
-      toast.error("Unable to resend OTP. Email is missing.");
-      return;
-    }
-
-    setSendingEmailOtp(true);
-    try {
-      const response = await fetch("/api/auth/email-otp/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: verificationEmail }),
-      });
-      const json = await response.json();
-
-      if (!response.ok) {
-        toast.error(json.error ?? "Could not resend verification email.");
-        return;
-      }
-
-      setOtpSent(true);
-      toast.success(json.message ?? "Verification email resent.");
-    } catch {
-      toast.error("Network error while resending verification email.");
-    } finally {
-      setSendingEmailOtp(false);
-    }
-  }
-
-  async function handleVerifyEmailOtpAfterSubmit() {
-    // Validate OTP code - must be exactly 6 digits
-    const cleanedOtpCode = (otpCode ?? "").trim().replace(/\D/g, "");
-    if (cleanedOtpCode.length !== 6) {
-      toast.error("Enter the 6-digit email OTP code (received in your email).");
-      return;
-    }
-
-    setVerifyingEmailOtp(true);
-    try {
-      const response = await fetch("/api/auth/email-otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: verificationEmail,
-          otpCode: cleanedOtpCode,
-        }),
-      });
-      const json = await response.json();
-
-      if (!response.ok) {
-        toast.error(json.error ?? "Email OTP verification failed.");
-        return;
-      }
-
-      toast.success(json.message ?? "Email verified successfully.");
-      setOtpCode("");
-      router.push("/onboarding");
-    } catch {
-      toast.error("Network error while verifying email OTP.");
-    } finally {
-      setVerifyingEmailOtp(false);
-    }
-  }
-
-  if (verificationSent) {
-    return (   
-        <VerificationPending
-          email={verificationEmail}
-          message={verificationMessage}
-          otpCode={otpCode}
-          onOtpChange={setOtpCode}
-          onVerify={handleVerifyEmailOtpAfterSubmit}
-          onResend={handleResendEmailOtp}
-          sendingOtp={sendingEmailOtp}
-          verifyingOtp={verifyingEmailOtp}
-          otpSent={otpSent}
-        />
-     );
   }
 
   return (
