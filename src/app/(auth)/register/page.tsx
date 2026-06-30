@@ -503,7 +503,8 @@ function RegisterPageBody() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
-              className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+              disabled={emailVerified}
+              className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-80"
               {...register("email")}
             />
             {errors.email && (

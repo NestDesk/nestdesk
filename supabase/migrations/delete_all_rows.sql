@@ -15,6 +15,7 @@ TRUNCATE TABLE
   public.consent_records,
   public.data_deletion_requests,
   public.phone_otp_challenges,
+  public.email_otp_challenges,
   public.expenses,
   public.owner_billing,
   public.property_terms,

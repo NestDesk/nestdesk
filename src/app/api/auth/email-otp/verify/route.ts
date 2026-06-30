@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerClient } from "@supabase/ssr";
+import { setPendingEmailVerificationCookie } from "../../../../../lib/auth";
+import { verifyEmailOtp } from "../../../../../lib/otp/service";
 
 const verifySchema = z.object({
   email: z.string().trim().email("Enter a valid email address."),
@@ -23,55 +24,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { email, otpCode } = parsed.data;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
-
-  if (!url || !anonKey) {
-    return NextResponse.json(
-      { error: "Supabase environment variables are not configured." },
-      { status: 500 },
-    );
-  }
-
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookies) {
-        cookiesToSet.push(...cookies);
-      },
-    },
-  });
-
   try {
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otpCode,
-      type: "signup",
+    await verifyEmailOtp({
+      email: parsed.data.email,
+      otpCode: parsed.data.otpCode,
     });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
 
     const response = NextResponse.json({
       success: true,
-      message: "Email verified successfully. Redirecting...",
-      data,
+      message: "Email verified successfully.",
     });
 
-    cookiesToSet.forEach(({ name, value, options }) => {
-      response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
-    });
-
+    setPendingEmailVerificationCookie(response, parsed.data.email);
     return response;
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { error: "Failed to verify OTP. Please try again." },
-      { status: 503 },
+      {
+        error: error instanceof Error ? error.message : "Failed to verify OTP. Please try again.",
+      },
+      { status: 400 },
     );
   }
 }

@@ -667,7 +667,8 @@ function TenantRegisterPageContent() {
                     placeholder="1234567890"
                     autoComplete="tel-national"
                     maxLength={10}
-                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-2 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0"
+                    disabled={phoneVerified}
+                    className="min-w-0 flex-1 rounded-none border-none bg-transparent px-2 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-80"
                     {...register("phone", {
                       onChange: (event) => {
                         const value = normalizePhoneNumber(event.target.value);
@@ -814,7 +815,8 @@ function TenantRegisterPageContent() {
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
-                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
+                  disabled={emailVerified}
+                  className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-80"
                   {...register("email")}
                 />
                 {errors.email && (
