@@ -100,7 +100,7 @@ const STATUS_CONFIG: Record<
     icon: Clock,
     note: "Your registration is under review. The property owner will approve your account shortly.",
     chipClassName:
-      "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
+      "border-amber-300 bg-amber-50 text-orange-500 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
   },
   active: {
     label: "Active",
@@ -579,7 +579,7 @@ export default function TenantProfilePage() {
               {profile?.profile_completion_counts.total ?? 0} requirements completed.
             </p>
             {profile?.profile_completion_missing?.length ? (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              <p className="mt-1 text-xs font-bold text-orange-600 dark:text-orange-400">
                 Missing: {profile.profile_completion_missing.join(", ")}
               </p>
             ) : null}

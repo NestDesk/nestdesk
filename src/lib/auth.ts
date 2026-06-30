@@ -18,6 +18,51 @@ type RegisterWithEmailPasswordInput = {
   emailConfirmRedirectTo?: string;
 };
 
+const PENDING_EMAIL_VERIFICATION_COOKIE = "nestdesk_pending_email_verification";
+const PENDING_EMAIL_VERIFICATION_TTL_SECONDS = 15 * 60;
+
+export function getPendingEmailVerification(request: NextRequest) {
+  const cookie = request.cookies.get(PENDING_EMAIL_VERIFICATION_COOKIE);
+  if (!cookie?.value) {
+    return null;
+  }
+
+  const [rawEmail, expiresAtValue] = cookie.value.split("|");
+  if (!rawEmail || !expiresAtValue) {
+    return null;
+  }
+
+  const expiresAt = Number(expiresAtValue);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    return null;
+  }
+
+  return decodeURIComponent(rawEmail).trim().toLowerCase();
+}
+
+export function setPendingEmailVerificationCookie(response: NextResponse, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const expiresAt = Date.now() + PENDING_EMAIL_VERIFICATION_TTL_SECONDS * 1000;
+
+  response.cookies.set(PENDING_EMAIL_VERIFICATION_COOKIE, `${encodeURIComponent(normalizedEmail)}|${expiresAt}`, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: PENDING_EMAIL_VERIFICATION_TTL_SECONDS,
+  });
+}
+
+export function clearPendingEmailVerificationCookie(response: NextResponse) {
+  response.cookies.set(PENDING_EMAIL_VERIFICATION_COOKIE, "", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
+}
+
 export type AccountRole = "owner" | "tenant" | "unknown";
 
 type ResolveUserRedirectPathOptions = {
@@ -103,6 +148,24 @@ export function isExistingUserError(message: string) {
   );
 }
 
+export async function findAuthUserByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+  if (error) {
+    throw error;
+  }
+
+  return (
+    data.users.find((user) => user.email?.trim().toLowerCase() === normalizedEmail) ?? null
+  );
+}
+
 export async function registerWithEmailPassword(
   request: NextRequest,
   input: RegisterWithEmailPasswordInput,
@@ -159,6 +222,7 @@ export async function sendEmailOtp(
     email,
     options: {
       emailRedirectTo: emailConfirmRedirectTo,
+      shouldCreateUser: false,
     },
   });
 
@@ -177,7 +241,7 @@ export async function verifyEmailOtp(
 
   const result = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
-    type: "signup",
+    type: "email",
   });
 
   return {

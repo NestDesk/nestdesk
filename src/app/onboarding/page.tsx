@@ -306,7 +306,9 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (!/^\d{6}$/.test(otpCode)) {
+    // Validate OTP code - must be exactly 6 digits
+    const cleanedOtpCode = (otpCode ?? "").trim().replace(/\D/g, "");
+    if (cleanedOtpCode.length !== 6) {
       toast.error("Enter the 6-digit OTP code.");
       return;
     }
@@ -316,7 +318,7 @@ export default function OnboardingPage() {
       const response = await fetch("/api/auth/phone-otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneValue, otpCode, reqId, purpose: "register-owner-phone" }),
+        body: JSON.stringify({ phone: phoneValue, otpCode: cleanedOtpCode, reqId, purpose: "register-owner-phone" }),
       });
       const json = await response.json();
 

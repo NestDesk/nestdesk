@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import {
   applySupabaseCookies,
+  clearPendingEmailVerificationCookie,
+  getPendingEmailVerification,
   isExistingUserError,
   registerWithEmailPassword,
   upsertAuthUserMetadata,
@@ -60,6 +62,14 @@ export async function POST(request: NextRequest) {
   }
 
   const { email, password, fullName, consentGiven } = parsed.data;
+
+  const verifiedEmail = getPendingEmailVerification(request);
+  if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+    return NextResponse.json(
+      { error: "Please verify your email before creating an account." },
+      { status: 400 },
+    );
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin;
   const {
@@ -135,6 +145,7 @@ export async function POST(request: NextRequest) {
   });
 
   applySupabaseCookies(response, cookiesToSet);
+  clearPendingEmailVerificationCookie(response);
 
   return response;
 }

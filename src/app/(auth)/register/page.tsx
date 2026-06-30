@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, CheckCircle2, XCircle, InfoIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "../../../components/ui/button";
@@ -22,7 +22,8 @@ import {
 import { cn } from "../../../lib/utils";
 import { normalizeOwnerPlan, formatPlanLabel } from "../../../lib/subscriptions";
 import { PrivacyPolicyLink } from "../../../components/legal/PrivacyPolicyLink";
-import { VerificationPending } from "../../../components/auth/VerificationPending";
+import { EmailOtpVerificationDialog } from "../../../components/ui/email-otp-verification-dialog";
+import { ValidationChecklist } from "../../../components/auth/ValidationChecklist";
 
 const registerSchema = z
   .object({
@@ -186,13 +187,12 @@ function RegisterPageBody() {
     reValidateMode: "onChange",
   });
 
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
-  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
-  const [otpSent, setOtpSent] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState("");
+  const [emailOtpDialogOpen, setEmailOtpDialogOpen] = useState(false);
+  const [sendingFormEmailOtp, setSendingFormEmailOtp] = useState(false);
+  const [verifyingFormEmailOtp, setVerifyingFormEmailOtp] = useState(false);
+  const [formEmailOtpSent, setFormEmailOtpSent] = useState(false);
 
   const allPasswordRulesMet = STRENGTH_RULES.every((rule) =>
     rule.test(passwordValue),
@@ -204,7 +204,122 @@ function RegisterPageBody() {
     return () => subscription.unsubscribe();
   }, [watch]);
 
+  // ── Email OTP verification (before submit) ────────────────────────────────
+
+  async function handleSendEmailOtp() {
+    const emailValue = watch("email") ?? "";
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      toast.error("Enter a valid email address before requesting OTP.");
+      return;
+    }
+
+    setSendingFormEmailOtp(true);
+    try {
+      const response = await fetch("/api/auth/email-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailValue }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not send email OTP.");
+        return;
+      }
+
+      setFormEmailOtpSent(true);
+      setEmailOtpCode("");
+      setEmailOtpDialogOpen(true);
+      toast.success(json.message ?? "OTP sent to your email.");
+      if (json.devOtpHint) {
+        toast.success(`DEV OTP: ${json.devOtpHint}`);
+      }
+    } catch {
+      toast.error("Network error while sending email OTP.");
+    } finally {
+      setSendingFormEmailOtp(false);
+    }
+  }
+
+  async function handleVerifyEmailOtp() {
+    const emailValue = watch("email") ?? "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      toast.error("Enter a valid email address first.");
+      return;
+    }
+    
+    // Validate email OTP code - must be exactly 6 digits
+    const cleanedEmailOtpCode = (emailOtpCode ?? "").trim().replace(/\D/g, "");
+    if (cleanedEmailOtpCode.length !== 6) {
+      toast.error("Enter the 6-digit email OTP code (received in your email).");
+      return;
+    }
+
+    setVerifyingFormEmailOtp(true);
+    try {
+      const response = await fetch("/api/auth/email-otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailValue,
+          otpCode: cleanedEmailOtpCode,
+        }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Email OTP verification failed.");
+        return;
+      }
+
+      setEmailVerified(true);
+      setEmailOtpCode("");
+      setEmailOtpDialogOpen(false);
+      toast.success("Email verified successfully.");
+    } catch {
+      toast.error("Network error while verifying email OTP.");
+    } finally {
+      setVerifyingFormEmailOtp(false);
+    }
+  }
+
+  async function handleResendFormEmailOtp() {
+    const emailValue = watch("email") ?? "";
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      toast.error("Enter a valid email address first.");
+      return;
+    }
+
+    setSendingFormEmailOtp(true);
+    try {
+      const response = await fetch("/api/auth/email-otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailValue }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not resend email OTP.");
+        return;
+      }
+
+      setFormEmailOtpSent(true);
+      setEmailOtpCode("");
+      toast.success(json.message ?? "OTP resent to your email.");
+    } catch {
+      toast.error("Network error while resending email OTP.");
+    } finally {
+      setSendingFormEmailOtp(false);
+    }
+  }
+
   async function onSubmit(data: RegisterForm) {
+    if (!emailVerified) {
+      toast.error("Verify your email address before creating an account.");
+      return;
+    }
+
     setSubmitErrorDetails([]);
 
     try {
@@ -242,94 +357,11 @@ function RegisterPageBody() {
         return;
       }
 
-      setVerificationSent(true);
-      setVerificationEmail(data.email);
-      setVerificationMessage(
-        json.message ||
-          "Verification OTP has been sent to your email id. Check your inbox.",
-      );
-      toast.success(json.message ?? "Verification email sent.");
+      toast.success("Account created successfully! Redirecting to onboarding...");
+      router.push("/onboarding");
     } catch {
       toast.error("Network error. Please try again.");
     }
-  }
-
-  async function handleResendEmailOtp() {
-    if (!verificationEmail) {
-      toast.error("Unable to resend OTP. Email is missing.");
-      return;
-    }
-
-    setSendingEmailOtp(true);
-    try {
-      const response = await fetch("/api/auth/email-otp/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: verificationEmail }),
-      });
-      const json = await response.json();
-
-      if (!response.ok) {
-        toast.error(json.error ?? "Could not resend verification email.");
-        return;
-      }
-
-      setOtpSent(true);
-      toast.success(json.message ?? "Verification email resent.");
-    } catch {
-      toast.error("Network error while resending verification email.");
-    } finally {
-      setSendingEmailOtp(false);
-    }
-  }
-
-  async function handleVerifyEmailOtp() {
-    if (!/^[0-9]{4,8}$/.test(otpCode)) {
-      toast.error("Enter the 6-digit email OTP code.");
-      return;
-    }
-
-    setVerifyingEmailOtp(true);
-    try {
-      const response = await fetch("/api/auth/email-otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: verificationEmail,
-          otpCode,
-        }),
-      });
-      const json = await response.json();
-
-      if (!response.ok) {
-        toast.error(json.error ?? "Email OTP verification failed.");
-        return;
-      }
-
-      toast.success(json.message ?? "Email verified successfully.");
-      setOtpCode("");
-      router.push("/onboarding");
-    } catch {
-      toast.error("Network error while verifying email OTP.");
-    } finally {
-      setVerifyingEmailOtp(false);
-    }
-  }
-
-  if (verificationSent) {
-    return (   
-        <VerificationPending
-          email={verificationEmail}
-          message={verificationMessage}
-          otpCode={otpCode}
-          onOtpChange={setOtpCode}
-          onVerify={handleVerifyEmailOtp}
-          onResend={handleResendEmailOtp}
-          sendingOtp={sendingEmailOtp}
-          verifyingOtp={verifyingEmailOtp}
-          otpSent={otpSent}
-        />
-     );
   }
 
   return (
@@ -383,7 +415,8 @@ function RegisterPageBody() {
               type="email"
               placeholder="you@example.com"
               autoComplete="email"
-              className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+              disabled={emailVerified}
+              className="rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-80"
               {...register("email")}
             />
             {errors.email && (
@@ -391,6 +424,32 @@ function RegisterPageBody() {
                 {errors.email.message}
               </p>
             )}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {emailVerified ? (
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Email verified
+                </span>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSendEmailOtp}
+                    disabled={sendingFormEmailOtp || !watch("email") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watch("email") ?? "")}
+                  >
+                    <span className="inline-flex items-center gap-2 ">
+                      <InfoIcon className="h-4 w-4 text-orange-500" />
+                      Verify email
+                    </span>
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Use the OTP dialog to send and verify your code.
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Password + strength */}
@@ -486,10 +545,23 @@ function RegisterPageBody() {
             </p>
           )}
 
+          {/* Validation Checklist */}
+          {!emailVerified && (
+            <ValidationChecklist
+              items={[
+                {
+                  id: "email",
+                  label: "Verify your email address",
+                  completed: emailVerified,
+                },
+              ]}
+            />
+          )}
+
           <Button
             type="submit"
             className="mt-2 w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:brightness-110"
-            disabled={isSubmitting || !allPasswordRulesMet}
+            disabled={isSubmitting || !allPasswordRulesMet || !emailVerified}
           >
             {isSubmitting ? (
               <>
@@ -524,6 +596,24 @@ function RegisterPageBody() {
           </Link>
         </p>
       </CardContent>
+
+      <EmailOtpVerificationDialog
+        open={emailOtpDialogOpen}
+        onOpenChange={(open) => {
+          setEmailOtpDialogOpen(open);
+          if (!open) {
+            setEmailOtpCode("");
+          }
+        }}
+        email={watch("email") ?? ""}
+        otpCode={emailOtpCode}
+        onOtpChange={setEmailOtpCode}
+        onVerify={handleVerifyEmailOtp}
+        onResend={handleResendFormEmailOtp}
+        sendingOtp={sendingFormEmailOtp}
+        verifyingOtp={verifyingFormEmailOtp}
+        otpSent={formEmailOtpSent}
+      />
     </Card>
   );
 }

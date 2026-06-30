@@ -79,9 +79,9 @@ const STATUS_CONFIG = {
     label: "Pending Approval",
     variant: "secondary" as const,
     icon: Clock,
-    color: "text-amber-500",
+    color: "text-orange-500",
     badgeClassName:
-      "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300",
+      "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-300",
     summary: "Pending approval",
     description: "Your registration is awaiting review from the property owner.",
   },
@@ -312,9 +312,9 @@ export default async function TenantDashboardPage() {
       {status === "pending" && (
         <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5">
           <CardContent className="flex items-start gap-3 p-4">
-            <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+            <Clock className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" />
             <div>
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+              <p className="text-sm font-medium text-orange-500">
                 Registration pending approval
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -411,11 +411,18 @@ export default async function TenantDashboardPage() {
                   style={{ width: `${completion.percentage}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs text-red-500">
                 {completion.completeCount === completion.totalCount
                   ? "All profile completion steps are finished, so your account is ready to go."
                   : `${completion.totalCount - completion.completeCount} step(s) still need attention.`}
               </p>
+              {completion.completeCount !== completion.totalCount && (
+                <Link href="/tenant/profile" className="mt-3 inline-block">
+                  <button className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary/90">
+                    Complete Profile
+                  </button>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>

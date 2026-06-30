@@ -5,6 +5,8 @@ import { createAdminClient } from "../../../../lib/supabase/admin";
 import { validateSupabaseEnv } from "../../../../lib/supabase/env-check";
 import {
   applySupabaseCookies,
+  clearPendingEmailVerificationCookie,
+  getPendingEmailVerification,
   isExistingUserError,
   loginWithEmailPassword,
   registerWithEmailPassword,
@@ -132,6 +134,14 @@ export async function POST(request: NextRequest) {
   let signUpCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
 
   if (!authUserId) {
+    const verifiedEmail = getPendingEmailVerification(request);
+    if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+      return NextResponse.json(
+        { error: "Please verify your email before creating a tenant account." },
+        { status: 400 },
+      );
+    }
+
     const {
       data: authData,
       error: createError,
@@ -400,6 +410,7 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json(payload);
   applySupabaseCookies(response, cookiesToSet);
+  clearPendingEmailVerificationCookie(response);
   return response;
 }
 
