@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin;
+  const normalizedAppUrl = appUrl.replace(/\/+$/, "");
+  const redirectTo = `${normalizedAppUrl}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   const cookiesToSet: Array<{
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
+      redirectTo,
     });
 
     if (error) {
