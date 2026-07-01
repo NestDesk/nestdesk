@@ -13,6 +13,8 @@ import {
 } from "../../../lib/auth";
 
 const RESET_PASSWORD_PATH = "/reset-password";
+const LEGACY_RESET_PASSWORD_PATH = "/auth/reset-password";
+const FORGOT_PASSWORD_PATH = "/forgot-password";
 
 function sanitizeNextPath(nextPath: string | null) {
   if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
@@ -34,11 +36,14 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const otpType = searchParams.get("type") as EmailOtpType | null;
   const nextPath = sanitizeNextPath(searchParams.get("next"));
-  const isRecoveryFlow = otpType === "recovery" || nextPath === RESET_PASSWORD_PATH;
+  const isRecoveryFlow =
+    otpType === "recovery" ||
+    nextPath === RESET_PASSWORD_PATH ||
+    nextPath === LEGACY_RESET_PASSWORD_PATH;
 
   if (!code && !(tokenHash && otpType)) {
     return isRecoveryFlow
-      ? buildErrorRedirect(origin, "/forgot-password", "invalid_or_expired_link")
+      ? buildErrorRedirect(origin, FORGOT_PASSWORD_PATH, "invalid_or_expired_link")
       : buildErrorRedirect(origin, "/login", "missing_code");
   }
 
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
 
   if (error || !data.session) {
     return isRecoveryFlow
-      ? buildErrorRedirect(origin, "/forgot-password", "invalid_or_expired_link")
+      ? buildErrorRedirect(origin, FORGOT_PASSWORD_PATH, "invalid_or_expired_link")
       : buildErrorRedirect(origin, "/login", "invalid_link");
   }
 

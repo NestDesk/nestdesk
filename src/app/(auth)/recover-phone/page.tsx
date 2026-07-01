@@ -351,7 +351,7 @@ export default function RecoverPhonePage() {
           )}
 
           <div className="mt-6 flex flex-col gap-3 text-center text-sm text-muted-foreground">
-            <Link href="/auth/forgot-password" className="text-primary underline underline-offset-2">
+            <Link href="/forgot-password" className="text-primary underline underline-offset-2">
               Recover by email
             </Link>
             <Link href="/login" className="text-primary underline underline-offset-2">
