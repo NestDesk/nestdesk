@@ -422,35 +422,7 @@ CREATE TABLE public.expenses (
   owner_id UUID NOT NULL REFERENCES public.owners(id) ON DELETE CASCADE,
   hostel_id UUID NOT NULL REFERENCES public.hostels(id) ON DELETE RESTRICT,
   title TEXT NOT NULL,
-  category TEXT NOT NULL
-    CHECK (
-      category IN (
-        'electricity',
-        'water',
-        'gas',
-        'internet',
-        'staff_salary',
-        'security_services',
-        'housekeeping_cleaning',
-        'maintenance_repair',
-        'plumbing',
-        'electrical_repairs',
-        'pest_control',
-        'laundry_linen',
-        'kitchen_supplies',
-        'property_supplies',
-        'property_tax',
-        'government_fees',
-        'insurance',
-        'software_saas',
-        'marketing',
-        'transportation',
-        'legal_professional',
-        'waste_management',
-        'amenities',
-        'miscellaneous'
-      )
-    ),
+  category TEXT NOT NULL,
   amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
   expense_date DATE NOT NULL,
   status TEXT NOT NULL DEFAULT 'paid'
