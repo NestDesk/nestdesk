@@ -820,6 +820,7 @@ const expCols = [
   expCol.accessor("payment_mode", { header: "Payment Mode" }),
   expCol.accessor("vendor_name", { header: "Vendor" }),
   expCol.accessor("bill_number", { header: "Bill No." }),
+  expCol.accessor("notes", { header: "Notes" }),
 ];
 
 function ExpensesTab({ isDark }: { isDark: boolean }) {
@@ -1181,10 +1182,9 @@ function ReportsShell() {
 export default function ReportsPage() {
   return (
     <main className="mx-auto w-full max-w-7xl">
-      <header className="mb-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:p-5">
+      <header className="mb-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:p-0">
         <div className="flex items-start gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Analytics</p>
             <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground md:text-2xl">Reports & Analytics</h1>
             <p className="mt-1 text-sm text-muted-foreground">Deep operational insights across your portfolio, tuned for quick scanning on every screen.</p>
           </div>
