@@ -530,6 +530,19 @@ export default function OwnerExpensesPage() {
         },
         enableSorting: false,
       }),
+      columnHelper.accessor("notes", {
+        id: "notes",
+        header: "Notes",
+        cell: ({ getValue }) => {
+          const notes = getValue();
+          return (
+            <span className="max-w-[220px] text-sm text-muted-foreground">
+              {notes ? notes : "-"}
+            </span>
+          );
+        },
+        enableSorting: false,
+      }),
       columnHelper.display({
         id: "actions",
         header: "",
