@@ -146,7 +146,7 @@ const STATUS_CHIP: Record<ExpenseStatus, string> = {
 const EMPTY_DRAFT: ExpenseDraft = {
   hostel_id: "",
   title: "",
-  category: "electricity",
+  category: "electricity_bills",
   amount: "",
   expense_date: toInputDate(),
   status: "paid",
