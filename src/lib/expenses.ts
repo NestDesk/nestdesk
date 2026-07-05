@@ -1,58 +1,35 @@
 export const EXPENSE_CATEGORIES = [
-  "electricity",
-  "water",
-  "gas",
-  "internet",
-  "staff_salary",
-  "security_services",
-  "housekeeping_cleaning",
-  "maintenance_repair",
-  "plumbing",
+  "amenities",
   "electrical_repairs",
-  "pest_control",
-  "laundry_linen",
-  "kitchen_supplies",
-  "property_supplies",
-  "property_tax",
+  "electricity_bills",
+  "gas",
   "government_fees",
   "insurance",
-  "software_saas",
-  "marketing",
-  "transportation",
-  "legal_professional",
-  "waste_management",
-  "amenities",
+  "internet",
+  "mess_supplies",
+  "maintenance_repairs",
   "miscellaneous",
+  "painting",
+  "pest_control",
+  "plumbing",
+  "carpenter",
+  "property_tax",
+  "repairs",
+  "software_services",
+  "staff_salary",
+  "waste_management",
+  "water",
 ] as const;
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
-export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
-  electricity: "Electricity",
-  water: "Water",
-  gas: "Gas",
-  internet: "Internet",
-  staff_salary: "Staff Salary",
-  security_services: "Security Services",
-  housekeeping_cleaning: "Housekeeping & Cleaning",
-  maintenance_repair: "Maintenance & Repairs",
-  plumbing: "Plumbing",
-  electrical_repairs: "Electrical Repairs",
-  pest_control: "Pest Control",
-  laundry_linen: "Laundry & Linen",
-  kitchen_supplies: "Kitchen Supplies",
-  property_supplies: "Property Supplies",
-  property_tax: "Property Tax",
-  government_fees: "Government Fees",
-  insurance: "Insurance",
-  software_saas: "Software / SaaS",
-  marketing: "Marketing",
-  transportation: "Transportation",
-  legal_professional: "Legal & Professional",
-  waste_management: "Waste Management",
-  amenities: "Amenities",
-  miscellaneous: "Miscellaneous",
-};
+export function getExpenseCategoryLabel(category: string | null | undefined) {
+  if (!category) return "Category";
+
+  return category
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export const EXPENSE_STATUSES = ["paid", "pending", "disputed"] as const;
 export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number];

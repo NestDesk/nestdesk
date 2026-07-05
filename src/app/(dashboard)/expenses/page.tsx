@@ -56,11 +56,11 @@ import { Skeleton } from "../../../components/ui/skeleton";
 import { formatDateInIndia, toIndianDateString } from "../../../lib/date";
 import {
   EXPENSE_CATEGORIES,
-  EXPENSE_CATEGORY_LABEL,
   EXPENSE_PAYMENT_MODES,
   EXPENSE_PAYMENT_MODE_LABEL,
   EXPENSE_RECURRING_FREQUENCIES,
   EXPENSE_STATUS_LABEL,
+  getExpenseCategoryLabel,
   type ExpenseCategory,
   type ExpensePaymentMode,
   type ExpenseRecurringFrequency,
@@ -146,7 +146,7 @@ const STATUS_CHIP: Record<ExpenseStatus, string> = {
 const EMPTY_DRAFT: ExpenseDraft = {
   hostel_id: "",
   title: "",
-  category: "maintenance_repair",
+  category: "electricity_bills",
   amount: "",
   expense_date: toInputDate(),
   status: "paid",
@@ -283,7 +283,7 @@ export default function OwnerExpensesPage() {
   const filteredCategoryOptions = useMemo(() => {
     return EXPENSE_CATEGORIES.filter((category) => {
       if (!categoryQuery.trim()) return true;
-      const label = EXPENSE_CATEGORY_LABEL[category];
+      const label = getExpenseCategoryLabel(category);
       return (
         label.toLowerCase().includes(categoryQuery.toLowerCase()) ||
         category.toLowerCase().includes(categoryQuery.toLowerCase())
@@ -451,7 +451,7 @@ export default function OwnerExpensesPage() {
                   {expense.title}
                 </p>
                 <Badge variant="outline" className="h-5 text-[11px]">
-                  {EXPENSE_CATEGORY_LABEL[expense.category]}
+                  {getExpenseCategoryLabel(expense.category)}
                 </Badge>
                 {expense.is_recurring ? (
                   <Badge variant="outline" className="h-5 text-[11px]">
@@ -608,7 +608,7 @@ export default function OwnerExpensesPage() {
       recurring_frequency: expense.recurring_frequency ?? "",
       next_due_date: expense.next_due_date ?? "",
     });
-    setCategoryQuery(EXPENSE_CATEGORY_LABEL[expense.category]);
+    setCategoryQuery(getExpenseCategoryLabel(expense.category));
     setCategoryDropdownOpen(false);
     setModalOpen(true);
   }
@@ -773,17 +773,12 @@ export default function OwnerExpensesPage() {
       </Dialog>
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               Expenses
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Professional operating expense view with analytics, recurring controls,
-              and monthly trend tracking.
-            </p>
           </div>
         </div>
         {!loading && hasProperties ? (
@@ -925,7 +920,7 @@ export default function OwnerExpensesPage() {
                   <option value="all">All Categories</option>
                   {EXPENSE_CATEGORIES.map((category) => (
                     <option key={category} value={category}>
-                      {EXPENSE_CATEGORY_LABEL[category]}
+                      {getExpenseCategoryLabel(category)}
                     </option>
                   ))}
                 </select>
@@ -1068,12 +1063,9 @@ export default function OwnerExpensesPage() {
 
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal();
-          }}
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-3 py-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:px-0"
         >
-          <div className="w-full max-w-xl rounded-t-2xl border border-border bg-background p-6 shadow-xl sm:rounded-2xl">
+          <div className="mx-auto w-full max-h-[calc(100vh-2rem)] max-w-xl overflow-y-auto rounded-t-2xl border border-border bg-background p-6 shadow-xl sm:rounded-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-base font-semibold text-foreground">
                 {editingId ? "Edit Expense" : "Add Expense"}
@@ -1126,13 +1118,14 @@ export default function OwnerExpensesPage() {
                     placeholder={
                       categoryQuery
                         ? "Search or select category"
-                        : EXPENSE_CATEGORY_LABEL[draft.category] ||
+                        : getExpenseCategoryLabel(draft.category) ||
                           "Search or select category"
                     }
                     value={categoryQuery}
                     onFocus={() => {
                       setCategoryDropdownOpen(true);
                       setCategoryHighlightedIndex(0);
+                      setCategoryQuery("");
                     }}
                     onChange={(e) => {
                       setCategoryQuery(e.target.value);
@@ -1161,7 +1154,7 @@ export default function OwnerExpensesPage() {
                           const category =
                             filteredCategoryOptions[categoryHighlightedIndex];
                           setDraft((prev) => ({ ...prev, category }));
-                          setCategoryQuery(EXPENSE_CATEGORY_LABEL[category]);
+                          setCategoryQuery(getExpenseCategoryLabel(category));
                           setCategoryDropdownOpen(false);
                           setCategoryHighlightedIndex(0);
                         }
@@ -1178,6 +1171,7 @@ export default function OwnerExpensesPage() {
                     onClick={() => {
                       setCategoryDropdownOpen((prev) => !prev);
                       setCategoryHighlightedIndex(0);
+                      setCategoryQuery("");
                     }}
                   >
                     ▾
@@ -1200,12 +1194,12 @@ export default function OwnerExpensesPage() {
                             }}
                             onClick={() => {
                               setDraft((prev) => ({ ...prev, category }));
-                              setCategoryQuery(EXPENSE_CATEGORY_LABEL[category]);
+                              setCategoryQuery(getExpenseCategoryLabel(category));
                               setCategoryDropdownOpen(false);
                               setCategoryHighlightedIndex(0);
                             }}
                           >
-                            {EXPENSE_CATEGORY_LABEL[category]}
+                            {getExpenseCategoryLabel(category)}
                           </button>
                         ))
                       ) : (
