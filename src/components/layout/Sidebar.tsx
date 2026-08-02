@@ -65,7 +65,9 @@ const freePlanAllowedPages = new Set([
 
 const isFreePlanAllowedSidebarHref = (href: string) =>
   freePlanAllowedPages.has(href) ||
-  freePlanAllowedPages.has(href.split("/")[1] ? `/${href.split("/")[1]}` : href);
+  freePlanAllowedPages.has(
+    href.split("/")[1] ? `/${href.split("/")[1]}` : href,
+  );
 
 export function Sidebar({
   collapsed = false,
@@ -134,14 +136,17 @@ export function Sidebar({
 
     return () => {
       mounted = false;
-      window.removeEventListener("hostel-status-changed", handleHostelStatusChanged);
+      window.removeEventListener(
+        "hostel-status-changed",
+        handleHostelStatusChanged,
+      );
     };
   }, []);
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        "sidebar-surface relative z-30 flex h-full flex-col overflow-hidden border-r shadow-[inset_-1px_0_0_hsl(var(--sidebar-border)/0.65)] transition-[width,background-color,border-color] duration-200",
         mobile ? "w-72" : "hidden md:flex",
         !mobile && (collapsed ? "w-20" : "w-60"),
       )}
@@ -149,7 +154,7 @@ export function Sidebar({
       {/* Logo */}
       <div
         className={cn(
-          "flex h-16 items-center border-b border-sidebar-border",
+          "flex h-16 flex-none items-center border-b border-sidebar-border/90 bg-sidebar/95 px-5 backdrop-blur-sm",
           collapsed && !mobile ? "justify-center px-2" : "gap-2.5 px-5",
         )}
       >
@@ -169,11 +174,12 @@ export function Sidebar({
           )}
         </Link>
       </div>
-
+<hr />
       <TooltipProvider delayDuration={100}>
-        <nav className="flex-1 space-y-0.5 p-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           {navItems.map(({ label, href, icon: Icon }) => {
-            const showUnverifiedWarning = label === "My Profile" && !isPhoneVerified;
+            const showUnverifiedWarning =
+              label === "My Profile" && !isPhoneVerified;
             const showPropertyWarning =
               label === "My Properties" && Boolean(propertyWarning);
             const isRestricted =
@@ -188,10 +194,11 @@ export function Sidebar({
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   collapsed && !mobile && "justify-center px-2",
                   pathname === href
-                    ? "bg-gradient-to-r from-primary/80 to-blue-500/70 text-white shadow-md shadow-primary/20"
-                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                    ? "bg-gradient-to-r from-primary/85 to-blue-500/75 text-white shadow-md shadow-primary/20"
+                    : "text-sidebar-foreground/90 hover:bg-[hsl(var(--sidebar-accent))]/90 hover:text-sidebar-accent-foreground",
                   isRestricted && "opacity-60",
                 )}
+                aria-current={pathname === href ? "page" : undefined}
               >
                 <div className="relative">
                   <Icon className="h-4 w-4 shrink-0" />

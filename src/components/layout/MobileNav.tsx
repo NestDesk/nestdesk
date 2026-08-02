@@ -22,7 +22,7 @@ export function MobileNav({ isPhoneVerified }: MobileNavProps) {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-60 p-0"
+        className="w-72 border-none bg-[hsl(var(--sidebar-background))] p-0 shadow-2xl"
         sheetTitle="Main navigation"
         sheetDescription="Open the mobile navigation menu to access dashboard sections"
       >
