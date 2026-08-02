@@ -73,9 +73,10 @@ const patchSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await verifyOwnership(params.id);
+  const { id } = await params;
+  const ctx = await verifyOwnership(id);
   if (ctx instanceof NextResponse) return ctx;
 
   let body: unknown;
@@ -106,7 +107,7 @@ export async function PATCH(
   const { data, error } = await ctx.admin
     .from("invoices")
     .update(payload)
-    .eq("id", params.id)
+    .eq("id", id)
     .select("*")
     .single();
 
@@ -120,9 +121,10 @@ export async function PATCH(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await verifyOwnership(params.id);
+  const { id } = await params;
+  const ctx = await verifyOwnership(id);
   if (ctx instanceof NextResponse) return ctx;
 
   if (ctx.invoice.status === "paid") {
@@ -135,7 +137,7 @@ export async function DELETE(
   const { error } = await ctx.admin
     .from("invoices")
     .update({ deleted_at: new Date().toISOString() })
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

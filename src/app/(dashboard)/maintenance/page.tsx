@@ -186,14 +186,6 @@ export default function OwnerMaintenancePage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Maintenance
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Track tenant requests, add comments, and update progress.
-          </p>
-        </div>
         {openCount > 0 ? (
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />

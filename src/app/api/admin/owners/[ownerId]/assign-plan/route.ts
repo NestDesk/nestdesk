@@ -28,12 +28,13 @@ const assignPlanSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { ownerId: string } },
+  { params }: { params: Promise<{ ownerId: string }> },
 ) {
+  const { ownerId } = await params;
   const { user, denied } = await requireAdmin();
   if (denied) return denied;
 
-  const parsedOwnerId = z.string().uuid().safeParse(params.ownerId);
+  const parsedOwnerId = z.string().uuid().safeParse(ownerId);
   if (!parsedOwnerId.success) {
     return NextResponse.json({ error: "Invalid owner id." }, { status: 400 });
   }

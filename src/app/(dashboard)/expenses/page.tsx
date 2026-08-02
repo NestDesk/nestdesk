@@ -787,13 +787,6 @@ export default function OwnerExpensesPage() {
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Expenses
-            </h2>
-          </div>
-        </div>
         {!loading && hasProperties ? (
           <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
             <Plus className="h-4 w-4" />

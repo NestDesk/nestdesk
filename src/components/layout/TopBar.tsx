@@ -1,10 +1,11 @@
-"use client";
+  "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import {
   CreditCard,
+  Info,
   LayoutDashboard,
   LogOut,
   PanelLeft,
@@ -14,6 +15,9 @@ import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MobileNav } from "./MobileNav";
 import { Navbar } from "./Navbar";
+import { getOwnerPageDetails } from "./owner-page-details";
+import { getTenantPageDetails } from "./tenant-page-details";
+import type { PortalType } from "./Sidebar";
 import {
   formatPlanLabel,
   normalizeOwnerPlan,
@@ -46,6 +50,8 @@ interface TopBarProps {
   isPhoneVerified?: boolean;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  portal?: PortalType;
+  userName?: string;
 }
 
 export function TopBar({
@@ -53,15 +59,28 @@ export function TopBar({
   isPhoneVerified = true,
   isSidebarCollapsed = false,
   onToggleSidebar,
+  portal = "owner",
+  userName,
 }: TopBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const activePage =
+    portal === "tenant"
+      ? getTenantPageDetails(pathname)
+      : getOwnerPageDetails(pathname);
+  const ActivePageIcon = activePage?.icon;
   const [user, setUser] = useState<TopBarUser | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionSnapshot>({
     plan: "free",
     status: "free",
   });
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showPageInfo, setShowPageInfo] = useState(false);
   const userLoadedRef = useRef(false);
+
+  useEffect(() => {
+    setShowPageInfo(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (userLoadedRef.current) {
@@ -74,9 +93,11 @@ export function TopBar({
       const supabase = createBrowserClient();
       const [{ data: authData }, subscriptionRes] = await Promise.all([
         supabase.auth.getUser(),
-        fetch("/api/owner/subscription/current", { cache: "no-store" }).catch(
-          () => null,
-        ),
+        portal === "owner"
+          ? fetch("/api/owner/subscription/current", {
+              cache: "no-store",
+            }).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       const authUser = authData.user;
@@ -87,9 +108,10 @@ export function TopBar({
       }
 
       const fullName =
+        userName?.trim() ||
         (authUser.user_metadata?.full_name as string | undefined)?.trim() ||
         authUser.email?.split("@")[0] ||
-        "Owner";
+        (portal === "tenant" ? "Tenant" : "Owner");
 
       const avatarUrl =
         (authUser.user_metadata?.avatar_url as string | undefined)?.trim() || null;
@@ -116,7 +138,7 @@ export function TopBar({
     loadUser().catch(() => {
       setUser(null);
     });
-  }, []);
+  }, [portal, userName]);
 
   const statusPill = useMemo(() => {
     const plan = formatPlanLabel(subscription.plan);
@@ -167,7 +189,7 @@ export function TopBar({
       fullWidth
       left={
         <>
-          <MobileNav isPhoneVerified={isPhoneVerified} />
+          <MobileNav isPhoneVerified={isPhoneVerified} portal={portal} />
           {onToggleSidebar ? (
             <Button
               type="button"
@@ -184,15 +206,44 @@ export function TopBar({
               )}
             </Button>
           ) : null}
-          {title && (
+          {activePage ? (
+            <div className="relative flex min-w-0 items-center gap-1.5 border-l border-border/70 pl-2 sm:gap-2 sm:pl-3">
+              {ActivePageIcon ? (
+                <ActivePageIcon className="h-4 w-4 shrink-0 text-primary" />
+              ) : null}
+              <h1 className="max-w-[7rem] truncate text-md font-semibold text-foreground sm:max-w-none sm:text-sm">
+                {activePage.title}
+              </h1>
+              <button
+                type="button"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`About ${activePage.title}`}
+                aria-expanded={showPageInfo}
+                aria-controls="topbar-page-info"
+                onClick={() => setShowPageInfo((visible) => !visible)}
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+              {showPageInfo ? (
+                <div
+                  id="topbar-page-info"
+                  role="status"
+                  className="absolute right-0 top-full z-[60] mt-2 w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-border bg-popover p-3 text-left text-xs leading-5 text-popover-foreground shadow-xl"
+                >
+                  {activePage.description}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {!activePage && title ? (
             <h1 className="text-sm font-semibold text-foreground">{title}</h1>
-          )}
+          ) : null}
         </>
       }
       right={
         <>
           <ThemeToggle />
-          <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-muted/80 px-3 py-1 text-xs text-foreground md:inline-flex">
+          {portal === "owner" ? <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-muted/80 px-3 py-1 text-xs text-foreground md:inline-flex">
             <span className="font-semibold text-foreground">
               {statusPill.planLabel}
             </span>
@@ -201,7 +252,7 @@ export function TopBar({
             >
               {statusPill.status}
             </span>
-          </div>
+          </div> : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -222,30 +273,34 @@ export function TopBar({
             <DropdownMenuContent align="end" className="w-56 rounded-xl">
               <DropdownMenuLabel className="min-w-0 px-2 py-1.5">
                 <p className="truncate text-sm font-medium">
-                  {user?.fullName || "Owner"}
+                  {user?.fullName || (portal === "tenant" ? "Tenant" : "Owner")}
                 </p>
                 <p className="truncate text-xs font-normal text-muted-foreground">
                   {user?.email || "Signed in"}
                 </p>
-                <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-primary">
-                  {formatPlanLabel(subscription.plan)} plan
-                </p>
+                {portal === "owner" ? (
+                  <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-primary">
+                    {formatPlanLabel(subscription.plan)} plan
+                  </p>
+                ) : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer"
-                onClick={() => router.push("/profile")}
+                onClick={() => router.push(portal === "tenant" ? "/tenant/profile" : "/profile")}
               >
                 <LayoutDashboard className="h-4 w-4" />
                 My Account
               </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => router.push("/subscriptions")}
-              >
-                <CreditCard className="h-4 w-4" />
-                Subscriptions
-              </DropdownMenuItem>
+              {portal === "owner" ? (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => router.push("/subscriptions")}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Subscriptions
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleLogout}

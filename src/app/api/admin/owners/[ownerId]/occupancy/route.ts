@@ -3,10 +3,10 @@ import { createAdminClient } from "../../../../../../lib/supabase/admin";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { ownerId: string } }
+  { params }: { params: Promise<{ ownerId: string }> }
 ) {
   try {
-    const ownerId = params.ownerId;
+    const { ownerId } = await params;
     const admin = createAdminClient();
 
     const { data: hostels, error: hostelsError } = await admin

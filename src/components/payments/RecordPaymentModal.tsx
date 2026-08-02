@@ -73,6 +73,11 @@ function getMonthEndDate(dateStr: string) {
   return toLocalISO(new Date(year, month - 1, lastDay));
 }
 
+function getMonthStartDate(dateStr: string) {
+  const [year, month] = dateStr.split("-").map(Number);
+  return toLocalISO(new Date(year, month - 1, 1));
+}
+
 function thisMonthRange() {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -198,22 +203,6 @@ export function RecordPaymentModal({
         ? String(tenant.agreed_rent_amount)
         : "";
 
-    // When opening for a tenant with a prorated period, prefill payable amount.
-    if (tenant?.agreed_rent_amount && startDate && endDate) {
-      try {
-        const calc = calculateRent(
-          Number(tenant.agreed_rent_amount),
-          startDate,
-          endDate,
-        );
-        if (calc.isProrated) {
-          initialAmount = String(calc.payableAmount);
-        }
-      } catch {
-        // Keep fallback amount when calculation fails.
-      }
-    }
-
     setDraft({
       ...EMPTY_DRAFT,
       tenant_id: initialTenantId,
@@ -234,18 +223,20 @@ export function RecordPaymentModal({
       return null;
     }
     try {
+      const billingMonthStart = getMonthStartDate(draft.startDate);
+      const billingMonthEnd = getMonthEndDate(draft.startDate);
       return calculateRent(
         Number(tenant.agreed_rent_amount),
-        draft.startDate,
-        draft.endDate,
+        billingMonthStart,
+        billingMonthEnd,
+        "full_month",
       );
     } catch {
       return null;
     }
   }, [draft.endDate, draft.startDate, draft.tenant_id, tenants]);
 
-  // Auto-fill amount with the pro-rated payable whenever the billing context
-  // changes (new tenant or new dates) and the owner hasn't manually overridden it.
+  // Auto-fill the complete agreed monthly amount for the billing month.
   const prevBillingKeyRef = useRef("");
   useEffect(() => {
     if (!billingPreview) return;

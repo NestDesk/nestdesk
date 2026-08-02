@@ -37,9 +37,10 @@ function fetchPincodeData(pincode: string) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { pincode: string } },
+  { params }: { params: Promise<{ pincode: string }> },
 ) {
-  const pincode = String(params.pincode ?? "").trim();
+  const { pincode: routePincode } = await params;
+  const pincode = String(routePincode ?? "").trim();
   if (!PINCODE_REGEX.test(pincode)) {
     return NextResponse.json(
       { error: "Enter a valid 6-digit pincode." },

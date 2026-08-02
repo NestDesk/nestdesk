@@ -53,14 +53,14 @@ export function AdminSidebar({
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        "sidebar-surface relative z-30 flex h-full flex-col overflow-hidden border-r shadow-[inset_-1px_0_0_hsl(var(--sidebar-border)/0.65)] transition-[width,background-color,border-color] duration-200",
         mobile ? "w-72" : "hidden md:flex",
         !mobile && (collapsed ? "w-20" : "w-60"),
       )}
     >
       <div
         className={cn(
-          "flex h-16 items-center border-b border-sidebar-border",
+          "flex h-16 flex-none items-center border-b border-sidebar-border/90 bg-sidebar/95 px-5 backdrop-blur-sm",
           collapsed && !mobile ? "justify-center px-2" : "gap-2.5 px-5",
         )}
       >
@@ -82,7 +82,7 @@ export function AdminSidebar({
       </div>
 
       <TooltipProvider delayDuration={100}>
-        <nav className="flex-1 space-y-0.5 p-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           {navItems.map(({ label, href, icon: Icon, exact }) => {
             const isActive = exact
               ? pathname === href
@@ -97,9 +97,10 @@ export function AdminSidebar({
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   collapsed && !mobile && "justify-center px-2",
                   isActive
-                    ? "bg-gradient-to-r from-violet-600/80 to-indigo-500/70 text-white shadow-md shadow-violet-500/20"
-                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                    ? "bg-gradient-to-r from-violet-600/85 to-indigo-500/75 text-white shadow-md shadow-violet-500/20"
+                    : "text-sidebar-foreground/90 hover:bg-[hsl(var(--sidebar-accent))]/90 hover:text-sidebar-accent-foreground",
                 )}
+                aria-current={isActive ? "page" : undefined}
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 {(!collapsed || mobile) && <span>{label}</span>}

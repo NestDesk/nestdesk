@@ -1,30 +1,58 @@
 "use client"
-
 import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
-
+import { createPortal } from "react-dom"
 import { cn } from "../../lib/utils"
+const TooltipProvider = ({ children }: { children: React.ReactNode; delayDuration?: number }) => <>{children}</>
 
-const TooltipProvider = TooltipPrimitive.Provider
+type TooltipContextValue = {
+	open: boolean
+	triggerRect: DOMRect | null
+}
 
-const Tooltip = TooltipPrimitive.Root
+const TooltipContext = React.createContext<TooltipContextValue>({
+	open: false,
+	triggerRect: null,
+})
 
-const TooltipTrigger = TooltipPrimitive.Trigger
+const Tooltip = ({ children }: { children: React.ReactNode }) => {
+	const [triggerRect, setTriggerRect] = React.useState<DOMRect | null>(null)
+	const [open, setOpen] = React.useState(false)
 
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Content
-    ref={ref}
-    sideOffset={sideOffset}
-    className={cn(
-      "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-tooltip-content-transform-origin]",
-      className
-    )}
-    {...props}
-  />
-))
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
+	return (
+		<TooltipContext.Provider value={{ open, triggerRect }}>
+			<span
+				className="inline-flex"
+				onMouseEnter={(event) => {
+					setTriggerRect(event.currentTarget.getBoundingClientRect())
+					setOpen(true)
+				}}
+				onMouseLeave={() => setOpen(false)}
+			>
+				{children}
+			</span>
+		</TooltipContext.Provider>
+	)
+}
 
+const TooltipTrigger = ({ asChild, children, ...props }: React.HTMLAttributes<HTMLElement> & { asChild?: boolean }) => asChild ? React.cloneElement(children as React.ReactElement<any>, { ...props, className: cn(props.className, (children as React.ReactElement<any>).props.className) }) : <span {...props}>{children}</span>
+
+const TooltipContent = ({ className, side = "top", sideOffset = 8, ...props }: React.HTMLAttributes<HTMLDivElement> & { side?: string; sideOffset?: number }) => {
+	const { open, triggerRect } = React.useContext(TooltipContext)
+
+	if (!open || !triggerRect || typeof document === "undefined") return null
+
+	const isRight = side === "right"
+	const style: React.CSSProperties = isRight
+		? { left: triggerRect.right + sideOffset, top: triggerRect.top + triggerRect.height / 2, transform: "translateY(-50%)" }
+		: { left: triggerRect.left + triggerRect.width / 2, top: triggerRect.top - sideOffset, transform: "translate(-50%, -100%)" }
+
+	return createPortal(
+		<div
+			className={cn("pointer-events-none fixed z-[100] whitespace-nowrap rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md", className)}
+			style={style}
+			{...props}
+		/>,
+		document.body,
+	)
+}
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

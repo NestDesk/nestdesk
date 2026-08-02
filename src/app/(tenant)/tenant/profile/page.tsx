@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Camera,
   CheckCircle2,
+  CircleAlert,
   Clock,
   Home,
   IdCard,
@@ -12,6 +13,7 @@ import {
   Pencil,
   Save,
   User,
+  X,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,7 +26,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../../components/ui/card";
-import { Badge } from "../../../../components/ui/badge";
 import {
   Accordion,
   AccordionContent,
@@ -100,7 +101,7 @@ const STATUS_CONFIG: Record<
     icon: Clock,
     note: "Your registration is under review. The property owner will approve your account shortly.",
     chipClassName:
-      "border-amber-300 bg-amber-50 text-orange-500 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
+      "border-yellow-300 bg-yellow-50 text-yellow-700 dark:border-yellow-500/40 dark:bg-yellow-500/15 dark:text-yellow-300",
   },
   active: {
     label: "Active",
@@ -142,6 +143,27 @@ export default function TenantProfilePage() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [isPhoneEditing, setIsPhoneEditing] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [showStatusNote, setShowStatusNote] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const statusNoteRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!showStatusNote) return;
+
+    function handleOutsidePointerDown(event: PointerEvent) {
+      if (
+        statusNoteRef.current &&
+        !statusNoteRef.current.contains(event.target as Node)
+      ) {
+        setShowStatusNote(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+    };
+  }, [showStatusNote]);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -150,13 +172,6 @@ export default function TenantProfilePage() {
   const [institutionName, setInstitutionName] = useState("");
   const [aadharNumber, setAadharNumber] = useState("");
   const [savedAadharLast4, setSavedAadharLast4] = useState<string | null>(null);
-  const [initialProfileState, setInitialProfileState] = useState({
-    fullName: "",
-    phone: "",
-    occupationType: "student",
-    institutionName: "",
-    aadharNumber: "",
-  });
   const [previewImage, setPreviewImage] = useState<{
     src: string;
     title: string;
@@ -179,13 +194,6 @@ export default function TenantProfilePage() {
       setInstitutionName(j.tenant.institution_name ?? "");
       setSavedAadharLast4(j.tenant.aadhar_last4 ?? null);
       setAadharNumber("");
-      setInitialProfileState({
-        fullName: j.tenant.full_name ?? "",
-        phone: j.tenant.phone ?? "",
-        occupationType: j.tenant.occupation_type ?? "student",
-        institutionName: j.tenant.institution_name ?? "",
-        aadharNumber: "",
-      });
     }
   }
 
@@ -264,7 +272,9 @@ export default function TenantProfilePage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setShowValidationErrors(true);
     if (!fullName.trim()) {
+      toast.error("Full name is required.");
       return;
     }
 
@@ -286,8 +296,21 @@ export default function TenantProfilePage() {
     }
 
     const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
-    if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
-      toast.error("Enter a valid Aadhaar number.");
+    const hasValidAadhaar =
+      Boolean(savedAadharLast4) ||
+      (Boolean(normalizedAadhaar) && isValidAadhaarNumber(normalizedAadhaar));
+    if (!hasValidAadhaar) {
+      toast.error(
+        normalizedAadhaar
+          ? "Enter a valid Aadhaar number."
+          : "Aadhaar number is required.",
+      );
+      return;
+    }
+
+    const missingDocuments = requiredDocumentErrors;
+    if (missingDocuments.length > 0) {
+      toast.error(`Upload ${missingDocuments.join(", ")} before saving.`);
       return;
     }
 
@@ -401,22 +424,20 @@ export default function TenantProfilePage() {
   const hasPhoneChanged =
     normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
   const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
-  const isAadhaarValid =
-    !normalizedAadhaar || isValidAadhaarNumber(normalizedAadhaar);
-
-  const hasChanges =
-    fullName !== initialProfileState.fullName ||
-    phone !== initialProfileState.phone ||
-    occupationType !== initialProfileState.occupationType ||
-    institutionName !== initialProfileState.institutionName ||
-    aadharNumber !== initialProfileState.aadharNumber;
+  const requiredDocumentErrors = [
+    !profile?.profile_photo_url ? DOC_LABELS.profile_photo : null,
+    !profile?.aadhar_front_url ? DOC_LABELS.aadhar_front : null,
+    !profile?.aadhar_back_url ? DOC_LABELS.aadhar_back : null,
+    !profile?.alternate_id_url ? DOC_LABELS.alternate_id : null,
+  ].filter((label): label is string => Boolean(label));
+  const missingRequiredFields = [
+    !normalizedAadhaar && !savedAadharLast4 ? "Aadhaar number" : null,
+    ...requiredDocumentErrors,
+  ].filter((label): label is string => Boolean(label));
 
   const canSave =
     !saving &&
-    hasChanges &&
-    Boolean(normalizedPhone) &&
-    /^\d{10}$/.test(normalizedPhone) &&
-    isAadhaarValid;
+    isEditingDetails;
 
   function UploadBlock({
     docType,
@@ -433,7 +454,12 @@ export default function TenantProfilePage() {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-semibold uppercase text-muted-foreground">{DOC_LABELS[docType]}</p>
-            <p className="text-[11px] text-muted-foreground">Auto-crop and compression are applied before upload.</p>
+            {!preview ? (
+              <p className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
+                <CircleAlert className="h-3 w-3 shrink-0" />
+                Please upload your {DOC_LABELS[docType].toLowerCase()}.
+              </p>
+            ) : null}
           </div>
           <span className="shrink-0 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">KYC</span>
         </div>
@@ -510,58 +536,54 @@ export default function TenantProfilePage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <header className="rounded-3xl border border-border/70 bg-gradient-to-br from-background via-background to-primary/[0.05] p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Tenant profile</p>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">My Profile</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Update your details, manage verification status, and keep your KYC documents current in one compact workspace.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border border-border/70 bg-background px-3 py-1.5 shadow-sm">Status overview</span>
-            <span className="rounded-full border border-border/70 bg-background px-3 py-1.5 shadow-sm">KYC uploads</span>
-            <span className="rounded-full border border-border/70 bg-background px-3 py-1.5 shadow-sm">Phone verification</span>
-          </div>
-        </div>
-      </header>
-
+     
       {/* ── Account status card ─────────────────────────────────────────── */}
       <Card className="rounded-3xl border-border/70 bg-gradient-to-br from-background via-background to-primary/[0.04] shadow-sm">
-        <CardContent className="flex flex-col gap-5 p-4 sm:p-5 lg:flex-row lg:items-start lg:gap-6">
-          {/* Avatar */}
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10">
-            {profile?.profile_photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.profile_photo_url}
-                alt="Profile"
-                className="h-24 w-24 rounded-3xl object-cover"
-              />
-            ) : (
-              <User className="h-9 w-9" />
-            )}
-          </div>
+        <CardContent className="flex flex-col gap-4 p-3 sm:gap-5 sm:p-5">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-5">
+            {/* Avatar */}
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-28 sm:w-28">
+              {profile?.profile_photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profile.profile_photo_url}
+                  alt="Profile"
+                  className="h-24 w-24 rounded-3xl object-cover sm:h-28 sm:w-28"
+                />
+              ) : (
+                <User className="h-7 w-7 sm:h-9 sm:w-9" />
+              )}
+            </div>
 
-          <div className="flex-1 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-foreground">
+            <div className="min-w-0 flex-1 space-y-1">
+              <h2 className="truncate text-base font-semibold text-foreground sm:text-lg">
                 {profile?.full_name ?? "—"}
               </h2>
-              <Badge
-                variant={statusCfg.variant}
-                className={`flex items-center gap-1 whitespace-nowrap border ${statusCfg.chipClassName}`}
-              >
-                <StatusIcon className="h-3 w-3" />
-                {statusCfg.label}
-              </Badge>
+              <p className="truncate text-sm text-muted-foreground">{profile?.email ?? "—"}</p>
+              <span ref={statusNoteRef} className="relative inline-flex">
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${statusCfg.chipClassName}`}
+                  aria-expanded={showStatusNote}
+                  aria-label={`Show details for ${statusCfg.label} status`}
+                  onClick={() => setShowStatusNote((visible) => !visible)}
+                >
+                  <StatusIcon className="h-3 w-3" />
+                  {statusCfg.label}
+                </button>
+                {showStatusNote ? (
+                  <div
+                    role="tooltip"
+                    className="absolute left-0 top-full z-20 mt-2 w-64 rounded-xl border border-border bg-popover p-3 text-xs leading-5 text-popover-foreground shadow-xl"
+                  >
+                    {statusCfg.note}
+                  </div>
+                ) : null}
+              </span>
             </div>
-            <p className="text-sm text-muted-foreground">{profile?.email ?? "—"}</p>
-            <p className="text-xs text-muted-foreground">{statusCfg.note}</p>
           </div>
 
-          <div className="w-full rounded-2xl border border-border/60 bg-background/90 p-4 shadow-sm lg:ml-auto lg:w-[320px]">
+          <div className="min-w-0">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-foreground">
                 Profile completion
@@ -579,7 +601,7 @@ export default function TenantProfilePage() {
               {profile?.profile_completion_counts.total ?? 0} requirements completed.
             </p>
             {profile?.profile_completion_missing?.length ? (
-              <p className="mt-1 text-xs font-bold text-orange-600 dark:text-orange-400">
+              <p className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
                 Missing: {profile.profile_completion_missing.join(", ")}
               </p>
             ) : null}
@@ -611,31 +633,39 @@ export default function TenantProfilePage() {
       </Dialog>
 
       {/* ── Edit details ───────────────────────────────────────────────── */}
-      <Card className="rounded-3xl border-border/70 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-            <span className="flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" />
-              Personal details
+      <Card className="overflow-hidden rounded-3xl border-border/70 bg-card/90 shadow-sm">
+        <CardHeader className="border-b border-border/60 bg-muted/15 px-4 py-4 sm:px-6 sm:py-5">
+          <CardTitle className="flex w-full items-center justify-between gap-3 text-base">
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+                <User className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold text-foreground">
+                  Personal details
+                </span>
+              
+              </span>
             </span>
             <Button
               type="button"
-              variant="outline"
+              variant={isEditingDetails ? "outline" : "default"}
               size="sm"
-              className="rounded-xl shrink-0"
+              className="shrink-0 rounded-xl"
               onClick={() => setIsEditingDetails((prev) => !prev)}
             >
-              {isEditingDetails ? "View mode" : "Edit details"}
+              {!isEditingDetails ? <Pencil className="h-4 w-4" /> : <X className="h-4 w-4" />}
+             
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSave} className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="space-y-4">
+        <CardContent className="p-0">
+          <form onSubmit={handleSave} className="space-y-8 p-4 sm:p-6">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <div className="space-y-6">
             {/* Full name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="profile-name">Full name</Label>
+            <div className="space-y-2">
+              <Label htmlFor="profile-name" className="text-sm font-medium">Full name</Label>
               <Input
                 id="profile-name"
                 type="text"
@@ -644,15 +674,21 @@ export default function TenantProfilePage() {
                   setFullName(e.target.value)
                 }
                 placeholder="Your full name"
-                className="rounded-xl w-full max-w-sm"
+                className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
                 required
                 disabled={!isEditingDetails}
               />
+              {!fullName.trim() ? (
+                <p className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
+                  <CircleAlert className="h-3 w-3 shrink-0" />
+                  Please enter your full name.
+                </p>
+              ) : null}
             </div>
 
             {/* Email (read-only) */}
-            <div className="space-y-1.5">
-              <Label htmlFor="profile-email">
+            <div className="space-y-2">
+              <Label htmlFor="profile-email" className="text-sm font-medium">
                 Email{" "}
                 <span className="text-muted-foreground font-normal">
                   (cannot be changed here)
@@ -663,17 +699,17 @@ export default function TenantProfilePage() {
                 type="email"
                 value={profile?.email ?? ""}
                 disabled
-                className="rounded-xl w-full max-w-sm opacity-60"
+                className="w-full max-w-sm rounded-xl border-border/70 bg-muted/40 opacity-70"
               />
             </div>
 
             {/* Phone */}
-            <div className="space-y-1.5">
-              <Label htmlFor="profile-phone">
+            <div className="space-y-2">
+              <Label htmlFor="profile-phone" className="text-sm font-medium">
                 Phone number <span className="text-rose-500">*</span>
               </Label>
-              <div className="flex flex-row items-center gap-2 max-w-sm">
-                <span className="inline-flex h-10 items-center rounded-xl border border-input bg-muted/30 px-3 text-sm text-muted-foreground">+91</span>
+              <div className="flex max-w-sm flex-row items-center gap-2">
+                <span className="inline-flex h-10 items-center rounded-xl border border-border/70 bg-muted/40 px-3 text-sm font-medium text-muted-foreground">+91</span>
                 <Input
                   id="profile-phone"
                   type="tel"
@@ -687,13 +723,13 @@ export default function TenantProfilePage() {
                     setOtpSent(false);
                   }}
                   placeholder="10-digit mobile number"
-                  className="rounded-xl w-full flex-1"
+                  className="w-full flex-1 rounded-xl border-border/70 bg-background/80 shadow-sm"
                 />
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="default"
                   size="icon"
-                  className="h-10 w-10 rounded-xl shrink-0"
+                  className="h-10 w-10 shrink-0 rounded-xl"
                   onClick={() => {
                     if (isPhoneEditing) {
                       setPhone(originalPhone);
@@ -708,19 +744,17 @@ export default function TenantProfilePage() {
                   <Pencil className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="flex min-w-0 flex-nowrap items-center gap-2 pt-1">
                 {phoneVerified ? (
                   <>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+                    <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
                       <CheckCircle2 className="h-4 w-4" />
                       Phone verified
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      Phone number is locked. Click the pencil icon to change it.
-                    </span>
+                   
                   </>
                 ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/15 dark:text-amber-300">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm dark:border-red-400/30 dark:bg-red-500/15 dark:text-red-300">
                     {isPhoneEditing
                       ? "Verify this number in the OTP dialog before saving."
                       : "Phone number is locked. Click the pencil icon to change it."}
@@ -748,23 +782,26 @@ export default function TenantProfilePage() {
                 </p>
               )}
               
-              {!phone && (
-                <p className="text-xs text-destructive">Phone number is required.</p>
-              )}
               {phone && !/^\d{10}$/.test(phone) && (
-                <p className="text-xs text-destructive">
+                <p className="text-xs font-bold text-red-600 dark:text-red-400">
                   Enter a valid 10-digit phone number.
+                </p>
+              )}
+              {!phone && (
+                <p className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
+                  <CircleAlert className="h-3 w-3 shrink-0" />
+                  Please enter your phone number.
                 </p>
               )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="occupation-type" className="block">
                 Occupation type
               </Label>
               <select
                 id="occupation-type"
-                className="block h-10 w-full max-w-sm rounded-xl border border-input bg-background px-3 text-sm"
+                className="block h-10 w-full max-w-sm rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
                 value={occupationType}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setOccupationType(e.target.value)
@@ -779,8 +816,8 @@ export default function TenantProfilePage() {
               </select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="institution-name">Institution name</Label>
+            <div className="space-y-2">
+              <Label htmlFor="institution-name" className="text-sm font-medium">Institution name</Label>
               <Input
                 id="institution-name"
                 type="text"
@@ -789,13 +826,13 @@ export default function TenantProfilePage() {
                   setInstitutionName(e.target.value)
                 }
                 placeholder="College / company / organization"
-                className="rounded-xl w-full max-w-sm"
+                className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
                 disabled={!isEditingDetails}
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="aadhar-number">Aadhaar number</Label>
+            <div className="space-y-2">
+              <Label htmlFor="aadhar-number" className="text-sm font-medium">Aadhaar number</Label>
               <Input
                 id="aadhar-number"
                 type="text"
@@ -806,7 +843,7 @@ export default function TenantProfilePage() {
                   setAadharNumber(normalizeAadhaarNumber(e.target.value))
                 }
                 placeholder="12-digit Aadhaar number"
-                className="rounded-xl w-full max-w-sm"
+                className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
                 disabled={!isEditingDetails}
               />
               {savedAadharLast4 && !aadharNumber ? (
@@ -815,30 +852,38 @@ export default function TenantProfilePage() {
                 </p>
               ) : null}
               {aadharNumber && !isValidAadhaarNumber(aadharNumber) ? (
-                <p className="text-xs text-destructive">Aadhaar number is invalid</p>
+                <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                  Aadhaar number is invalid
+                </p>
+              ) : null}
+              {!normalizedAadhaar && !savedAadharLast4 ? (
+                <p className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
+                  <CircleAlert className="h-3 w-3 shrink-0" />
+                  Please enter your Aadhaar number.
+                </p>
               ) : null}
             </div>
 
               </div>
 
-              <aside className="self-start space-y-4 rounded-3xl border border-border/70 bg-muted/20 p-4 shadow-sm lg:max-w-sm">
+              <aside className="self-start rounded-2xl border border-primary/15 bg-primary/[0.04] p-5 shadow-sm lg:max-w-sm">
                 <Accordion type="single" collapsible className="w-full" defaultValue="quick-tips">
                   <AccordionItem
                     value="quick-tips"
-                    className="rounded-3xl border border-transparent bg-transparent"
+                    className="border-0"
                   >
-                    <AccordionTrigger className="rounded-3xl px-0 py-0 text-left hover:no-underline [&>svg]:ml-2">
+                    <AccordionTrigger className="px-0 py-0 text-left hover:no-underline [&>svg]:ml-2">
                       <div className="space-y-1 text-left">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Quick tips</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Quick tips</p>
                         <h3 className="text-sm font-semibold text-foreground">Keep your account review-ready</h3>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-3">
-                      <ul className="space-y-2 text-sm text-muted-foreground">
-                        <li>• Verify your phone number before saving any updated contact detail.</li>
-                        <li>• Alternate ID documents can be used if Aadhaar is not available.</li>
-                        <li>• Keep front and back Aadhaar and alternate ID images clear and cropped.</li>
-                        <li>• Update institution details if your stay or role changes.</li>
+                      <ul className="space-y-2 text-sm leading-5 text-muted-foreground">
+                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Verify your phone number before saving any updated contact detail.</li>
+                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Alternate ID documents can be used if Aadhaar is not available.</li>
+                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Keep front and back Aadhaar and alternate ID images clear and cropped.</li>
+                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Update institution details if your stay or role changes.</li>
                       </ul>
                     </AccordionContent>
                   </AccordionItem>
@@ -846,10 +891,15 @@ export default function TenantProfilePage() {
               </aside>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <IdCard className="h-4 w-4 text-primary" />
-                <p className="text-sm font-semibold text-foreground">Documents</p>
+            <div className="space-y-4 border-t border-border/60 pt-6">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+                  <IdCard className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Documents</p>
+                  <p className="text-xs text-muted-foreground">Upload clear images for a faster review.</p>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <UploadBlock
@@ -869,13 +919,19 @@ export default function TenantProfilePage() {
                   preview={profile?.alternate_id_url ?? null}
                 />
               </div>
+              {showValidationErrors && missingRequiredFields.length > 0 ? (
+                <p className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
+                  Missing: {missingRequiredFields.join(", ")}
+                </p>
+              ) : null}
             </div>
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
               <div>
                 <p className="text-sm font-semibold text-foreground">Ready to save your changes?</p>
-                </div>
-              <Button type="submit" disabled={!canSave} className="rounded-xl">
+                <p className="mt-1 text-xs text-muted-foreground">Your updated details will be reflected in your tenant profile.</p>
+              </div>
+              <Button type="submit" disabled={!canSave} className="rounded-xl sm:min-w-32">
               {saving ? (
                 <>
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

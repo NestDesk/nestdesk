@@ -19,6 +19,7 @@ import {
   Settings,
   AlertCircle,
   Megaphone,
+  FileText,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -29,7 +30,7 @@ import {
 } from "../ui/tooltip";
 import { type OwnerPlan } from "../../lib/subscriptions";
 
-const navItems = [
+const ownerNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Properties", href: "/hostels", icon: Building2 },
   { label: "Tenants", href: "/tenants", icon: Users },
@@ -45,12 +46,25 @@ const navItems = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
+const tenantNavItems = [
+  { label: "Dashboard", href: "/tenant/dashboard", icon: LayoutDashboard },
+  { label: "My Profile", href: "/tenant/profile", icon: UserCircle2 },
+  { label: "Payments", href: "/tenant/payments", icon: CreditCard },
+  { label: "Notices", href: "/tenant/notices", icon: Megaphone },
+  { label: "Maintenance", href: "/tenant/maintenance", icon: Wrench },
+  { label: "Support Staff", href: "/tenant/support-staff", icon: Users },
+  { label: "Terms & Conditions", href: "/tenant/terms", icon: FileText },
+];
+
+export type PortalType = "owner" | "tenant";
+
 interface SidebarProps {
   collapsed?: boolean;
   mobile?: boolean;
   onNavigate?: () => void;
-  isPhoneVerified: boolean;
+  isPhoneVerified?: boolean;
   currentPlan?: OwnerPlan;
+  portal?: PortalType;
 }
 
 const freePlanAllowedPages = new Set([
@@ -65,22 +79,28 @@ const freePlanAllowedPages = new Set([
 
 const isFreePlanAllowedSidebarHref = (href: string) =>
   freePlanAllowedPages.has(href) ||
-  freePlanAllowedPages.has(href.split("/")[1] ? `/${href.split("/")[1]}` : href);
+  freePlanAllowedPages.has(
+    href.split("/")[1] ? `/${href.split("/")[1]}` : href,
+  );
 
 export function Sidebar({
   collapsed = false,
   mobile = false,
   onNavigate,
-  isPhoneVerified,
+  isPhoneVerified = true,
   currentPlan,
+  portal = "owner",
 }: SidebarProps) {
   const pathname = usePathname();
   const [propertyWarning, setPropertyWarning] = useState<string | null>(null);
+  const navItems = portal === "tenant" ? tenantNavItems : ownerNavItems;
 
   useEffect(() => {
     let mounted = true;
 
     async function loadPropertyWarning() {
+      if (portal === "tenant") return;
+
       try {
         const res = await fetch("/api/hostels", { cache: "no-store" });
         if (!res.ok) {
@@ -134,14 +154,17 @@ export function Sidebar({
 
     return () => {
       mounted = false;
-      window.removeEventListener("hostel-status-changed", handleHostelStatusChanged);
+      window.removeEventListener(
+        "hostel-status-changed",
+        handleHostelStatusChanged,
+      );
     };
-  }, []);
+  }, [portal]);
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        "sidebar-surface relative z-30 flex h-full flex-col overflow-hidden border-r shadow-[inset_-1px_0_0_hsl(var(--sidebar-border)/0.65)] transition-[width,background-color,border-color] duration-200",
         mobile ? "w-72" : "hidden md:flex",
         !mobile && (collapsed ? "w-20" : "w-60"),
       )}
@@ -149,7 +172,7 @@ export function Sidebar({
       {/* Logo */}
       <div
         className={cn(
-          "flex h-16 items-center border-b border-sidebar-border",
+          "flex h-16 flex-none items-center border-b border-sidebar-border/90 bg-sidebar/95 px-5 backdrop-blur-sm",
           collapsed && !mobile ? "justify-center px-2" : "gap-2.5 px-5",
         )}
       >
@@ -163,19 +186,27 @@ export function Sidebar({
                 NestDesk
               </span>
               <span className="text-[11px] leading-tight text-sidebar-foreground/60">
-                Owner Portal
+                {portal === "tenant" ? "Tenant Portal" : "Owner Portal"}
               </span>
             </span>
           )}
         </Link>
       </div>
-
+<hr />
       <TooltipProvider delayDuration={100}>
-        <nav className="flex-1 space-y-0.5 p-3">
+        <nav
+          className={cn(
+            "flex flex-1 flex-col space-y-0.5 overflow-y-auto p-3",
+            collapsed && !mobile && "items-center",
+          )}
+        >
           {navItems.map(({ label, href, icon: Icon }) => {
-            const showUnverifiedWarning = label === "My Profile" && !isPhoneVerified;
+            const showUnverifiedWarning =
+              label === "My Profile" && !isPhoneVerified;
             const showPropertyWarning =
-              label === "My Properties" && Boolean(propertyWarning);
+              portal === "owner" &&
+              label === "My Properties" &&
+              Boolean(propertyWarning);
             const isRestricted =
               currentPlan === "free" && !isFreePlanAllowedSidebarHref(href);
 
@@ -186,14 +217,19 @@ export function Sidebar({
                 onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                  collapsed && !mobile && "justify-center px-2",
+                  collapsed && !mobile && "mx-auto w-10 justify-center px-0",
                   pathname === href
-                    ? "bg-gradient-to-r from-primary/80 to-blue-500/70 text-white shadow-md shadow-primary/20"
-                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                    ? "bg-gradient-to-r from-primary/85 to-blue-500/75 text-white shadow-md shadow-primary/20"
+                    : "text-sidebar-foreground/90 hover:bg-[hsl(var(--sidebar-accent))]/90 hover:text-sidebar-accent-foreground",
                   isRestricted && "opacity-60",
                 )}
+                aria-current={pathname === href ? "page" : undefined}
               >
-                <div className="relative">
+                <div
+                  className={cn(
+                    "relative flex h-4 w-4 items-center justify-center",
+                  )}
+                >
                   <Icon className="h-4 w-4 shrink-0" />
                   {(showPropertyWarning || showUnverifiedWarning) &&
                   collapsed &&

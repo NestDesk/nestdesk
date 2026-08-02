@@ -177,7 +177,7 @@ export async function PATCH(request: NextRequest) {
 
   if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
     return NextResponse.json(
-      { error: "Invalid Aadhaar number checksum." },
+      { error: "Invalid Aadhaar number." },
       { status: 400 },
     );
   }

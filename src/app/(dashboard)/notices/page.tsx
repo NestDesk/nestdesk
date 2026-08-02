@@ -437,17 +437,6 @@ export default function OwnerNoticesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-         
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Notices
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Publish announcements to your property tenants.
-            </p>
-          </div>
-        </div>
         <Button onClick={() => openCreateModal()} size="sm" className="h-9 gap-1.5">
           <Plus className="h-4 w-4" />
           New Notice

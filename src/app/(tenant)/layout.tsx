@@ -3,18 +3,7 @@ import { redirect } from "next/navigation";
 import { resolveUserAccountRole } from "../../lib/auth";
 import { createClient } from "../../lib/supabase/server";
 import { createAdminClient } from "../../lib/supabase/admin";
-import { LogOut, Sparkles } from "lucide-react";
-import { Navbar, NavbarLogo } from "../../components/layout/Navbar";
-import { ThemeToggle } from "../../components/layout/ThemeToggle";
-import { TenantMobileNav } from "../../components/layout/TenantMobileNav";
-import { TenantNav } from "../../components/layout/TenantNav";
-
-const PROPERTY_TYPE_LABELS: Record<string, string> = {
-  pg: "PG",
-  hostel: "Hostel",
-  coliving: "Co-living",
-  rental: "Rental",
-};
+import { TenantShell } from "../../components/layout/TenantShell";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -56,103 +45,5 @@ export default async function TenantLayout({
     redirect("/onboarding");
   }
 
-  const hostel =
-    // @ts-expect-error supabase nested select type
-    (tenant.hostels as {
-      name: string;
-      address: string | null;
-      city: string | null;
-      state: string | null;
-      pincode: string | null;
-      property_type: string | null;
-    } | null) ?? null;
-
-  const hostelName = hostel?.name ?? "Your Property";
-  const propertyType = hostel?.property_type
-    ? (PROPERTY_TYPE_LABELS[hostel.property_type] ?? hostel.property_type)
-    : null;
-  const propertyAddress = [
-    hostel?.address,
-    hostel?.city,
-    hostel?.state,
-    hostel?.pincode,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  return (
-    <div className="relative min-h-screen bg-background">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(14,165,233,0.1),transparent_40%)]" />
-
-      <Navbar
-        left={
-          <>
-            <NavbarLogo href="/" subtitle="Tenant Portal" />
-             <TenantMobileNav />
-          </>
-        }
-        right={
-          <>           
-            <span className="hidden text-xs text-muted-foreground md:block">
-              {tenant.full_name}
-            </span>
-            <ThemeToggle />
-            <form action="/api/auth/logout" method="POST">
-              <button
-                type="submit"
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-border/70 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                title="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Sign out</span>
-              </button>
-            </form>
-          </>
-        }
-      />
-
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:py-6">
-        <aside className="space-y-4">
-          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Tenant Workspace
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Everything about your stay
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-xl border border-border/60 bg-background/70 p-4">
-              <p className="line-clamp-1 text-base font-semibold text-foreground">
-                {hostelName}
-              </p>
-              {propertyType ? (
-                <p className="mt-1 text-sm uppercase tracking-[0.16em] text-primary/75">
-                  {propertyType}
-                </p>
-              ) : null}
-
-              {propertyAddress ? (
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {propertyAddress}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="hidden md:block">
-            <TenantNav />
-          </div>
-        </aside>
-
-        <main className="min-w-0 pb-8">{children}</main>
-      </div>
-    </div>
-  );
+  return <TenantShell tenantName={tenant.full_name}>{children}</TenantShell>;
 }

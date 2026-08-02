@@ -88,18 +88,6 @@ export default async function OwnerProfilePage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            My Profile
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Owner account details and business profile information.
-          </p>
-        </div>
-      </div>
-
       <Separator />
 
       <div className="grid gap-4 lg:grid-cols-3">

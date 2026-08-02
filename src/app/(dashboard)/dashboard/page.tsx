@@ -20,7 +20,6 @@ import {
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { formatDateInIndia } from "../../../lib/date";
-import { calculateRent } from "../../../lib/billing";
 import {
   formatPlanLabel,
   getEffectivePlan,
@@ -52,18 +51,6 @@ type HostelOccupancyRow = {
   occupiedRooms: number;
   totalBeds: number;
   occupiedBeds: number;
-};
-
-type RecentPaymentRow = {
-  id: string;
-  amount: number;
-  tenant_name: string;
-  room_number: string | null;
-  hostel_name: string;
-  status: string;
-  method: string | null;
-  paid_on: string | null;
-  created_at: string;
 };
 
 export default async function DashboardPage() {
@@ -102,7 +89,6 @@ export default async function DashboardPage() {
     vacantBeds: 0,
   };
   let hostelOccupancy: HostelOccupancyRow[] = [];
-  let recentPayments: RecentPaymentRow[] = [];
   const now = new Date();
   const monthStart = formatDateToLocalISO(
     new Date(now.getFullYear(), now.getMonth(), 1),
@@ -238,18 +224,16 @@ export default async function DashboardPage() {
             const agreed = Number(tenant.agreed_rent_amount) || 0;
             if (agreed <= 0) return sum;
 
-            const tenantStart =
-              tenant.rent_start_date ?? tenant.join_date ?? monthStart;
-            const startDate =
-              tenantStart < monthStart ? monthStart : tenantStart;
-            const tenantEnd = tenant.move_out_date ?? monthEnd;
-            const endDate = tenantEnd > monthEnd ? monthEnd : tenantEnd;
+            const tenantStart = tenant.rent_start_date ?? tenant.join_date;
+            const tenantEnd = tenant.move_out_date;
+            if (
+              (tenantStart && tenantStart > monthEnd) ||
+              (tenantEnd && tenantEnd < monthStart)
+            ) {
+              return sum;
+            }
 
-            if (startDate > endDate) return sum;
-
-            return (
-              sum + calculateRent(agreed, startDate, endDate).payableAmount
-            );
+            return sum + agreed;
           }, 0);
 
           const tenantCountByRoom = new Map<string, number>();
@@ -362,75 +346,6 @@ export default async function DashboardPage() {
             0,
           );
 
-          const { data: recentPaymentRows, error: recentPaymentsError } =
-            await admin
-              .from("payments")
-              .select(
-                "id, tenant_id, hostel_id, amount, status, method, paid_on, created_at",
-              )
-              .in("hostel_id", hostelIds)
-              .order("paid_on", { ascending: false })
-              .order("created_at", { ascending: false })
-              .limit(10);
-
-          if (recentPaymentsError) {
-            console.error(
-              "[dashboard] failed to load recent payments",
-              recentPaymentsError,
-            );
-          } else {
-            const tenantIds = Array.from(
-              new Set(
-                (recentPaymentRows ?? [])
-                  .map((payment) => payment.tenant_id)
-                  .filter((id): id is string => Boolean(id)),
-              ),
-            );
-
-            const { data: recentTenants } = tenantIds.length
-              ? await admin
-                  .from("tenants")
-                  .select("id, full_name, rooms(room_number)")
-                  .in("id", tenantIds)
-              : { data: [] };
-
-            const tenantMap = new Map<
-              string,
-              { fullName: string; roomNumber: string | null }
-            >();
-            for (const tenant of (recentTenants ?? []) as Array<{
-              id: string;
-              full_name: string;
-              rooms?:
-                | { room_number: string }
-                | Array<{ room_number: string }>
-                | null;
-            }>) {
-              const room = Array.isArray(tenant.rooms)
-                ? tenant.rooms[0]
-                : tenant.rooms;
-              tenantMap.set(tenant.id, {
-                fullName: tenant.full_name,
-                roomNumber: room?.room_number ?? null,
-              });
-            }
-
-            const hostelNameMap = new Map(hostels.map((h) => [h.id, h.name]));
-            recentPayments = (recentPaymentRows ?? []).map((payment) => {
-              const tenant = tenantMap.get(payment.tenant_id ?? "");
-              return {
-                id: payment.id,
-                amount: Number(payment.amount) || 0,
-                tenant_name: tenant?.fullName ?? "Tenant",
-                room_number: tenant?.roomNumber ?? null,
-                hostel_name: hostelNameMap.get(payment.hostel_id) ?? "Property",
-                status: payment.status,
-                method: payment.method ?? null,
-                paid_on: payment.paid_on,
-                created_at: payment.created_at,
-              };
-            });
-          }
         }
       } else {
         // No properties at all
@@ -485,7 +400,7 @@ export default async function DashboardPage() {
       iconBg: "bg-emerald-500/10",
     },
     {
-      label: "Expected Rent",
+      label: "Expected Rent Collection",
       subtitle: `${currentMonthRangeLabel}`,
       value: `Rs. ${new Intl.NumberFormat("en-IN").format(thisMonthRevenueExpected)}`,
       description: undefined,
@@ -532,12 +447,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Dashboard
-        </h2>
-      </div>
-
       {/* ── Top dashboard prompts ─────────────────────────── */}
       <div className="space-y-2">
         {!hasProperties && (
@@ -621,15 +530,13 @@ export default async function DashboardPage() {
             </div>
 
             <div className="shrink-0">
-              <Button
-                asChild
-                className="rounded-lg pl-4 pr-4 py-0.5 text-[10px]"
+              <Link
+                href="/subscriptions"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-1.5 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                <Link href="/subscriptions">
-                  Manage
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
+                Manage
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </div>
           </div>
           {previousPlanExpiredNote ? (
@@ -853,87 +760,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="rounded-2xl border-border/70">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Recent Payments</CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-0">
-            {hasProperties ? (
-              recentPayments.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="hidden text-[10px] uppercase tracking-[0.15em] text-muted-foreground sm:grid sm:grid-cols-[1.15fr_0.85fr_0.6fr_auto] sm:gap-3 sm:px-1">
-                    <span>Tenant</span>
-                    <span>Property</span>
-                    <span>Amount</span>
-                    <span className="text-right">Date</span>
-                  </div>
-                  <div className="space-y-2">
-                    {recentPayments.map((payment) => (
-                      <article
-                        key={payment.id}
-                        className="rounded-xl border border-border/70 bg-slate-50 p-2.5 shadow-sm transition-colors hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-900 sm:p-3"
-                      >
-                        <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[1.1fr_0.9fr_0.55fr_auto] sm:items-center sm:gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                              {payment.tenant_name}
-                            </p>
-                            {payment.room_number ? (
-                              <p className="truncate text-xs text-muted-foreground">
-                                Room {payment.room_number}
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 truncate text-sm text-foreground">
-                            {payment.hostel_name}
-                          </div>
-                          <div className="text-sm font-semibold text-foreground whitespace-nowrap">
-                            Rs.{" "}
-                            {new Intl.NumberFormat("en-IN").format(
-                              payment.amount,
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-1 text-sm text-foreground sm:justify-end sm:text-right">
-                            <span className="text-xs uppercase text-muted-foreground sm:hidden">
-                              {payment.status === "paid" ? "Paid" : "Disputed"}
-                            </span>
-                            <span className="break-all text-left sm:text-sm">
-                              {formatDateInIndia(
-                                payment.paid_on ?? payment.created_at,
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="mt-1 hidden text-xs text-muted-foreground uppercase sm:block">
-                          {payment.status === "paid" ? "Paid" : "Disputed"}
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                  <Button asChild variant="outline" className="mt-1 w-full">
-                    <Link href="/payments">View All Payments</Link>
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No payments recorded yet. Add a property and tenants to start
-                  tracking collections.
-                </p>
-              )
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No payments yet. Add a property and tenants to start tracking
-                collections.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid gap-4">
         <Card className="rounded-2xl border-border/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Room Occupancy</CardTitle>
@@ -1035,7 +862,7 @@ export default async function DashboardPage() {
                   </div>
                 )}
 
-                <Button asChild variant="outline" size="sm" className="w-full">
+                <Button asChild variant="default" size="sm" className="w-full">
                   <Link href="/hostels">Open Room Setup</Link>
                 </Button>
               </div>

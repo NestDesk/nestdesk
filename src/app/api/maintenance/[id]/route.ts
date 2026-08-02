@@ -38,8 +38,9 @@ async function getOwnerId() {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const owner = await getOwnerId();
   if (owner.error) {
     return owner.error;
@@ -64,7 +65,7 @@ export async function PATCH(
   const { data: maintenance } = await admin
     .from("maintenance_requests")
     .select("id, hostel_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle();
 

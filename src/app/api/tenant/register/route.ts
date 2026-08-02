@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     : null;
   if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
     return NextResponse.json(
-      { error: "Invalid Aadhaar number checksum. Please verify and try again." },
+      { error: "Invalid Aadhaar number. Please verify and try again." },
       { status: 400 },
     );
   }

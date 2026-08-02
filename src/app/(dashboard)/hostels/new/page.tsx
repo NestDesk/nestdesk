@@ -125,15 +125,6 @@ export default function NewPropertyPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Add Property
-          </h2>
-          <p className="text-muted-foreground">
-            Create a new property under your account.
-          </p>
-        </div>
-
         <Button asChild variant="outline" className="rounded-xl">
           <Link href="/hostels">
             <ArrowLeft className="mr-2 h-4 w-4" />
