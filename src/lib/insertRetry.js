@@ -1,6 +1,6 @@
-const fs = require('fs');
+import fs from "node:fs";
 
-const code = \
+const code = 
   async function handleRetryOtp() {
     if (!reqId) {
       return handleSendOtp();
@@ -23,8 +23,7 @@ const code = \
     } finally {
       setSendingOtp(false);
     }
-  }
-\;
+  };
 
 const filePath = 'src/app/tenant/register/page.tsx';
 let data = fs.readFileSync(filePath, 'utf8');

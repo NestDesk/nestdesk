@@ -37,8 +37,9 @@ async function resolveTenantId() {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const resolved = await resolveTenantId();
   if ("error" in resolved) {
     return resolved.error;
@@ -63,7 +64,7 @@ export async function PATCH(
   const { data: existing } = await admin
     .from("maintenance_requests")
     .select("id, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", resolved.tenantId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -89,7 +90,7 @@ export async function PATCH(
       description: parsed.data.description ? parsed.data.description : null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", params.id)
+    .eq("id", id)
     .select("id, title, description, updated_at")
     .maybeSingle();
 
@@ -102,8 +103,9 @@ export async function PATCH(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const resolved = await resolveTenantId();
   if ("error" in resolved) {
     return resolved.error;
@@ -113,7 +115,7 @@ export async function DELETE(
   const { data: existing } = await admin
     .from("maintenance_requests")
     .select("id, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", resolved.tenantId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -138,7 +140,7 @@ export async function DELETE(
       deleted_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

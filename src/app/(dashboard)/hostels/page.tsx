@@ -303,7 +303,7 @@ export default async function PropertiesPage() {
                 </div>
 
                 <div className="mt-auto pt-4">
-                  <Button asChild variant="outline" className="w-full rounded-xl">
+                  <Button asChild variant="default" className="w-full rounded-xl">
                     <Link href={`/hostels/${property.id}/setup`}>
                       Setup Floor Plan & Rooms
                       <ArrowRight className="ml-2 h-4 w-4" />

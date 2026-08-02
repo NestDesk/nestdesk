@@ -621,15 +621,13 @@ export default async function DashboardPage() {
             </div>
 
             <div className="shrink-0">
-              <Button
-                asChild
-                className="rounded-lg pl-4 pr-4 py-0.5 text-[10px]"
+              <Link
+                href="/subscriptions"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-1.5 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                <Link href="/subscriptions">
-                  Manage
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-              </Button>
+                Manage
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </div>
           </div>
           {previousPlanExpiredNote ? (

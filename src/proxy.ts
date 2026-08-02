@@ -112,7 +112,7 @@ function inferPreferredRole(pathname: string, redirectTo?: string | null) {
   return null;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip auth lookup for static/HMR/auth API requests to reduce duplicate dev traffic.
