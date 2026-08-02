@@ -20,7 +20,6 @@ import {
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { formatDateInIndia } from "../../../lib/date";
-import { calculateRent } from "../../../lib/billing";
 import {
   formatPlanLabel,
   getEffectivePlan,
@@ -225,18 +224,16 @@ export default async function DashboardPage() {
             const agreed = Number(tenant.agreed_rent_amount) || 0;
             if (agreed <= 0) return sum;
 
-            const tenantStart =
-              tenant.rent_start_date ?? tenant.join_date ?? monthStart;
-            const startDate =
-              tenantStart < monthStart ? monthStart : tenantStart;
-            const tenantEnd = tenant.move_out_date ?? monthEnd;
-            const endDate = tenantEnd > monthEnd ? monthEnd : tenantEnd;
+            const tenantStart = tenant.rent_start_date ?? tenant.join_date;
+            const tenantEnd = tenant.move_out_date;
+            if (
+              (tenantStart && tenantStart > monthEnd) ||
+              (tenantEnd && tenantEnd < monthStart)
+            ) {
+              return sum;
+            }
 
-            if (startDate > endDate) return sum;
-
-            return (
-              sum + calculateRent(agreed, startDate, endDate).payableAmount
-            );
+            return sum + agreed;
           }, 0);
 
           const tenantCountByRoom = new Map<string, number>();

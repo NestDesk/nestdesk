@@ -4,10 +4,32 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 import { cn } from "../../lib/utils"
 type MenuState = { open: boolean; setOpen: (open: boolean) => void }
 const MenuContext = React.createContext<MenuState | null>(null)
-const DropdownMenu = ({ children }: { children: React.ReactNode }) => { const [open, setOpen] = React.useState(false); return <MenuContext.Provider value={{ open, setOpen }}><span className="relative inline-flex">{children}</span></MenuContext.Provider> }
+const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
+	const [open, setOpen] = React.useState(false);
+	const menuRef = React.useRef<HTMLSpanElement>(null);
+
+	React.useEffect(() => {
+		if (!open) return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			if (!menuRef.current?.contains(event.target as Node)) {
+				setOpen(false);
+			}
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown);
+		return () => document.removeEventListener("pointerdown", handlePointerDown);
+	}, [open]);
+
+	return (
+		<MenuContext.Provider value={{ open, setOpen }}>
+			<span ref={menuRef} className="relative inline-flex">{children}</span>
+		</MenuContext.Provider>
+	);
+}
 const DropdownMenuTrigger = ({ asChild, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => { const state = React.useContext(MenuContext); const onClick = () => state?.setOpen(!state.open); return asChild ? React.cloneElement(children as React.ReactElement<any>, { ...props, onClick, className: cn(props.className, (children as React.ReactElement<any>).props.className) }) : <button type="button" {...props} onClick={onClick}>{children}</button> }
 const DropdownMenuContent = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { align?: string; sideOffset?: number }) => { const state = React.useContext(MenuContext); if (!state?.open) return null; return <div role="menu" className={cn("absolute right-0 top-full z-50 mt-1 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", className)} {...props}>{children}</div> }
-const DropdownMenuItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { inset?: boolean; disabled?: boolean; onSelect?: () => void }>(({ className, inset, disabled, onSelect, ...props }, ref) => { const state = React.useContext(MenuContext); return <div ref={ref} role="menuitem" tabIndex={0} aria-disabled={disabled} onClick={() => { if (!disabled) { onSelect?.(); state?.setOpen(false) } }} className={cn("relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent", disabled && "pointer-events-none opacity-50", inset && "pl-8", className)} {...props} /> })
+const DropdownMenuItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { inset?: boolean; disabled?: boolean; onSelect?: () => void }>(({ className, inset, disabled, onSelect, onClick, ...props }, ref) => { const state = React.useContext(MenuContext); return <div ref={ref} role="menuitem" tabIndex={0} aria-disabled={disabled} onClick={(event) => { if (!disabled) { onClick?.(event); onSelect?.(); state?.setOpen(false) } }} className={cn("relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent", disabled && "pointer-events-none opacity-50", inset && "pl-8", className)} {...props} /> })
 DropdownMenuItem.displayName = "DropdownMenuItem"
 const DropdownMenuCheckboxItem = ({ className, children, checked, onCheckedChange, ...props }: React.HTMLAttributes<HTMLDivElement> & { checked?: boolean; onCheckedChange?: (checked: boolean) => void }) => <div role="menuitemcheckbox" aria-checked={checked} onClick={() => onCheckedChange?.(!checked)} className={cn("relative flex cursor-pointer items-center rounded-sm py-1.5 pl-8 pr-2 text-sm hover:bg-accent", className)} {...props}><span className="absolute left-2">{checked && <Check className="h-4 w-4" />}</span>{children}</div>
 const DropdownMenuRadioItem = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div className={cn("relative flex items-center rounded-sm py-1.5 pl-8 pr-2 text-sm", className)} {...props}><span className="absolute left-2"><Circle className="h-2 w-2 fill-current" /></span>{children}</div>
