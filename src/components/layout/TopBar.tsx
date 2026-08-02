@@ -1,10 +1,11 @@
-"use client";
+  "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import {
   CreditCard,
+  Info,
   LayoutDashboard,
   LogOut,
   PanelLeft,
@@ -14,6 +15,7 @@ import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MobileNav } from "./MobileNav";
 import { Navbar } from "./Navbar";
+import { getOwnerPageDetails } from "./owner-page-details";
 import {
   formatPlanLabel,
   normalizeOwnerPlan,
@@ -55,13 +57,21 @@ export function TopBar({
   onToggleSidebar,
 }: TopBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const activePage = getOwnerPageDetails(pathname);
+  const ActivePageIcon = activePage?.icon;
   const [user, setUser] = useState<TopBarUser | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionSnapshot>({
     plan: "free",
     status: "free",
   });
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showPageInfo, setShowPageInfo] = useState(false);
   const userLoadedRef = useRef(false);
+
+  useEffect(() => {
+    setShowPageInfo(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (userLoadedRef.current) {
@@ -184,9 +194,38 @@ export function TopBar({
               )}
             </Button>
           ) : null}
-          {title && (
+          {activePage ? (
+            <div className="relative flex min-w-0 items-center gap-1.5 border-l border-border/70 pl-2 sm:gap-2 sm:pl-3">
+              {ActivePageIcon ? (
+                <ActivePageIcon className="h-4 w-4 shrink-0 text-primary" />
+              ) : null}
+              <h1 className="max-w-[7rem] truncate text-md font-semibold text-foreground sm:max-w-none sm:text-sm">
+                {activePage.title}
+              </h1>
+              <button
+                type="button"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`About ${activePage.title}`}
+                aria-expanded={showPageInfo}
+                aria-controls="topbar-page-info"
+                onClick={() => setShowPageInfo((visible) => !visible)}
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+              {showPageInfo ? (
+                <div
+                  id="topbar-page-info"
+                  role="status"
+                  className="absolute right-0 top-full z-[60] mt-2 w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-border bg-popover p-3 text-left text-xs leading-5 text-popover-foreground shadow-xl"
+                >
+                  {activePage.description}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {!activePage && title ? (
             <h1 className="text-sm font-semibold text-foreground">{title}</h1>
-          )}
+          ) : null}
         </>
       }
       right={

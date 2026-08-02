@@ -48,19 +48,6 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-2">
-      {/* Page header */}
-      <div className="flex items-center gap-3">
-        
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Settings
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Manage your account, properties, and preferences.
-          </p>
-        </div>
-      </div>
-
       <Separator />
 
       {/* Business Settings - All management sections */}

@@ -532,12 +532,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Dashboard
-        </h2>
-      </div>
-
       {/* ── Top dashboard prompts ─────────────────────────── */}
       <div className="space-y-2">
         {!hasProperties && (

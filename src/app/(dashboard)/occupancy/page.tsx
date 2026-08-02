@@ -75,14 +75,6 @@ export default async function OccupancyPage() {
   if (!owner) {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Occupancy
-          </h2>
-          <p className="text-muted-foreground">
-            Room and tenant allocation overview
-          </p>
-        </div>
         <Card className="rounded-2xl">
           <CardContent className="py-8">
             <p className="text-sm text-muted-foreground">Owner account not found.</p>
@@ -108,14 +100,6 @@ export default async function OccupancyPage() {
   if (hostelIds.length === 0) {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Occupancy
-          </h2>
-          <p className="text-muted-foreground">
-            Room and tenant allocation overview
-          </p>
-        </div>
         <Card className="rounded-2xl border-border/70">
           <CardContent className="flex flex-col items-start gap-3 py-8">
             <p className="text-sm text-muted-foreground">
@@ -246,15 +230,6 @@ export default async function OccupancyPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Occupancy
-        </h2>
-        <p className="text-muted-foreground">
-          Visual room allocation by property, floor, and tenant.
-        </p>
-      </div>
-
       <PropertyOccupancyAccordion properties={properties} />
     </div>
   );

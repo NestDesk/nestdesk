@@ -1170,18 +1170,6 @@ export default function OwnerTenantsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Tenants
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Review registrations, approve move-ins, assign rooms, and track
-            tenant status.
-          </p>
-        </div>
-      </div>
-
       <Accordion
         type="multiple"
         value={summaryAccordionValue}

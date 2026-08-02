@@ -781,16 +781,6 @@ export default function OwnerPaymentsPage() {
       </Dialog>
       {/* â”€â”€ Header â”€â”€ */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Payments
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Record and track rent payments.
-            </p>
-          </div>
-        </div>
         <Button size="sm" className="h-9 gap-1.5" onClick={openRecordModal}>
           <Plus className="h-4 w-4" />
           Record Payment

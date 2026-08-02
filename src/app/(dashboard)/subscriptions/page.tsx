@@ -140,20 +140,6 @@ export default async function SubscriptionsPage() {
     <div className="mx-auto">
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
-          <div className="rounded-[28px] border border-border/70 bg-background/80 p-6 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div>               
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  Subscriptions and usage
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  View your active plan, credits, and recent history in a modern
-                  dashboard designed for fast decision making.
-                </p>
-              </div>
-            </div>
-          </div>
-
           <SubscriptionsUsageClient
             currentPlanDisplayName={currentPlanLabel}
             propertyCount={propertyCount ?? 0}

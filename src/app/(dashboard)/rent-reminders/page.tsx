@@ -413,10 +413,6 @@ export default function RentRemindersPage() {
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Monthly Rent reminders</h1>
-          <p className="text-sm text-muted-foreground">Send reminders for tenants with pending rent in a cleaner, more compact view.</p>
-        </div>
         <Button
           onClick={openConfirmDialog}
           disabled={sending || selectedRecipients.length === 0}

@@ -68,13 +68,6 @@ export default async function PropertiesPage() {
   if (error) {
     return (
       <div className="space-y-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Properties
-          </h2>
-          <p className="text-muted-foreground">Your added properties</p>
-        </div>
-
         <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
           <CardHeader>
             <CardTitle className="text-base text-destructive">
@@ -159,16 +152,6 @@ export default async function PropertiesPage() {
     <div className="space-y-6">
       <div className="overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/10 via-background to-blue-500/10">
         <div className="flex flex-col gap-5 p-6 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Properties
-            </h2>
-            <p className="max-w-xl text-sm text-muted-foreground">
-              Manage each property, complete floor plans, and unlock activation once
-              floors and rooms are configured.
-            </p>
-          </div>
-
           <Button asChild className="rounded-xl md:self-start">
             <Link href="/hostels/new">
               <Plus className="mr-2 h-4 w-4" />

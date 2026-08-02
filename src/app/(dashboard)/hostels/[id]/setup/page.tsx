@@ -58,17 +58,6 @@ export default async function PropertySetupPage({ params }: Props) {
 
   return (
     <div className="w-full space-y-2 sm:space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Setup Property
-          </h2>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            {property.name}
-          </p>
-        </div>
-      </div>
-
       <PropertySetupManager
         hostelId={property.id}
         propertyName={property.name}
