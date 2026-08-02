@@ -6,6 +6,7 @@
 - Never expose Razorpay secrets or put client-side secrets in UI code.
 - Use editor/type checks for normal changes; do not run `npm run build` for every small edit.
 - IMPORTANT - Do not Run npm run build
+- After every edit do  not run eslint - IMPORTANT!
 
 Common paths:
 - Tenant API: `src/app/api/tenant/**`

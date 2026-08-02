@@ -7,27 +7,14 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
-  Clock,
-  Download,
   FileImage,
   IndianRupee,
   Loader2,
-  Receipt,
-  Search,
   ShieldCheck,
   User,
-  UserCheck,
-  UserX,
   X,
-  ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "../../../components/ui/accordion";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
@@ -39,24 +26,28 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { DatePicker } from "../../../components/ui/DatePicker";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import {
   RecordPaymentModal,
-  type PaymentMethod,
 } from "../../../components/payments/RecordPaymentModal";
 import { calculateRent } from "../../../lib/billing";
 import { printInvoice } from "../../../lib/invoice";
 import { cn } from "../../../lib/utils";
-
-type TenantStatus = "pending" | "active" | "moved_out" | "rejected";
+import { TenantsSearchToolbar } from "../../../components/tenants/TenantsSearchToolbar";
+import { TenantPaymentHistoryDialog } from "../../../components/tenants/TenantPaymentHistoryDialog";
+import { TenantPendingInfoDialog } from "../../../components/tenants/TenantPendingInfoDialog";
+import { TenantsSummary } from "../../../components/tenants/TenantsSummary";
+import { TenantsTabs } from "../../../components/tenants/TenantsTabs";
+import { STATUS_OPTIONS } from "../../../components/tenants/tenant-constants";
+import type {
+  HostelSummary,
+  PaymentHistoryItem,
+  PendingBreakdownItem,
+  TenantSortOption,
+  TenantPaymentCoverage,
+  TenantStatus,
+} from "../../../components/tenants/tenant-types";
 
 type TenantRow = {
   id: string;
@@ -80,12 +71,6 @@ type TenantRow = {
   move_out_date: string | null;
   created_at: string;
   updated_at: string;
-};
-
-type HostelSummary = {
-  id: string;
-  name: string;
-  location: string;
 };
 
 type RoomSummary = {
@@ -120,21 +105,6 @@ type TenantDraft = {
   joinDate: string;
   rentStartDate: string;
   moveOutDate: string;
-};
-
-type TenantSortOption =
-  | "none"
-  | "room_number"
-  | "join_date"
-  | "profile_completion"
-  | "rent_amount";
-
-const SORT_OPTION_LABELS: Record<TenantSortOption, string> = {
-  none: "Sort by",
-  room_number: "Room number",
-  join_date: "Joined date",
-  profile_completion: "Profile completion",
-  rent_amount: "Rent amount",
 };
 
 type TenantProfileDetail = {
@@ -201,16 +171,10 @@ const AVATAR_STATUS_DOT: Record<TenantStatus, string> = {
   rejected: "bg-rose-500",
 };
 
-const STATUS_OPTIONS: Array<{ value: TenantStatus; label: string }> = [
-  { value: "pending", label: "Pending" },
-  { value: "active", label: "Active" },
-  { value: "moved_out", label: "Moved Out" },
-  { value: "rejected", label: "Rejected" },
-];
-
 function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, "");
-  const withoutCountryCode = digits.startsWith("91") ? digits.slice(2) : digits;
+  const withoutCountryCode =
+    digits.length > 10 && digits.startsWith("91") ? digits.slice(2) : digits;
   return withoutCountryCode.slice(0, 10);
 }
 
@@ -259,34 +223,6 @@ function formatAmount(n: number) {
     maximumFractionDigits: 0,
   }).format(n);
 }
-
-function formatMonthLabel(monthStr: string) {
-  const [year, month] = monthStr.split("-").map(Number);
-  if (!year || !month) return monthStr;
-  return formatDateInIndia(new Date(year, month - 1, 1), {
-    month: "short",
-    year: "numeric",
-  });
-}
-
-type TenantPaymentCoverage = {
-  status: "paid" | "pending";
-  coveredTill: string | null;
-  pendingFrom: string | null;
-  pendingTo: string | null;
-  pendingAmount: number;
-  pendingBreakdown: PendingBreakdownItem[];
-};
-
-type PendingBreakdownItem = {
-  monthLabel: string;
-  start: string;
-  end: string;
-  occupiedDays: number;
-  daysInMonth: number;
-  amount: number;
-  isPartial: boolean;
-};
 
 type PaymentCoverageRow = {
   tenant_id: string;
@@ -354,38 +290,6 @@ function calculatePendingBreakdown(
 
   return rows;
 }
-
-const METHOD_LABEL: Record<PaymentMethod, string> = {
-  cash: "Cash",
-  upi: "UPI",
-  bank_transfer: "Bank Transfer",
-  other: "Other",
-};
-
-type PaymentHistoryItem = {
-  id: string;
-  amount: number;
-  month: string;
-  billing_start: string | null;
-  billing_end: string | null;
-  status: "paid" | "disputed";
-  method: string | null;
-  receipt_number: string | null;
-  notes: string | null;
-  paid_at: string | null;
-  paid_on: string;
-  created_at: string;
-  tenant_name: string;
-  room_number: string | null;
-  hostel_name: string;
-  hostel_address: string | null;
-  hostel_city: string | null;
-  hostel_state: string | null;
-  hostel_pincode: string | null;
-  hostel_billing_address: string | null;
-  hostel_gst_number: string | null;
-  hostel_pan_number: string | null;
-};
 
 type PaymentHistorySummary = {
   totalPaid: number;
@@ -459,15 +363,10 @@ export default function OwnerTenantsPage() {
   const [paymentCoverageByTenant, setPaymentCoverageByTenant] = useState<
     Record<string, TenantPaymentCoverage>
   >({});
+  const [activeTab, setActiveTab] = useState<"tenants" | "summary">("tenants");
   const [pendingInfoOpen, setPendingInfoOpen] = useState(false);
   const [pendingInfoTenant, setPendingInfoTenant] = useState<TenantRow | null>(
     null,
-  );
-  const [summaryAccordionValue, setSummaryAccordionValue] = useState<string[]>(
-    [],
-  );
-  const [filterAccordionValue, setFilterAccordionValue] = useState<string[]>(
-    [],
   );
   const [pendingInfoDetail, setPendingInfoDetail] =
     useState<TenantPaymentCoverage | null>(null);
@@ -607,27 +506,6 @@ export default function OwnerTenantsPage() {
       // handled in loadTenants
     });
   }, [loadTenants]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-
-    const syncAccordions = () => {
-      setSummaryAccordionValue(mediaQuery.matches ? ["summary-cards"] : []);
-      setFilterAccordionValue(mediaQuery.matches ? ["filters-panel"] : []);
-    };
-
-    syncAccordions();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", syncAccordions);
-      return () => mediaQuery.removeEventListener("change", syncAccordions);
-    }
-
-    mediaQuery.addListener(syncAccordions);
-    return () => mediaQuery.removeListener(syncAccordions);
-  }, []);
 
   const filteredTenants = useMemo(() => {
     const matches = tenants.filter((tenant) => {
@@ -1170,259 +1048,41 @@ export default function OwnerTenantsPage() {
 
   return (
     <div className="space-y-4">
-      <Accordion
-        type="multiple"
-        value={summaryAccordionValue}
-        onValueChange={setSummaryAccordionValue}
-        className="w-full"
-      >
-        <AccordionItem
-          value="summary-cards"
-          className="overflow-hidden rounded-xl border border-border/70 bg-background"
+      <TenantsTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {activeTab === "summary" ? (
+        <TenantsSummary
+          summary={summary}
+          hostelsCount={hostels.length}
+          propertyStatusCounts={propertyStatusCounts}
+        />
+      ) : (
+        <div
+          id="tenants-panel"
+          role="tabpanel"
+          aria-labelledby="tenants-tab"
+          className="space-y-3"
         >
-          <AccordionTrigger className="rounded-none border-none bg-background px-4 py-3 text-left hover:no-underline">
-            <span className="text-sm font-semibold text-foreground">
-              Tenant summary cards
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="border-t border-border/70 bg-background p-0">
-            <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Total Card */}
-              <Card className="rounded-xl border-border/70">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                      <User className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Total
-                      </p>
-                      <p className="text-xl font-bold text-foreground">
-                        {summary.total}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-                    {Object.values(propertyStatusCounts).map((item) => (
-                      <div key={item.name}>
-                        {item.name}:{" "}
-                        <span className="font-semibold text-foreground">
-                          {item.total}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Active Card */}
-              <Card className="rounded-xl border-border/70">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
-                      <UserCheck className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Active
-                      </p>
-                      <p className="text-xl font-bold text-foreground">
-                        {summary.active}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-                    {Object.values(propertyStatusCounts).map((item) => (
-                      <div key={item.name}>
-                        {item.name}:{" "}
-                        <span className="font-semibold text-foreground">
-                          {item.active}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Pending Card */}
-              <Card className="rounded-xl border-border/70">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
-                      <Clock className="h-4 w-4 text-amber-500" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Pending
-                      </p>
-                      <p className="text-xl font-bold text-foreground">
-                        {summary.pending}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-                    {Object.values(propertyStatusCounts).map((item) => (
-                      <div key={item.name}>
-                        {item.name}:{" "}
-                        <span className="font-semibold text-foreground">
-                          {item.pending}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Moved Out Card */}
-              <Card className="rounded-xl border-border/70">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-500/10">
-                      <UserX className="h-4 w-4 text-slate-500" />
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Moved Out
-                      </p>
-                      <p className="text-xl font-bold text-foreground">
-                        {summary.moved_out}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-                    {Object.values(propertyStatusCounts).map((item) => (
-                      <div key={item.name}>
-                        {item.name}:{" "}
-                        <span className="font-semibold text-foreground">
-                          {item.moved_out}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
-      <Accordion
-        type="multiple"
-        value={filterAccordionValue}
-        onValueChange={setFilterAccordionValue}
-        className="w-full space-y-0.5"
-      >
-        <AccordionItem
-          value="filters-panel"
-          className="overflow-hidden rounded-xl border border-border/70 bg-background"
-        >
-          <AccordionTrigger className="rounded-none border-none bg-background px-4 py-3 text-left hover:no-underline">
-            <span className="text-sm font-semibold text-foreground">
-              Filters
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="border-t border-border/70 bg-background p-0">
-            <Card className="rounded-none border-none shadow-none">
-              <CardContent className="grid gap-2 p-3 sm:grid-cols-[30%_70%]">
-                <div className="relative min-w-0">
-                  <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by name, email, room, or property"
-                    className="pl-8 min-w-0"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All status</option>
-                    {STATUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
-                    value={hostelFilter}
-                    onChange={(e) => setHostelFilter(e.target.value)}
-                  >
-                    <option value="all">All properties</option>
-                    {hostels.map((hostel) => (
-                      <option key={hostel.id} value={hostel.id}>
-                        {hostel.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-2.5 text-sm"
-                    value={paymentStatusFilter}
-                    onChange={(e) =>
-                      setPaymentStatusFilter(
-                        e.target.value as "all" | "paid" | "pending",
-                      )
-                    }
-                  >
-                    <option value="all">All rent status</option>
-                    <option value="paid">Rent paid</option>
-                    <option value="pending">Rent pending</option>
-                  </select>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-10 min-w-[10rem] justify-between"
-                      >
-                        <span className="truncate text-sm">
-                          {SORT_OPTION_LABELS[sortOption]}
-                        </span>
-                        <ArrowUpDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem
-                        onSelect={() => setSortOption("room_number")}
-                      >
-                        Room number
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => setSortOption("join_date")}
-                      >
-                        Joined date
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => setSortOption("profile_completion")}
-                      >
-                        Profile completion
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => setSortOption("rent_amount")}
-                      >
-                        Rent amount
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => setSortOption("none")}>
-                        Clear sorting
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
+          <TenantsSearchToolbar
+            searchQuery={searchQuery}
+            statusFilter={statusFilter}
+            hostelFilter={hostelFilter}
+            paymentStatusFilter={paymentStatusFilter}
+            sortOption={sortOption}
+            hostels={hostels}
+            onSearchChange={setSearchQuery}
+            onStatusChange={setStatusFilter}
+            onHostelChange={setHostelFilter}
+            onPaymentStatusChange={setPaymentStatusFilter}
+            onSortChange={setSortOption}
+            onClear={() => {
+              setSearchQuery("");
+              setStatusFilter("active");
+              setHostelFilter("all");
+              setPaymentStatusFilter("all");
+              setSortOption("none");
+            }}
+          />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -2006,6 +1666,9 @@ export default function OwnerTenantsPage() {
         </div>
       )}
 
+        </div>
+      )}
+
       <Dialog open={reviewOpen} onOpenChange={closeReview}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
@@ -2315,239 +1978,22 @@ export default function OwnerTenantsPage() {
         onRecorded={() => loadTenants()}
       />
 
-      {/* Payment History Dialog */}
-      <Dialog open={paymentHistoryOpen} onOpenChange={closePaymentHistory}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-4xl lg:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-muted-foreground" />
-              Payment History
-            </DialogTitle>
-            <DialogDescription>
-              {paymentHistoryTenant?.full_name} — all recorded payments
-            </DialogDescription>
-          </DialogHeader>
+      <TenantPaymentHistoryDialog
+        open={paymentHistoryOpen}
+        onOpenChange={closePaymentHistory}
+        tenantName={paymentHistoryTenant?.full_name}
+        items={paymentHistoryItems}
+        summary={paymentHistorySummary}
+        loading={paymentHistoryLoading}
+        onPrintInvoice={printInvoice}
+      />
 
-          {paymentHistoryLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : paymentHistoryItems.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-14 text-center">
-              <Receipt className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                No payments recorded yet.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Summary */}
-              <div className="grid grid-cols-3 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3">
-                <div className="text-center">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Total Paid
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                    {formatAmount(paymentHistorySummary.totalPaid)}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Disputed
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-rose-600 dark:text-rose-400">
-                    {formatAmount(paymentHistorySummary.disputedAmount)}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Records
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-foreground">
-                    {paymentHistorySummary.total}
-                  </p>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="overflow-x-auto rounded-xl border border-border/70">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/70 bg-muted/40">
-                      <th className="px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Paid On
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Billing Period
-                      </th>
-                      <th className="px-3 py-2.5 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Amount
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Method
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Status
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Receipt
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {paymentHistoryItems.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="transition-colors hover:bg-muted/30"
-                      >
-                        <td className="px-3 py-2.5 text-xs text-foreground">
-                          {formatDate(p.paid_on)}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-foreground">
-                          {p.billing_start || p.billing_end ? (
-                            <span className="whitespace-pre-line">
-                              {p.billing_start
-                                ? formatDate(p.billing_start)
-                                : "—"}
-                              {p.billing_start && p.billing_end ? " - " : ""}
-                              {p.billing_end ? formatDate(p.billing_end) : ""}
-                            </span>
-                          ) : (
-                            formatMonthLabel(p.month)
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-xs font-medium text-foreground">
-                          {formatAmount(Number(p.amount))}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                          {p.method
-                            ? (METHOD_LABEL[p.method as PaymentMethod] ??
-                              p.method)
-                            : "—"}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs">
-                          <span
-                            className={cn(
-                              "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                              p.status === "paid"
-                                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
-                                : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-300",
-                            )}
-                          >
-                            {p.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <span>{p.receipt_number ?? "—"}</span>
-                            {p.receipt_number ? (
-                              <button
-                                type="button"
-                                onClick={() => printInvoice(p)}
-                                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:bg-muted"
-                                title="Download invoice"
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={pendingInfoOpen} onOpenChange={setPendingInfoOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rent Status Details</DialogTitle>
-            <DialogDescription>
-              {pendingInfoTenant?.full_name} billing status from rent start
-              date.
-            </DialogDescription>
-          </DialogHeader>
-
-          {pendingInfoDetail?.status === "paid" ? (
-            <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300">
-              Fully paid till today.
-              {pendingInfoDetail.coveredTill
-                ? ` Covered till ${formatDate(pendingInfoDetail.coveredTill)}.`
-                : ""}
-            </div>
-          ) : pendingInfoDetail ? (
-            <div className="space-y-2 rounded-lg border border-orange-300 bg-orange-50 px-3 py-3 text-sm text-orange-800 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p>
-                    Pending Amount:{" "}
-                    {formatAmount(pendingInfoDetail.pendingAmount)}
-                  </p>
-                  <p>
-                    Pending Period: {formatDate(pendingInfoDetail.pendingFrom)}{" "}
-                    - {formatDate(pendingInfoDetail.pendingTo)}
-                  </p>
-                  {pendingInfoDetail.coveredTill ? (
-                    <p>
-                      Last Paid Till:{" "}
-                      {formatDate(pendingInfoDetail.coveredTill)}
-                    </p>
-                  ) : (
-                    <p>No paid period found yet.</p>
-                  )}
-                </div>
-              </div>
-
-              {pendingInfoDetail.pendingBreakdown.length > 0 ? (
-                <div className="mt-3 overflow-hidden rounded-md border border-orange-200/70 bg-background/70 dark:border-orange-500/30">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-orange-200/70 text-left dark:border-orange-500/30">
-                        <th className="px-2 py-1.5">Month</th>
-                        <th className="px-2 py-1.5">Dates</th>
-                        <th className="px-2 py-1.5">Days</th>
-                        <th className="px-2 py-1.5 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingInfoDetail.pendingBreakdown.map((row) => (
-                        <tr
-                          key={`${row.start}-${row.end}`}
-                          className="border-b border-orange-100/80 last:border-b-0 dark:border-orange-500/20"
-                        >
-                          <td className="px-2 py-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <span>{row.monthLabel}</span>
-                              {row.isPartial ? (
-                                <span className="rounded-full border border-orange-300 px-1.5 py-0 text-[10px] leading-4 dark:border-orange-500/40">
-                                  Partial
-                                </span>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {formatDate(row.start)} - {formatDate(row.end)}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {row.occupiedDays}/{row.daysInMonth}
-                          </td>
-                          <td className="px-2 py-1.5 text-right font-medium">
-                            {formatAmount(row.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <TenantPendingInfoDialog
+        open={pendingInfoOpen}
+        onOpenChange={setPendingInfoOpen}
+        tenantName={pendingInfoTenant?.full_name}
+        detail={pendingInfoDetail}
+      />
     </div>
   );
 }
