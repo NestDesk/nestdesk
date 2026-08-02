@@ -176,7 +176,12 @@ export function Sidebar({
       </div>
 <hr />
       <TooltipProvider delayDuration={100}>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+        <nav
+          className={cn(
+            "flex flex-1 flex-col space-y-0.5 overflow-y-auto p-3",
+            collapsed && !mobile && "items-center",
+          )}
+        >
           {navItems.map(({ label, href, icon: Icon }) => {
             const showUnverifiedWarning =
               label === "My Profile" && !isPhoneVerified;
@@ -192,7 +197,7 @@ export function Sidebar({
                 onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                  collapsed && !mobile && "justify-center px-2",
+                  collapsed && !mobile && "mx-auto w-10 justify-center px-0",
                   pathname === href
                     ? "bg-gradient-to-r from-primary/85 to-blue-500/75 text-white shadow-md shadow-primary/20"
                     : "text-sidebar-foreground/90 hover:bg-[hsl(var(--sidebar-accent))]/90 hover:text-sidebar-accent-foreground",
@@ -200,7 +205,11 @@ export function Sidebar({
                 )}
                 aria-current={pathname === href ? "page" : undefined}
               >
-                <div className="relative">
+                <div
+                  className={cn(
+                    "relative flex h-4 w-4 items-center justify-center",
+                  )}
+                >
                   <Icon className="h-4 w-4 shrink-0" />
                   {(showPropertyWarning || showUnverifiedWarning) &&
                   collapsed &&
