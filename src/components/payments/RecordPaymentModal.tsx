@@ -198,7 +198,7 @@ export function RecordPaymentModal({
 
     const tenant = tenants.find((item) => item.id === initialTenantId);
     const { startDate, endDate } = getNextBillingPeriod(tenant, payments);
-    let initialAmount =
+    const initialAmount =
       tenant?.agreed_rent_amount !== null && tenant?.agreed_rent_amount !== undefined
         ? String(tenant.agreed_rent_amount)
         : "";

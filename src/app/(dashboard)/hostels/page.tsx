@@ -1,11 +1,9 @@
 import {
-  ArrowRight,
   Building2,
   CheckCircle2,
   Home,
   Layers3,
   MapPin,
-  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "../../../lib/supabase/server";

@@ -29,12 +29,12 @@ export const Popover: React.FC<{
   const open = controlledOpen ?? uncontrolledOpen;
   const [triggerElement, setTriggerElement] = React.useState<HTMLElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = React.useCallback((nextOpen: boolean) => {
     if (controlledOpen === undefined) {
       setUncontrolledOpen(nextOpen);
     }
     onOpenChange?.(nextOpen);
-  };
+  }, [controlledOpen, onOpenChange]);
   const popoverRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -51,7 +51,7 @@ export const Popover: React.FC<{
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [open, controlledOpen, triggerElement]);
+  }, [open, handleOpenChange, triggerElement]);
 
   return (
     <PopoverContext.Provider

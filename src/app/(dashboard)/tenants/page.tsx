@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDateInIndia } from "../../../lib/date";
 import {
   Building2,
-  CalendarDays,
   CheckCircle2,
   FileImage,
   IndianRupee,
