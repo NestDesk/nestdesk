@@ -4,13 +4,17 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, type PortalType } from "./Sidebar";
 
 interface MobileNavProps {
-  isPhoneVerified: boolean;
+  isPhoneVerified?: boolean;
+  portal?: PortalType;
 }
 
-export function MobileNav({ isPhoneVerified }: MobileNavProps) {
+export function MobileNav({
+  isPhoneVerified = true,
+  portal = "owner",
+}: MobileNavProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -30,6 +34,7 @@ export function MobileNav({ isPhoneVerified }: MobileNavProps) {
           mobile
           onNavigate={() => setOpen(false)}
           isPhoneVerified={isPhoneVerified}
+          portal={portal}
         />
       </SheetContent>
     </Sheet>

@@ -24,7 +24,7 @@ export function encryptAadhaar(plain: string) {
 export function decryptAadhaar(ciphertext: string) {
   const [ivHex, tagHex, encryptedHex] = ciphertext.split("::");
   if (!ivHex || !tagHex || !encryptedHex) {
-    throw new Error("Invalid Aadhaar ciphertext format.");
+    throw new Error("Invalid Aadhaar");
   }
 
   const iv = Buffer.from(ivHex, "hex");

@@ -141,26 +141,11 @@ export default async function PropertiesPage() {
   const activeProperties = propertiesWithPlanState.filter(
     (property) => property.is_active,
   ).length;
-  const readyFloorPlans = propertiesWithPlanState.filter(
-    (property) => property.isFloorPlanComplete,
-  ).length;
-
-  const floorPlanReadiness =
-    totalProperties > 0 ? Math.round((readyFloorPlans / totalProperties) * 100) : 0;
 
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/10 via-background to-blue-500/10">
-        <div className="flex flex-col gap-5 p-6 md:flex-row md:items-start md:justify-between">
-          <Button asChild className="rounded-xl md:self-start">
-            <Link href="/hostels/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Property
-            </Link>
-          </Button>
-        </div>
-
-        <div className="grid gap-3 border-t border-border/60 bg-background/60 p-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 border-t border-border/60 bg-background/60 p-4">
           <div className="rounded-xl border border-border/70 bg-background/70 p-3">
             <p className="text-xs text-muted-foreground">Total Properties</p>
             <p className="mt-1 text-xl font-semibold text-foreground">
@@ -175,12 +160,6 @@ export default async function PropertiesPage() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-border/70 bg-background/70 p-3">
-            <p className="text-xs text-muted-foreground">Floor Plan Readiness</p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
-              {floorPlanReadiness}%
-            </p>
-          </div>
         </div>
       </div>
 
@@ -289,13 +268,23 @@ export default async function PropertiesPage() {
                   <Button asChild variant="default" className="w-full rounded-xl">
                     <Link href={`/hostels/${property.id}/setup`}>
                       Setup Floor Plan & Rooms
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                   
                     </Link>
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
+
+          <div className="flex flex-col justify-end rounded-2xl border-0 bg-transparent p-0 md:min-h-full md:items-center md:justify-center md:gap-3 md:border md:border-dashed md:border-primary/35 md:bg-primary/[0.03] md:p-6 md:text-center">
+            
+            <Button asChild className="w-full rounded-xl md:w-auto">
+              <Link href="/hostels/new">
+                Add new property
+               
+              </Link>
+            </Button>
+          </div>
         </div>
       )}
     </div>

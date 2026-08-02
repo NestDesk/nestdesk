@@ -19,6 +19,7 @@ import {
   Settings,
   AlertCircle,
   Megaphone,
+  FileText,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -29,7 +30,7 @@ import {
 } from "../ui/tooltip";
 import { type OwnerPlan } from "../../lib/subscriptions";
 
-const navItems = [
+const ownerNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Properties", href: "/hostels", icon: Building2 },
   { label: "Tenants", href: "/tenants", icon: Users },
@@ -45,12 +46,25 @@ const navItems = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
+const tenantNavItems = [
+  { label: "Dashboard", href: "/tenant/dashboard", icon: LayoutDashboard },
+  { label: "My Profile", href: "/tenant/profile", icon: UserCircle2 },
+  { label: "Payments", href: "/tenant/payments", icon: CreditCard },
+  { label: "Notices", href: "/tenant/notices", icon: Megaphone },
+  { label: "Maintenance", href: "/tenant/maintenance", icon: Wrench },
+  { label: "Support Staff", href: "/tenant/support-staff", icon: Users },
+  { label: "Terms & Conditions", href: "/tenant/terms", icon: FileText },
+];
+
+export type PortalType = "owner" | "tenant";
+
 interface SidebarProps {
   collapsed?: boolean;
   mobile?: boolean;
   onNavigate?: () => void;
-  isPhoneVerified: boolean;
+  isPhoneVerified?: boolean;
   currentPlan?: OwnerPlan;
+  portal?: PortalType;
 }
 
 const freePlanAllowedPages = new Set([
@@ -73,16 +87,20 @@ export function Sidebar({
   collapsed = false,
   mobile = false,
   onNavigate,
-  isPhoneVerified,
+  isPhoneVerified = true,
   currentPlan,
+  portal = "owner",
 }: SidebarProps) {
   const pathname = usePathname();
   const [propertyWarning, setPropertyWarning] = useState<string | null>(null);
+  const navItems = portal === "tenant" ? tenantNavItems : ownerNavItems;
 
   useEffect(() => {
     let mounted = true;
 
     async function loadPropertyWarning() {
+      if (portal === "tenant") return;
+
       try {
         const res = await fetch("/api/hostels", { cache: "no-store" });
         if (!res.ok) {
@@ -141,7 +159,7 @@ export function Sidebar({
         handleHostelStatusChanged,
       );
     };
-  }, []);
+  }, [portal]);
 
   return (
     <aside
@@ -168,7 +186,7 @@ export function Sidebar({
                 NestDesk
               </span>
               <span className="text-[11px] leading-tight text-sidebar-foreground/60">
-                Owner Portal
+                {portal === "tenant" ? "Tenant Portal" : "Owner Portal"}
               </span>
             </span>
           )}
@@ -186,7 +204,9 @@ export function Sidebar({
             const showUnverifiedWarning =
               label === "My Profile" && !isPhoneVerified;
             const showPropertyWarning =
-              label === "My Properties" && Boolean(propertyWarning);
+              portal === "owner" &&
+              label === "My Properties" &&
+              Boolean(propertyWarning);
             const isRestricted =
               currentPlan === "free" && !isFreePlanAllowedSidebarHref(href);
 

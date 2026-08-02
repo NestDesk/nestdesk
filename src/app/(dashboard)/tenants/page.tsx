@@ -536,31 +536,70 @@ export default function OwnerTenantsPage() {
       return matches;
     }
 
-    return [...matches].sort((a, b) => {
+    const roomCollator = new Intl.Collator(undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+
+    const compareWithMissingLast = <T,>(
+      a: T | null | undefined,
+      b: T | null | undefined,
+      compare: (left: T, right: T) => number,
+      descending = false,
+    ) => {
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      const result = compare(a, b);
+      return descending ? -result : result;
+    };
+
+    const sorted = [...matches].sort((a, b) => {
       if (sortOption === "room_number") {
-        const aRoom = Number(a.room_number ?? "") || Number.POSITIVE_INFINITY;
-        const bRoom = Number(b.room_number ?? "") || Number.POSITIVE_INFINITY;
-        return aRoom - bRoom;
+        const result = compareWithMissingLast(
+          a.room_number?.trim() || null,
+          b.room_number?.trim() || null,
+          (left, right) => roomCollator.compare(left, right),
+        );
+        if (result !== 0) return result;
       }
 
       if (sortOption === "join_date") {
-        const aDate = a.join_date ? new Date(a.join_date).getTime() : 0;
-        const bDate = b.join_date ? new Date(b.join_date).getTime() : 0;
-        return bDate - aDate;
+        const aDate = a.join_date ? Date.parse(a.join_date) : null;
+        const bDate = b.join_date ? Date.parse(b.join_date) : null;
+        const result = compareWithMissingLast(
+          Number.isNaN(aDate) ? null : aDate,
+          Number.isNaN(bDate) ? null : bDate,
+          (left, right) => left - right,
+          true,
+        );
+        if (result !== 0) return result;
       }
 
       if (sortOption === "profile_completion") {
-        return (
-          b.profile_completion_percentage - a.profile_completion_percentage
+        const result = compareWithMissingLast(
+          a.profile_completion_percentage,
+          b.profile_completion_percentage,
+          (left, right) => left - right,
+          true,
         );
+        if (result !== 0) return result;
       }
 
       if (sortOption === "rent_amount") {
-        return (b.agreed_rent_amount ?? 0) - (a.agreed_rent_amount ?? 0);
+        const result = compareWithMissingLast(
+          a.agreed_rent_amount,
+          b.agreed_rent_amount,
+          (left, right) => left - right,
+          true,
+        );
+        if (result !== 0) return result;
       }
 
-      return 0;
+      return roomCollator.compare(a.full_name, b.full_name) || a.id.localeCompare(b.id);
     });
+
+    return sorted;
   }, [
     hostelFilter,
     paymentCoverageByTenant,
@@ -1179,40 +1218,16 @@ export default function OwnerTenantsPage() {
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         {/* Meta */}
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <Building2 className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                            {tenant.hostel_name}
-                          </span>
-
-                          {(tenant.rent_start_date ?? tenant.join_date) ? (
-                            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                              Rent start{" "}
-                              {formatDate(
-                                tenant.rent_start_date ?? tenant.join_date,
-                              )}
-                            </span>
-                          ) : null}
-
-                          {tenant.agreed_rent_amount ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                              <IndianRupee className="h-3 w-3" />
-                              {formatCurrency(tenant.agreed_rent_amount)}
-                              <span className="font-normal text-muted-foreground">
-                                /mo
-                              </span>
-                            </span>
-                          ) : null}
-
-                          <div className="flex w-full flex-wrap items-center gap-2.5">
-                            {tenant.room_number ? (
-                              <span className="inline-flex max-w-max items-center rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300">
-                                Room {tenant.room_number}
-                              </span>
-                            ) : null}
+                         
+                            <div className="flex w-full flex-wrap items-center gap-2.5">
+                                  {tenant.room_number ? (
+                                    <span className="inline-flex max-w-max items-center rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-300">
+                                      Room {tenant.room_number}
+                                    </span>
+                                  ) : null}
                             <span
                               className={cn(
-                                "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                "rounded-full border px-2 py-0.5 text-xs font-medium",
                                 tenant.status === "active"
                                   ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
                                   : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300",
@@ -1230,7 +1245,7 @@ export default function OwnerTenantsPage() {
                                   openPendingInfo(tenant, coverage)
                                 }
                                 className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap",
+                                  "rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
                                   coverage.status === "paid"
                                     ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
                                     : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300",
@@ -1241,7 +1256,21 @@ export default function OwnerTenantsPage() {
                                   : `Rent Pending till Today ${formatAmount(coverage.pendingAmount)}`}
                               </button>
                             ) : null}
-                          </div>
+                          </div> <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Building2 className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                            {tenant.hostel_name}
+                          </span>
+                          {tenant.agreed_rent_amount ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                              <IndianRupee className="h-3 w-3" />
+                              {formatCurrency(tenant.agreed_rent_amount)}
+                              <span className="font-normal text-muted-foreground">
+                                /mo
+                              </span>
+                            </span>
+                          ) : null}
+
+                       
                         </div>
 
                         {/* Right side: action buttons */}
@@ -1279,17 +1308,7 @@ export default function OwnerTenantsPage() {
                                   History
                                 </button>
                               </div>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 rounded-lg p-0 text-muted-foreground hover:text-foreground"
-                                onClick={cancelEdit}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -1298,7 +1317,17 @@ export default function OwnerTenantsPage() {
 
                   {/* ── Manage panel ── */}
                   {isEditing && draft ? (
-                    <div className="border-t border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background px-4 pb-5 pt-4">
+                    <div className="relative border-t border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background px-4 pb-5 pt-4 sm:pr-14">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="absolute right-3 top-3 h-8 w-8 rounded-lg p-0 text-muted-foreground hover:text-foreground"
+                        onClick={cancelEdit}
+                        aria-label="Close manage panel"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                       {/* Section: Contact */}
                       <div className="mb-4">
                         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/80">
@@ -1375,7 +1404,7 @@ export default function OwnerTenantsPage() {
                               <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <select
-                              id={`room-${tenant.id}`}
+                              id={`room-${tenant.id}  `}
                               className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                               value={draft.roomId ?? ""}
                               disabled={
@@ -1689,17 +1718,17 @@ export default function OwnerTenantsPage() {
             </p>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-[84px_1fr]">
+              <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-[132px_1fr]">
                 {reviewTenant.profile_photo_url ? (
                   <Image
                     src={reviewTenant.profile_photo_url}
                     alt={`${reviewTenant.full_name} profile photo`}
-                    width={80}
-                    height={80}
-                    className="h-20 w-20 rounded-xl object-cover"
+                    width={128}
+                    height={128}
+                    className="h-32 w-32 rounded-xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
+                  <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
                     {reviewTenant.full_name
                       .split(" ")
                       .slice(0, 2)
@@ -1853,6 +1882,7 @@ export default function OwnerTenantsPage() {
                             width={240}
                             height={112}
                             className="h-28 w-full rounded-md object-cover"
+                            style={{ height: "auto" }}
                           />
                         </a>
                       ) : (

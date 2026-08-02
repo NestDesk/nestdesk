@@ -865,7 +865,7 @@ export default async function DashboardPage() {
                   </div>
                 )}
 
-                <Button asChild variant="outline" size="sm" className="w-full">
+                <Button asChild variant="default" size="sm" className="w-full">
                   <Link href="/hostels">Open Room Setup</Link>
                 </Button>
               </div>
