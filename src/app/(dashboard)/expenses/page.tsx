@@ -11,9 +11,13 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 import {
+  AlertTriangle,
   Building2,
+  CheckCircle2,
   CalendarDays,
   CircleDot,
+  Clock3,
+  Funnel,
   IndianRupee,
   Loader2,
   MoreVertical,
@@ -24,14 +28,9 @@ import {
   Trash2,
   X,
   ArrowUpDown,
+  WalletCards,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "../../../components/ui/accordion";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { DatePicker } from "../../../components/ui/DatePicker";
@@ -69,6 +68,8 @@ import {
 import { cn } from "../../../lib/utils";
 
 import ExpenseDailyTrend from "./ExpenseDailyTrend";
+import { ExpensesFilterPopover } from "../../../components/expenses/ExpensesFilterPopover";
+import { ExpensesTabs } from "../../../components/expenses/ExpensesTabs";
 
 type ExpenseRow = {
   id: string;
@@ -196,41 +197,76 @@ function recurringFrequencyLabel(value: ExpenseRecurringFrequency | null) {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
+function summarizeExpenses(rows: ExpenseRow[], start: string, end: string) {
+  const filtered = rows.filter((row) => {
+    if (start && row.expense_date < start) return false;
+    if (end && row.expense_date > end) return false;
+    return true;
+  });
+  const periodSummary = filtered.reduce(
+    (acc, row) => {
+      const amount = Number(row.amount) || 0;
+      acc.total += amount;
+      if (row.status === "paid") acc.paid += amount;
+      if (row.status === "pending") acc.pending += amount;
+      if (row.status === "disputed") acc.disputed += amount;
+      return acc;
+    },
+    { total: 0, paid: 0, pending: 0, disputed: 0, this_month: 0 },
+  );
+  periodSummary.this_month = periodSummary.total;
+
+  const propertyMap = new Map<string, PropertyTotal>();
+  for (const row of filtered) {
+    const existing = propertyMap.get(row.hostel_id);
+    if (existing) existing.total += Number(row.amount) || 0;
+    else {
+      propertyMap.set(row.hostel_id, {
+        hostel_id: row.hostel_id,
+        hostel_name: row.hostel_name,
+        hostel_location: row.hostel_location,
+        total: Number(row.amount) || 0,
+      });
+    }
+  }
+
+  const dailyMap = new Map<string, number>();
+  if (start && end) {
+    const startDate = new Date(`${start}T00:00:00`);
+    const endDate = new Date(`${end}T00:00:00`);
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      dailyMap.set(toIndianDateString(date), 0);
+    }
+  }
+  for (const row of filtered) {
+    dailyMap.set(row.expense_date, (dailyMap.get(row.expense_date) ?? 0) + (Number(row.amount) || 0));
+  }
+
+  return {
+    summary: periodSummary as Summary,
+    propertyTotals: Array.from(propertyMap.values()).sort((a, b) => b.total - a.total),
+    dailyTotals: Array.from(dailyMap.entries()).map(([date, total]) => ({ date, total })),
+  };
+}
+
 export default function OwnerExpensesPage() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [hostels, setHostels] = useState<HostelOption[]>([]);
-  const [summary, setSummary] = useState<Summary>({
-    total: 0,
-    paid: 0,
-    pending: 0,
-    disputed: 0,
-    this_month: 0,
-  });
-  const [thisMonthPropertyTotals, setThisMonthPropertyTotals] = useState<
-    PropertyTotal[]
-  >([]);
+  const [summary, setSummary] = useState<Summary>({ total: 0, paid: 0, pending: 0, disputed: 0, this_month: 0 });
+  const [thisMonthPropertyTotals, setThisMonthPropertyTotals] = useState<PropertyTotal[]>([]);
   const [dailyTotals, setDailyTotals] = useState<DailyTotal[]>([]);
   const hasProperties = hostels.length > 0;
-  // Remove monthOptions, use date range picker instead
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
-    // Default to the current month range.
-    return getCurrentMonthRange();
-  });
-
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => getCurrentMonthRange());
+  const [summaryDateRange, setSummaryDateRange] = useState<{ start: string; end: string }>(() => getCurrentMonthRange());
   const [loading, setLoading] = useState(true);
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "expense_date", desc: true },
-  ]);
-
+  const [sorting, setSorting] = useState<SortingState>([{ id: "expense_date", desc: true }]);
+  const [activeTab, setActiveTab] = useState<"expense" | "summary">("expense");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterHostelId, setFilterHostelId] = useState("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>(
-    "all",
-  );
-  // Remove filterMonth
-
+  const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>("all");
+  const [summaryHostelId, setSummaryHostelId] = useState("all");
+  const [summaryCategory, setSummaryCategory] = useState<"all" | ExpenseCategory>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>(EMPTY_DRAFT);
@@ -239,39 +275,35 @@ export default function OwnerExpensesPage() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [categoryHighlightedIndex, setCategoryHighlightedIndex] = useState(0);
   const categoryComboRef = useRef<HTMLDivElement | null>(null);
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  // detect dark mode to choose contrasting chart color
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+
   useEffect(() => {
     const get = () => {
       if (typeof document === "undefined") return false;
-      const prefers =
-        typeof window !== "undefined" && window.matchMedia
-          ? window.matchMedia("(prefers-color-scheme: dark)").matches
-          : false;
+      const prefers = typeof window !== "undefined" && window.matchMedia
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        : false;
       return document.documentElement.classList.contains("dark") || prefers;
     };
     setIsDarkTheme(get());
-    const mql =
-      typeof window !== "undefined" && window.matchMedia
-        ? window.matchMedia("(prefers-color-scheme: dark)")
-        : null;
+    const mql = typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia("(prefers-color-scheme: dark)")
+      : null;
     const onChange = () => setIsDarkTheme(get());
     if (mql && mql.addEventListener) mql.addEventListener("change", onChange);
     else if (mql && mql.addListener) mql.addListener(onChange);
-    const observer =
-      typeof MutationObserver !== "undefined"
-        ? new MutationObserver(() => setIsDarkTheme(get()))
-        : null;
-    if (observer)
-      observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class"],
-      });
+    const observer = typeof MutationObserver !== "undefined"
+      ? new MutationObserver(() => setIsDarkTheme(get()))
+      : null;
+      if (observer) {
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      }
     return () => {
       if (mql && mql.removeEventListener)
         mql.removeEventListener("change", onChange);
@@ -312,23 +344,6 @@ export default function OwnerExpensesPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateFiltersOpen = () => setFiltersOpen(mediaQuery.matches);
-
-    updateFiltersOpen();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", updateFiltersOpen);
-      return () => mediaQuery.removeEventListener("change", updateFiltersOpen);
-    }
-
-    mediaQuery.addListener(updateFiltersOpen);
-    return () => mediaQuery.removeListener(updateFiltersOpen);
-  }, []);
-
   const loadExpenses = useCallback(async () => {
     setLoading(true);
     try {
@@ -354,76 +369,6 @@ export default function OwnerExpensesPage() {
 
       setExpenses(serverExpenses);
       setHostels((json.hostels ?? []) as HostelOption[]);
-
-      // Derive period-specific aggregates from the server-provided expenses
-      // based on the selected date range so the cards and chart reflect
-      // user-selected filters.
-      const start = dateRange.start;
-      const end = dateRange.end;
-      const filtered = serverExpenses.filter((r) => {
-        if (start && r.expense_date < start) return false;
-        if (end && r.expense_date > end) return false;
-        return true;
-      });
-
-      // Summary for selected range
-      const periodSummary = filtered.reduce(
-        (acc, row) => {
-          const amt = Number(row.amount) || 0;
-          acc.total += amt;
-          if (row.status === "paid") acc.paid += amt;
-          if (row.status === "pending") acc.pending += amt;
-          if (row.status === "disputed") acc.disputed += amt;
-          return acc;
-        },
-        { total: 0, paid: 0, pending: 0, disputed: 0, this_month: 0 },
-      );
-
-      // Use `this_month` field to represent the selected-period total so
-      // existing UI (which displays summary.this_month) shows the correct
-      // value for the chosen date range.
-      periodSummary.this_month = periodSummary.total;
-      setSummary(periodSummary as Summary);
-
-      // Property totals for selected range
-      const propMap = new Map<string, PropertyTotal>();
-      for (const r of filtered) {
-        const existing = propMap.get(r.hostel_id);
-        if (existing) existing.total += Number(r.amount) || 0;
-        else
-          propMap.set(r.hostel_id, {
-            hostel_id: r.hostel_id,
-            hostel_name: r.hostel_name,
-            hostel_location: r.hostel_location,
-            total: Number(r.amount) || 0,
-          });
-      }
-      const rangePropertyTotals = Array.from(propMap.values()).sort(
-        (a, b) => b.total - a.total,
-      );
-      setThisMonthPropertyTotals(rangePropertyTotals);
-
-      // Daily totals for selected range (include zero days)
-      const dailyMap = new Map<string, number>();
-      if (start && end) {
-        const s = new Date(`${start}T00:00:00`);
-        const e = new Date(`${end}T00:00:00`);
-        for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0");
-          dailyMap.set(`${y}-${m}-${dd}`, 0);
-        }
-      }
-      for (const r of filtered) {
-        const key = r.expense_date;
-        const prev = dailyMap.get(key) ?? 0;
-        dailyMap.set(key, prev + (Number(r.amount) || 0));
-      }
-      const rangeDailyTotals = Array.from(dailyMap.entries()).map(
-        ([date, total]) => ({ date, total }),
-      );
-      setDailyTotals(rangeDailyTotals as DailyTotal[]);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -431,11 +376,48 @@ export default function OwnerExpensesPage() {
     }
   }, [debouncedSearchQuery, filterCategory, filterHostelId, dateRange]);
 
+  const loadSummary = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        start_date: summaryDateRange.start,
+        end_date: summaryDateRange.end,
+      });
+      if (summaryHostelId !== "all") params.set("hostel_id", summaryHostelId);
+      if (summaryCategory !== "all") params.set("category", summaryCategory);
+
+      const res = await fetch(`/api/expenses?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not load expense summary.");
+        return;
+      }
+
+      const serverExpenses = (json.expenses ?? []) as ExpenseRow[];
+      setHostels((json.hostels ?? []) as HostelOption[]);
+      const result = summarizeExpenses(
+        serverExpenses,
+        summaryDateRange.start,
+        summaryDateRange.end,
+      );
+      setSummary(result.summary);
+      setThisMonthPropertyTotals(result.propertyTotals);
+      setDailyTotals(result.dailyTotals);
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [summaryCategory, summaryDateRange, summaryHostelId]);
+
   useEffect(() => {
-    loadExpenses().catch(() => {
+    const load = activeTab === "expense" ? loadExpenses : loadSummary;
+    load().catch(() => {
       // handled
     });
-  }, [loadExpenses]);
+  }, [activeTab, loadExpenses, loadSummary]);
 
   const columns = useMemo(
     () => [
@@ -520,7 +502,8 @@ export default function OwnerExpensesPage() {
         header: "Payment",
         cell: ({ row }) => {
           const mode = row.original.payment_mode;
-          if (!mode) return <span className="text-xs text-muted-foreground">-</span>;
+          if (!mode)
+            return <span className="text-xs text-muted-foreground">-</span>;
           return (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <CircleDot className="h-3 w-3" />
@@ -769,7 +752,10 @@ export default function OwnerExpensesPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -778,299 +764,492 @@ export default function OwnerExpensesPage() {
               disabled={deleting}
               className="gap-1.5"
             >
-              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {deleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
               Confirm Delete
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {!loading && hasProperties ? (
-          <Button size="sm" className="h-9 gap-1.5" onClick={openCreateModal}>
-            <Plus className="h-4 w-4" />
-            Add Expense
-          </Button>
-        ) : !loading && !hasProperties ? (
-          <Link href="/hostels/new">
-            <Button size="sm" className="h-9 gap-1.5">
+      <ExpensesTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {activeTab === "expense" ? (
+        <div className="flex items-center gap-2">
+          {!loading && hasProperties ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Add expense"
+              title="Add expense"
+              onClick={openCreateModal}
+              className="h-10 w-10 shrink-0"
+            >
               <Plus className="h-4 w-4" />
-              Add Property
             </Button>
-          </Link>
-        ) : null}
-      </div>
-
-      {/* Cards - Current Month, Recurring, and Daily Trend */}
-      {!loading && (
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-              Current Period Expenses
-            </p>
-            <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-200">
-              {formatAmount(summary.this_month)}
-            </p>
-            <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
-              {(() => {
-                const currentMonth = getCurrentMonthRange();
-                return `${formatDate(currentMonth.start)} - ${formatDate(currentMonth.end)}`;
-              })()}
-            </p>
-            <div className="mt-3 space-y-1.5">
-              {thisMonthPropertyTotals.length === 0 ? (
-                <p className="text-xs text-blue-700/70 dark:text-blue-300/80">
-                  No current-period expenses recorded.
-                </p>
-              ) : (
-                thisMonthPropertyTotals.slice(0, 5).map((item) => (
-                  <div
-                    key={item.hostel_id}
-                    className="flex items-center justify-between rounded-md border border-blue-200/70 bg-white/60 px-2.5 py-1.5 dark:border-blue-500/30 dark:bg-blue-900/20"
-                  >
-                    <span className="truncate text-xs text-blue-800 dark:text-blue-200">
-                      {item.hostel_name}
-                    </span>
-                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-200">
-                      {formatAmount(item.total)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+          ) : !loading && !hasProperties ? (
+            <Link href="/hostels/new">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Add property"
+                title="Add property"
+                className="h-10 w-10 shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Link>
+          ) : null}
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-10 border-border/80 bg-muted/30 pl-9 pr-9 focus-visible:bg-background"
+              placeholder="Search expenses"
+              aria-label="Search expenses"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                title="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
           </div>
-
-          {/* Daily Trend - as compact line chart */}
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex flex-col justify-between lg:col-span-2 min-h-[220px]">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-primary">Daily Trend</h3>
-              <span className="text-xs font-semibold text-muted-foreground">
-                {dateRange.start && dateRange.end
-                  ? `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`
-                  : "-"}
-              </span>
-            </div>
-            {dailyTotals.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No trend data.</p>
-            ) : (
-              <ExpenseDailyTrend
-                dailyTotals={dailyTotals}
-                isDarkTheme={isDarkTheme}
-              />
-            )}
-          </div>
+          <ExpensesFilterPopover
+            hostelFilter={filterHostelId}
+            categoryFilter={filterCategory}
+            fromDate={dateRange.start}
+            toDate={dateRange.end}
+            hostels={hostels}
+            hasActiveFilters={
+              filterHostelId !== "all" ||
+              filterCategory !== "all" ||
+              dateRange.start !== getCurrentMonthRange().start ||
+              dateRange.end !== getCurrentMonthRange().end
+            }
+            onHostelChange={setFilterHostelId}
+            onCategoryChange={setFilterCategory}
+            onFromDateChange={(value) =>
+              setDateRange((previous) => ({ ...previous, start: value }))
+            }
+            onToDateChange={(value) =>
+              setDateRange((previous) => ({ ...previous, end: value }))
+            }
+            onClear={() => {
+              setSearchQuery("");
+              setFilterHostelId("all");
+              setFilterCategory("all");
+              setDateRange(getCurrentMonthRange());
+            }}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Open expense filters"
+              title="Open expense filters"
+              className="h-10 w-10 border-border/80 bg-muted/30 hover:bg-background"
+            >
+              <Funnel className="h-4 w-4" />
+            </Button>
+          </ExpensesFilterPopover>
         </div>
-      )}
+      ) : null}
 
-      {/* Filters*/}
-      <Accordion
-        type="single"
-        collapsible
-        value={filtersOpen ? "filters" : undefined}
-        onValueChange={(value) => setFiltersOpen(value === "filters")}
-        className="mt-2"
-      >
-        <AccordionItem
-          value="filters"
-          className="rounded-2xl border border-border/70 bg-card shadow-sm"
+      {activeTab === "summary" ? (
+        <div
+          id="expense-summary-panel"
+          role="tabpanel"
+          aria-labelledby="expense-summary-tab"
+          className="space-y-5"
         >
-          <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline lg:px-5">
-            <span className="flex items-center gap-2 text-foreground">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              Search & filters
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 lg:px-5">
-            <div className="grid w-full gap-3 lg:grid-cols-[1.6fr_1.2fr_1fr] lg:items-end">
-              <div className="relative min-w-0 w-full">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="h-9 w-full min-w-0 pl-8 pr-8 text-sm"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setSearchQuery("")}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <select
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full"
-                  value={filterHostelId}
-                  onChange={(e) => setFilterHostelId(e.target.value)}
-                >
-                  <option value="all">All Properties</option>
-                  {hostels.map((hostel) => (
-                    <option key={hostel.id} value={hostel.id}>
-                      {hostel.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground w-full"
-                  value={filterCategory}
-                  onChange={(e) =>
-                    setFilterCategory(e.target.value as "all" | ExpenseCategory)
-                  }
-                >
-                  <option value="all">All Categories</option>
-                  {EXPENSE_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {getExpenseCategoryLabel(category)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row lg:flex-col lg:items-stretch">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  Date range
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                  <DatePicker
-                    value={dateRange.start}
-                    onChange={(val) =>
-                      setDateRange((prev) => ({ ...prev, start: val }))
-                    }
-                    placeholder="Start date"
-                  />
-                  <DatePicker
-                    value={dateRange.end}
-                    onChange={(val) =>
-                      setDateRange((prev) => ({ ...prev, end: val }))
-                    }
-                    placeholder="End date"
-                  />
-                </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="inline-flex min-w-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+              <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="whitespace-nowrap text-xs font-semibold text-foreground sm:text-sm">
+                  {formatDate(summaryDateRange.start)} -{" "}
+                  {formatDate(summaryDateRange.end)}
+                </p>
               </div>
             </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-      {loading ? (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-xl" />
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-40" />
-                <Skeleton className="h-4 w-72" />
-              </div>
+            <ExpensesFilterPopover
+              hostelFilter={summaryHostelId}
+              categoryFilter={summaryCategory}
+              fromDate={summaryDateRange.start}
+              toDate={summaryDateRange.end}
+              hostels={hostels}
+              hasActiveFilters={
+                summaryHostelId !== "all" ||
+                summaryCategory !== "all" ||
+                summaryDateRange.start !== getCurrentMonthRange().start ||
+                summaryDateRange.end !== getCurrentMonthRange().end
+              }
+              onHostelChange={setSummaryHostelId}
+              onCategoryChange={setSummaryCategory}
+              onFromDateChange={(value) =>
+                setSummaryDateRange((previous) => ({
+                  ...previous,
+                  start: value,
+                }))
+              }
+              onToDateChange={(value) =>
+                setSummaryDateRange((previous) => ({ ...previous, end: value }))
+              }
+              onClear={() => {
+                setSummaryHostelId("all");
+                setSummaryCategory("all");
+                setSummaryDateRange(getCurrentMonthRange());
+              }}
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Open summary filters"
+                title="Open summary filters"
+                className="h-10 w-10 shrink-0"
+              >
+                <Funnel className="h-4 w-4" />
+              </Button>
+            </ExpensesFilterPopover>
+          </div>
+
+          {loading ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[0, 1, 2, 3].map((item) => (
+                <Skeleton key={item} className="h-24 rounded-xl" />
+              ))}
             </div>
-            <Skeleton className="h-9 w-36 rounded-md" />
-          </div>
+          ) : (
+            <>
+              <div className="hidden">
+                {[
+                  {
+                    label: "Total spend",
+                    value: formatAmount(summary.total),
+                    icon: WalletCards,
+                    tone: "text-primary bg-primary/10",
+                  },
+                  {
+                    label: "Paid",
+                    value: formatAmount(summary.paid),
+                    icon: CheckCircle2,
+                    tone: "text-emerald-600 bg-emerald-500/10",
+                  },
+                  {
+                    label: "Pending",
+                    value: formatAmount(summary.pending),
+                    icon: Clock3,
+                    tone: "text-amber-600 bg-amber-500/10",
+                  },
+                  {
+                    label: "Disputed",
+                    value: formatAmount(summary.disputed),
+                    icon: AlertTriangle,
+                    tone: "text-rose-600 bg-rose-500/10",
+                  },
+                ].map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div
+                      key={card.label}
+                      className="rounded-xl border border-border/70 bg-card p-4 shadow-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-9 w-9 items-center justify-center rounded-lg ${card.tone}`}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            {card.label}
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-foreground">
+                            {card.value}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 rounded-xl" />
-            ))}
-          </div>
+              <div className="grid gap-4">
+                <div className="hidden">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Status distribution
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Where the selected spend currently stands
+                      </p>
+                    </div>
+                    <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        label: "Paid",
+                        value: summary.paid,
+                        tone: "bg-emerald-500",
+                        icon: CheckCircle2,
+                      },
+                      {
+                        label: "Pending",
+                        value: summary.pending,
+                        tone: "bg-amber-500",
+                        icon: Clock3,
+                      },
+                      {
+                        label: "Disputed",
+                        value: summary.disputed,
+                        tone: "bg-rose-500",
+                        icon: AlertTriangle,
+                      },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      const percentage =
+                        summary.total > 0
+                          ? Math.round((item.value / summary.total) * 100)
+                          : 0;
+                      return (
+                        <div key={item.label}>
+                          <div className="mb-1 flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                              {item.label}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {formatAmount(item.value)} · {percentage}%
+                            </span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full ${item.tone}`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          <div className="flex gap-3">
-            <Skeleton className="h-9 flex-1 rounded-md" />
-            <Skeleton className="h-9 w-36 rounded-md" />
-            <Skeleton className="h-9 w-36 rounded-md" />
-          </div>
-
-          <div className="space-y-2.5">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-2xl" />
-            ))}
-          </div>
-        </div>
-      ) : !hasProperties ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <IndianRupee className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">No expenses found</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Add your first expense to start tracking property operating costs.
-            </p>
-          </div>
-          <Button size="sm" className="gap-1.5" onClick={openCreateModal}>
-            <Plus className="h-4 w-4" />
-            Add Expense
-          </Button>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-border text-left text-[13px]">
-              <thead className="bg-muted text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id} className="border-b border-border">
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id} className="px-3 py-2 align-top">
-                        {header.isPlaceholder ? null : (
-                          <button
-                            type="button"
-                            className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-muted-foreground"
-                            onClick={
-                              header.column.getCanSort()
-                                ? header.column.getToggleSortingHandler()
-                                : undefined
-                            }
+                <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Spend by property
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Highest operating costs in this period
+                      </p>
+                    </div>
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  {thisMonthPropertyTotals.length === 0 ? (
+                    <p className="py-5 text-sm text-muted-foreground">
+                      No expenses recorded for these filters.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {thisMonthPropertyTotals
+                        .slice(0, 6)
+                        .map((item, index) => (
+                          <div
+                            key={item.hostel_id}
+                            className="flex items-center gap-3"
                           >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                            {header.column.getCanSort() ? (
-                              <ArrowUpDown
-                                className={
-                                  header.column.getIsSorted()
-                                    ? "h-3.5 w-3.5 text-foreground"
-                                    : "h-3.5 w-3.5 text-muted-foreground"
-                                }
-                              />
-                            ) : null}
-                          </button>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody className="divide-y divide-border bg-background">
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="transition-colors hover:bg-muted/50">
-                    {row.getVisibleCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        className={
-                          cell.column.id === "actions"
-                            ? "px-3 py-2 text-right align-top"
-                            : "px-3 py-2 align-top text-foreground/90"
-                        }
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {item.hostel_name}
+                              </p>
+                              <div className="mt-1 h-1.5 rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{
+                                    width: `${summary.total > 0 ? Math.max(4, (item.total / summary.total) * 100) : 0}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <span className="text-sm font-semibold text-foreground">
+                              {formatAmount(item.total)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Daily expense trend
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Spend movement across the selected reporting period
+                    </p>
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {formatDate(summaryDateRange.start)} -{" "}
+                    {formatDate(summaryDateRange.end)}
+                  </span>
+                </div>
+                {dailyTotals.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No trend data for these filters.
+                  </p>
+                ) : (
+                  <ExpenseDailyTrend
+                    dailyTotals={dailyTotals}
+                    isDarkTheme={isDarkTheme}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      ) : null}
+
+      {activeTab === "expense" &&
+        (loading ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-40" />
+                  <Skeleton className="h-4 w-72" />
+                </div>
+              </div>
+              <Skeleton className="h-9 w-36 rounded-md" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16 rounded-xl" />
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <Skeleton className="h-9 flex-1 rounded-md" />
+              <Skeleton className="h-9 w-36 rounded-md" />
+              <Skeleton className="h-9 w-36 rounded-md" />
+            </div>
+
+            <div className="space-y-2.5">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        ) : !hasProperties ? (
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <IndianRupee className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                No expenses found
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Add your first expense to start tracking property operating
+                costs.
+              </p>
+            </div>
+            <Button size="sm" className="gap-1.5" onClick={openCreateModal}>
+              <Plus className="h-4 w-4" />
+              Add Expense
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-border text-left text-[13px]">
+                <thead className="bg-muted text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id} className="border-b border-border">
+                      {headerGroup.headers.map((header) => (
+                        <th key={header.id} className="px-3 py-2 align-top">
+                          {header.isPlaceholder ? null : (
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-muted-foreground"
+                              onClick={
+                                header.column.getCanSort()
+                                  ? header.column.getToggleSortingHandler()
+                                  : undefined
+                              }
+                            >
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                              {header.column.getCanSort() ? (
+                                <ArrowUpDown
+                                  className={
+                                    header.column.getIsSorted()
+                                      ? "h-3.5 w-3.5 text-foreground"
+                                      : "h-3.5 w-3.5 text-muted-foreground"
+                                  }
+                                />
+                              ) : null}
+                            </button>
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody className="divide-y divide-border bg-background">
+                  {table.getRowModel().rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="transition-colors hover:bg-muted/50"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          className={
+                            cell.column.id === "actions"
+                              ? "px-3 py-2 text-right align-top"
+                              : "px-3 py-2 align-top text-foreground/90"
+                          }
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
 
       {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-3 py-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:px-0"
-        >
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-3 py-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:px-0">
           <div className="mx-auto w-full max-h-[calc(100vh-2rem)] max-w-xl overflow-y-auto rounded-t-2xl border border-border bg-background p-6 shadow-xl sm:rounded-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-base font-semibold text-foreground">
@@ -1093,7 +1272,10 @@ export default function OwnerExpensesPage() {
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
                     value={draft.hostel_id}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, hostel_id: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        hostel_id: e.target.value,
+                      }))
                     }
                   >
                     <option value="">Select property...</option>
@@ -1143,13 +1325,18 @@ export default function OwnerExpensesPage() {
                         e.preventDefault();
                         setCategoryDropdownOpen(true);
                         setCategoryHighlightedIndex((prev) =>
-                          Math.min(prev + 1, filteredCategoryOptions.length - 1),
+                          Math.min(
+                            prev + 1,
+                            filteredCategoryOptions.length - 1,
+                          ),
                         );
                       }
                       if (e.key === "ArrowUp") {
                         e.preventDefault();
                         setCategoryDropdownOpen(true);
-                        setCategoryHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                        setCategoryHighlightedIndex((prev) =>
+                          Math.max(prev - 1, 0),
+                        );
                       }
                       if (e.key === "Enter") {
                         if (
@@ -1200,7 +1387,9 @@ export default function OwnerExpensesPage() {
                             }}
                             onClick={() => {
                               setDraft((prev) => ({ ...prev, category }));
-                              setCategoryQuery(getExpenseCategoryLabel(category));
+                              setCategoryQuery(
+                                getExpenseCategoryLabel(category),
+                              );
                               setCategoryDropdownOpen(false);
                               setCategoryHighlightedIndex(0);
                             }}
@@ -1268,12 +1457,17 @@ export default function OwnerExpensesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Bill No. (optional)</Label>
+                <Label className="text-xs font-medium">
+                  Bill No. (optional)
+                </Label>
                 <Input
                   placeholder="Invoice / Bill reference"
                   value={draft.bill_number}
                   onChange={(e) =>
-                    setDraft((prev) => ({ ...prev, bill_number: e.target.value }))
+                    setDraft((prev) => ({
+                      ...prev,
+                      bill_number: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -1324,7 +1518,8 @@ export default function OwnerExpensesPage() {
                       >
                         {EXPENSE_RECURRING_FREQUENCIES.map((frequency) => (
                           <option key={frequency} value={frequency}>
-                            {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
+                            {frequency.charAt(0).toUpperCase() +
+                              frequency.slice(1)}
                           </option>
                         ))}
                       </select>
@@ -1337,7 +1532,10 @@ export default function OwnerExpensesPage() {
                       <DatePicker
                         value={draft.next_due_date}
                         onChange={(value) =>
-                          setDraft((prev) => ({ ...prev, next_due_date: value }))
+                          setDraft((prev) => ({
+                            ...prev,
+                            next_due_date: value,
+                          }))
                         }
                         placeholder="Select due date"
                       />
@@ -1374,7 +1572,9 @@ export default function OwnerExpensesPage() {
                 disabled={saving}
                 className="gap-1.5"
               >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
                 {editingId ? "Save Changes" : "Add Expense"}
               </Button>
             </div>

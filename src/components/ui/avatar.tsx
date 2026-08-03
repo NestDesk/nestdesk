@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image, { type ImageProps } from "next/image"
 import { cn } from "../../lib/utils"
 
 const Avatar = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanElement>>(
@@ -10,8 +11,8 @@ const Avatar = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanEl
 )
 Avatar.displayName = "Avatar"
 
-const AvatarImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageElement>>(
-  ({ className, ...props }, ref) => <img ref={ref} className={cn("aspect-square h-full w-full", className)} {...props} />,
+const AvatarImage = React.forwardRef<HTMLImageElement, ImageProps>(
+  ({ className, alt = "", width = 40, height = 40, ...props }, ref) => <Image ref={ref} alt={alt} width={width} height={height} className={cn("aspect-square h-full w-full", className)} {...props} />,
 )
 AvatarImage.displayName = "AvatarImage"
 

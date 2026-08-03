@@ -6,7 +6,7 @@ import { cn } from "../../lib/utils"
 type AccordionState = { open: string[]; toggle: (value: string) => void }
 const AccordionContext = React.createContext<AccordionState | null>(null)
 const ItemContext = React.createContext<string | null>(null)
-interface AccordionProps extends React.HTMLAttributes<HTMLDivElement> { type?: "single" | "multiple"; collapsible?: boolean; defaultValue?: string | string[]; value?: string | string[]; onValueChange?: (value: any) => void }
+interface AccordionProps extends React.HTMLAttributes<HTMLDivElement> { type?: "single" | "multiple"; collapsible?: boolean; defaultValue?: string | string[]; value?: string | string[]; onValueChange?: (value: string | string[]) => void }
 const Accordion = ({ type = "single", collapsible = false, defaultValue, value, onValueChange, className, ...props }: AccordionProps) => {
   const multiple = type === "multiple"; const initial = Array.isArray(defaultValue) ? defaultValue : defaultValue ? [defaultValue] : []; const [internal, setInternal] = React.useState(initial); const open = value === undefined ? internal : Array.isArray(value) ? value : value ? [value] : []
   const toggle = (item: string) => { const next = open.includes(item) ? (collapsible || multiple ? open.filter((v) => v !== item) : open) : multiple ? [...open, item] : [item]; if (value === undefined) setInternal(next); onValueChange?.(multiple ? next : next[0] ?? "") }
