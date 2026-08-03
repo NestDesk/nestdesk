@@ -3,16 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
-  CalendarCheck,
   Download,
   FileDown,
+  Funnel,
   IndianRupee,
   Loader2,
   MoreVertical,
   Pencil,
   Plus,
   Receipt,
-  RotateCcw,
   Search,
   Trash2,
   X,
@@ -43,13 +42,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "../../../components/ui/accordion";
 import { Label } from "../../../components/ui/label";
+import { PaymentsFilterPopover } from "../../../components/payments/PaymentsFilterPopover";
+import { PaymentsSummary, type PaymentSummaryData } from "../../../components/payments/PaymentsSummary";
+import { PaymentsTabs } from "../../../components/payments/PaymentsTabs";
+import { PaymentsLedger } from "../../../components/payments/PaymentsLedger";
 import {
   createColumnHelper,
   flexRender,
@@ -213,11 +210,17 @@ export default function OwnerPaymentsPage() {
   const [filterStatus, setFilterStatus] = useState<"all" | PaymentStatus>("all");
   const [fromDate, setFromDate] = useState(() => thisMonthRange().startDate);
   const [toDate, setToDate] = useState(() => thisMonthRange().endDate);
+  const [summaryHostelId, setSummaryHostelId] = useState("all");
+  const [summaryFromDate, setSummaryFromDate] = useState(() => thisMonthRange().startDate);
+  const [summaryToDate, setSummaryToDate] = useState(() => thisMonthRange().endDate);
+  const [ledgerHostelId, setLedgerHostelId] = useState("all");
+  const [ledgerFromDate, setLedgerFromDate] = useState(() => thisMonthRange().startDate);
+  const [ledgerToDate, setLedgerToDate] = useState(() => thisMonthRange().endDate);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [activeTab, setActiveTab] = useState<"payments" | "summary" | "ledger">("payments");
 
   // Record modal
   const [recordOpen, setRecordOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
@@ -354,15 +357,10 @@ export default function OwnerPaymentsPage() {
   }, []);
 
   useEffect(() => {
-    const updateFiltersState = () => {
-      setFiltersOpen(window.innerWidth >= 1024);
-    };
-
-    updateFiltersState();
-    window.addEventListener("resize", updateFiltersState);
-
-    return () => window.removeEventListener("resize", updateFiltersState);
-  }, []);
+    if (activeTab === "ledger" && tenants.length === 0) {
+      loadTenants().catch(() => {});
+    }
+  }, [activeTab]);
 
   /* ------------------------------------------------------------------ */
   /* Derived data                                                         */
@@ -385,6 +383,53 @@ export default function OwnerPaymentsPage() {
       return true;
     });
   }, [payments, filterHostelId, filterStatus, fromDate, toDate, searchQuery]);
+
+  const summaryPayments = useMemo(() => {
+    return payments.filter((payment) => {
+      if (summaryHostelId !== "all" && payment.hostel_id !== summaryHostelId) return false;
+      if (summaryFromDate && payment.paid_on < summaryFromDate) return false;
+      if (summaryToDate && payment.paid_on > summaryToDate) return false;
+      return true;
+    });
+  }, [payments, summaryHostelId, summaryFromDate, summaryToDate]);
+
+  const paymentSummary = useMemo<PaymentSummaryData>(() => {
+    const byMethod: PaymentSummaryData["byMethod"] = {};
+    let totalAmount = 0;
+    let paidCount = 0;
+    let disputedCount = 0;
+
+    for (const payment of summaryPayments) {
+      const amount = Number(payment.amount) || 0;
+      totalAmount += amount;
+      if (payment.status === "paid") paidCount += 1;
+      if (payment.status === "disputed") disputedCount += 1;
+      const method = payment.method ?? "other";
+      const label = payment.method ? METHOD_LABEL[payment.method] : "Not specified";
+      byMethod[method] ??= { label, count: 0, amount: 0 };
+      byMethod[method].count += 1;
+      byMethod[method].amount += amount;
+    }
+
+    return {
+      totalCount: summaryPayments.length,
+      totalAmount,
+      paidCount,
+      disputedCount,
+      averageAmount: summaryPayments.length ? totalAmount / summaryPayments.length : 0,
+      byMethod,
+    };
+  }, [summaryPayments]);
+
+  const ledgerPayments = useMemo(() => {
+    return payments
+      .filter((payment) => {
+        if (ledgerHostelId !== "all" && payment.hostel_id !== ledgerHostelId) return false;
+        if (ledgerToDate && payment.paid_on > ledgerToDate) return false;
+        return true;
+      })
+      .sort((a, b) => b.paid_on.localeCompare(a.paid_on));
+  }, [ledgerFromDate, ledgerHostelId, ledgerToDate, payments]);
 
   const columns = [
     columnHelper.accessor("hostel_name", {
@@ -780,112 +825,111 @@ export default function OwnerPaymentsPage() {
         </DialogContent>
       </Dialog>
       {/* â”€â”€ Header â”€â”€ */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <Button size="sm" className="h-9 gap-1.5" onClick={openRecordModal}>
-          <Plus className="h-4 w-4" />
-          Record Payment
-        </Button>
-      </div>
 
-      {!loading && payments.length > 0 && (
-        <Accordion
-          type="single"
-          collapsible
-          value={filtersOpen ? "filters" : undefined}
-          onValueChange={(value) => setFiltersOpen(value === "filters")}
-          className="space-y-3"
-        >
-          <AccordionItem value="filters" className="rounded-2xl border border-border/70 bg-card shadow-sm">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline lg:px-5">
-              <span className="flex items-center gap-2 text-foreground">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                Search & filters
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4 lg:px-5">
-              <div className="grid w-full gap-3 lg:grid-cols-[1.9fr_2.3fr_auto] lg:items-center">
-                <div className="relative min-w-0 w-full">
-                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="h-9 w-full pl-8 pr-7 text-sm"
-                    placeholder="Search…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
+      <PaymentsTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-2">
-                    <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Paid on
-                    </span>
-                  </div>
-                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-                    <DatePicker
-                      value={fromDate}
-                      onChange={(value) => setFromDate(value)}
-                      placeholder="Start date"
-                      className="min-w-0"
-                    />
-                    <DatePicker
-                      value={toDate}
-                      onChange={(value) => setToDate(value)}
-                      placeholder="End date"
-                      className="min-w-0"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setFilterHostelId("all");
-                      setFilterStatus("all");
-                      const { startDate, endDate } = thisMonthRange();
-                      setFromDate(startDate);
-                      setToDate(endDate);
-                    }}
-                    title="Reset filters"
-                    aria-label="Reset filters"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition hover:border-primary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-9 gap-2">
-                        <Download className="h-4 w-4" />
-                        Export
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onSelect={downloadExcel}>
-                        Download Excel
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={downloadPdf}>
-                        Download PDF
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      )}
+      {activeTab === "summary" ? (
+        <PaymentsSummary
+          summary={paymentSummary}
+          formatAmount={formatAmount}
+          hostels={hostels}
+          hostelFilter={summaryHostelId}
+          fromDate={summaryFromDate}
+          toDate={summaryToDate}
+          hasActiveFilters={summaryHostelId !== "all" || summaryFromDate !== thisMonthRange().startDate || summaryToDate !== thisMonthRange().endDate}
+          onHostelChange={setSummaryHostelId}
+          onFromDateChange={setSummaryFromDate}
+          onToDateChange={setSummaryToDate}
+          onClear={() => {
+            setSummaryHostelId("all");
+            const range = thisMonthRange();
+            setSummaryFromDate(range.startDate);
+            setSummaryToDate(range.endDate);
+          }}
+        />
+      ) : activeTab === "ledger" ? (
+        <PaymentsLedger
+          payments={ledgerPayments}
+          tenants={tenants}
+          hostels={hostels}
+          hostelFilter={ledgerHostelId}
+          fromDate={ledgerFromDate}
+          toDate={ledgerToDate}
+          hasActiveFilters={ledgerHostelId !== "all" || ledgerFromDate !== thisMonthRange().startDate || ledgerToDate !== thisMonthRange().endDate}
+          onHostelChange={setLedgerHostelId}
+          onFromDateChange={setLedgerFromDate}
+          onToDateChange={setLedgerToDate}
+          onClear={() => {
+            setLedgerHostelId("all");
+            const range = thisMonthRange();
+            setLedgerFromDate(range.startDate);
+            setLedgerToDate(range.endDate);
+          }}
+          formatAmount={formatAmount}
+          formatDate={formatDateShort}
+        />
+      ) : (
+        <div id="payments-panel" role="tabpanel" aria-labelledby="payments-tab" className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Record payment"
+              title="Record payment"
+              onClick={openRecordModal}
+              className="h-10 w-10 shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <div className="relative min-w-0 max-w-md flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-10 border-border/80 bg-muted/30 pl-9 focus-visible:bg-background"
+                placeholder="Search payments"
+                aria-label="Search payments"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" aria-label="Export payments" title="Export payments" className="h-10 w-10">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onSelect={downloadExcel}>Download Excel</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={downloadPdf}>Download PDF</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <PaymentsFilterPopover
+                hostelFilter={filterHostelId}
+                statusFilter={filterStatus}
+                fromDate={fromDate}
+                toDate={toDate}
+                hostels={hostels}
+                hasActiveFilters={filterHostelId !== "all" || filterStatus !== "all" || fromDate !== thisMonthRange().startDate || toDate !== thisMonthRange().endDate}
+                onHostelChange={setFilterHostelId}
+                onStatusChange={setFilterStatus}
+                onFromDateChange={setFromDate}
+                onToDateChange={setToDate}
+                onClear={() => {
+                  setSearchQuery("");
+                  setFilterHostelId("all");
+                  setFilterStatus("all");
+                  const range = thisMonthRange();
+                  setFromDate(range.startDate);
+                  setToDate(range.endDate);
+                }}
+              >
+                <Button type="button" variant="outline" size="icon" aria-label="Open payment filters" title="Open payment filters" className="h-10 w-10 border-border/80 bg-muted/30 hover:bg-background">
+                  <Funnel className="h-4 w-4" />
+                </Button>
+              </PaymentsFilterPopover>
+            </div>
+          </div>
 
       {/* â”€â”€ Content â”€â”€ */}
       {loading ? (
@@ -989,6 +1033,8 @@ export default function OwnerPaymentsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
         </div>
       )}
 

@@ -29,6 +29,7 @@ interface DatePickerProps {
   max?: string;
   disabled?: boolean;
   className?: string;
+  buttonClassName?: string;
 }
 
 const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -53,6 +54,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   max,
   disabled,
   className = "",
+  buttonClassName = "",
 }) => {
   const selectedDate = React.useMemo(() => parseIsoDate(value), [value]);
   const formattedValue = React.useMemo(() => formatIsoDate(value), [value]);
@@ -115,15 +117,21 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         return;
       }
 
-      const width = Math.min(rect.width, 320);
+      const width = Math.min(320, window.innerWidth - 16);
       const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
       const popupHeight = 316;
       const belowTop = rect.bottom + 8;
       const aboveTop = rect.top - 8 - popupHeight;
-      const top =
-        belowTop + popupHeight > window.innerHeight && aboveTop > 0
-          ? aboveTop
-          : belowTop;
+      const preferredTop =
+        belowTop + popupHeight <= window.innerHeight - 8
+          ? belowTop
+          : aboveTop >= 8
+            ? aboveTop
+            : belowTop;
+      const top = Math.max(
+        8,
+        Math.min(preferredTop, window.innerHeight - popupHeight - 8),
+      );
 
       setPosition({ top, left });
     };
@@ -173,6 +181,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         className={cn(
           "h-9 w-full rounded-md border border-input bg-background px-3 text-left text-sm font-medium text-foreground",
           "flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          buttonClassName,
           disabled && "opacity-50 cursor-not-allowed pointer-events-none",
           open && "border-primary ring-1 ring-primary/30 shadow-sm",
         )}
@@ -210,11 +219,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               position: "fixed",
               top: position.top,
               left: position.left,
-              width: Math.min(
-                position.left ? window.innerWidth - position.left - 8 : 320,
-                320,
-              ),
-              maxWidth: "min(calc(100vw - 1rem), 320px)",
+              width: "min(calc(100vw - 1rem), 320px)",
             }}
           >
             <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">

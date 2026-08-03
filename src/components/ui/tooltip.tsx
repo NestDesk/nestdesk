@@ -34,7 +34,7 @@ const Tooltip = ({ children }: { children: React.ReactNode }) => {
 	)
 }
 
-const TooltipTrigger = ({ asChild, children, ...props }: React.HTMLAttributes<HTMLElement> & { asChild?: boolean }) => { const child = children as React.ReactElement; return asChild ? React.cloneElement(child, { ...props, className: cn(props.className, (child.props as { className?: string }).className) }) : <span {...props}>{children}</span> }
+const TooltipTrigger = ({ asChild, children, ...props }: React.HTMLAttributes<HTMLElement> & { asChild?: boolean }) => { const child = children as React.ReactElement<Record<string, unknown>>; return asChild ? React.cloneElement(child, { ...props, className: cn(props.className, child.props.className as string | undefined) }) : <span {...props}>{children}</span> }
 
 const TooltipContent = ({ className, side = "top", sideOffset = 8, ...props }: React.HTMLAttributes<HTMLDivElement> & { side?: string; sideOffset?: number }) => {
 	const { open, triggerRect } = React.useContext(TooltipContext)
