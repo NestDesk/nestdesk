@@ -1,4 +1,4 @@
-import { Banknote, CalendarDays, CheckCircle2, CircleAlert, Funnel, Receipt, WalletCards } from "lucide-react";
+import { Banknote, CalendarDays, CheckCircle2, Funnel, Receipt, WalletCards } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { PaymentsFilterPopover } from "./PaymentsFilterPopover";

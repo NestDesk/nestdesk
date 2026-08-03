@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
   Download,
@@ -298,7 +298,7 @@ export default function OwnerPaymentsPage() {
     }
   }
 
-  async function loadTenants() {
+  const loadTenants = useCallback(async function loadTenants() {
     setTenantsLoading(true);
     try {
       const res = await fetch("/api/tenants", { cache: "no-store" });
@@ -350,7 +350,7 @@ export default function OwnerPaymentsPage() {
     } finally {
       setTenantsLoading(false);
     }
-  }
+  }, [hostels]);
 
   useEffect(() => {
     loadPayments().catch(() => {});
@@ -360,7 +360,7 @@ export default function OwnerPaymentsPage() {
     if (activeTab === "ledger" && tenants.length === 0) {
       loadTenants().catch(() => {});
     }
-  }, [activeTab]);
+  }, [activeTab, loadTenants, tenants.length]);
 
   /* ------------------------------------------------------------------ */
   /* Derived data                                                         */
@@ -429,7 +429,7 @@ export default function OwnerPaymentsPage() {
         return true;
       })
       .sort((a, b) => b.paid_on.localeCompare(a.paid_on));
-  }, [ledgerFromDate, ledgerHostelId, ledgerToDate, payments]);
+  }, [ledgerHostelId, ledgerToDate, payments]);
 
   const columns = [
     columnHelper.accessor("hostel_name", {

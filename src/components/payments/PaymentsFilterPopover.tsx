@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowUpDown, CalendarCheck, ListFilter, RotateCcw, X } from "lucide-react";
+import { CalendarCheck, ListFilter, RotateCcw, X } from "lucide-react";
 import { DatePicker } from "../ui/DatePicker";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "../ui/popover";
 
