@@ -1,18 +1,25 @@
 "use client"
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { Check, ChevronRight, Circle } from "lucide-react"
 import { cn } from "../../lib/utils"
-type MenuState = { open: boolean; setOpen: (open: boolean) => void }
+type MenuState = {
+	open: boolean;
+	setOpen: (open: boolean) => void;
+	anchorRef: React.RefObject<HTMLSpanElement | null>;
+	contentRef: React.RefObject<HTMLDivElement | null>;
+}
 const MenuContext = React.createContext<MenuState | null>(null)
 const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
 	const [open, setOpen] = React.useState(false);
 	const menuRef = React.useRef<HTMLSpanElement>(null);
+	const contentRef = React.useRef<HTMLDivElement>(null);
 
 	React.useEffect(() => {
 		if (!open) return;
 
 		const handlePointerDown = (event: PointerEvent) => {
-			if (!menuRef.current?.contains(event.target as Node)) {
+			if (!menuRef.current?.contains(event.target as Node) && !contentRef.current?.contains(event.target as Node)) {
 				setOpen(false);
 			}
 		};
@@ -22,13 +29,53 @@ const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
 	}, [open]);
 
 	return (
-		<MenuContext.Provider value={{ open, setOpen }}>
+		<MenuContext.Provider value={{ open, setOpen, anchorRef: menuRef, contentRef }}>
 			<span ref={menuRef} className="relative inline-flex">{children}</span>
 		</MenuContext.Provider>
 	);
 }
 const DropdownMenuTrigger = ({ asChild, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => { const state = React.useContext(MenuContext); const child = children as React.ReactElement<{ className?: string; onClick?: React.MouseEventHandler<HTMLElement> }>; const onClick = (event: React.MouseEvent<HTMLElement>) => { child.props.onClick?.(event); state?.setOpen(!state.open); }; return asChild ? React.cloneElement(child, { ...props, onClick, className: cn(props.className, child.props.className) }) : <button type="button" {...props} onClick={onClick}>{children}</button> }
-const DropdownMenuContent = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { align?: string; sideOffset?: number }) => { const state = React.useContext(MenuContext); if (!state?.open) return null; return <div role="menu" className={cn("absolute right-0 top-full z-50 mt-1 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", className)} {...props}>{children}</div> }
+const DropdownMenuContent = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { align?: string; sideOffset?: number }) => {
+	const state = React.useContext(MenuContext);
+	const [position, setPosition] = React.useState({ top: 0, right: 8 });
+
+	React.useLayoutEffect(() => {
+		if (!state?.open) return;
+
+		const updatePosition = () => {
+			const anchor = state.anchorRef.current;
+			if (!anchor) return;
+			const rect = anchor.getBoundingClientRect();
+			setPosition({
+				top: rect.bottom + 4,
+				right: Math.max(8, window.innerWidth - rect.right),
+			});
+		};
+
+		updatePosition();
+		window.addEventListener("resize", updatePosition);
+		window.addEventListener("scroll", updatePosition, true);
+		return () => {
+			window.removeEventListener("resize", updatePosition);
+			window.removeEventListener("scroll", updatePosition, true);
+		};
+	}, [state?.open, state?.anchorRef]);
+
+	if (!state?.open || typeof document === "undefined") return null;
+
+	return createPortal(
+		<div
+			ref={state.contentRef}
+			role="menu"
+			style={{ position: "fixed", top: position.top, right: position.right }}
+			className={cn("z-[110] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", className)}
+			{...props}
+		>
+			{children}
+		</div>,
+		document.body,
+	);
+}
 const DropdownMenuItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { inset?: boolean; disabled?: boolean; onSelect?: () => void }>(({ className, inset, disabled, onSelect, onClick, ...props }, ref) => { const state = React.useContext(MenuContext); return <div ref={ref} role="menuitem" tabIndex={0} aria-disabled={disabled} onClick={(event) => { if (!disabled) { onClick?.(event); onSelect?.(); state?.setOpen(false) } }} className={cn("relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent", disabled && "pointer-events-none opacity-50", inset && "pl-8", className)} {...props} /> })
 DropdownMenuItem.displayName = "DropdownMenuItem"
 const DropdownMenuCheckboxItem = ({ className, children, checked, onCheckedChange, ...props }: React.HTMLAttributes<HTMLDivElement> & { checked?: boolean; onCheckedChange?: (checked: boolean) => void }) => <div role="menuitemcheckbox" aria-checked={checked} onClick={() => onCheckedChange?.(!checked)} className={cn("relative flex cursor-pointer items-center rounded-sm py-1.5 pl-8 pr-2 text-sm hover:bg-accent", className)} {...props}><span className="absolute left-2">{checked && <Check className="h-4 w-4" />}</span>{children}</div>

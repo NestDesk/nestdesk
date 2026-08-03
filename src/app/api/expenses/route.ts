@@ -380,6 +380,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const hostelFilter = searchParams.get("hostel_id");
   const monthFilter = searchParams.get("month");
+  const startDateFilter = searchParams.get("start_date");
+  const endDateFilter = searchParams.get("end_date");
   const statusFilter = searchParams.get("status");
   const categoryFilter = searchParams.get("category");
   const queryText = searchParams.get("q")?.trim().toLowerCase() ?? "";
@@ -451,6 +453,14 @@ export async function GET(request: NextRequest) {
         (row) => row.expense_date >= range.from && row.expense_date < range.to,
       );
     }
+  }
+
+  if (startDateFilter) {
+    rows = rows.filter((row) => row.expense_date >= startDateFilter);
+  }
+
+  if (endDateFilter) {
+    rows = rows.filter((row) => row.expense_date <= endDateFilter);
   }
 
   if (queryText.length > 0) {
