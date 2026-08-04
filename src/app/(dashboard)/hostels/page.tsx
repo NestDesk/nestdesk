@@ -1,13 +1,12 @@
-import {
-  Building2,
-  CheckCircle2,
-  Home,
-  Layers3,
-  MapPin,
-} from "lucide-react";
+import { Building2, CheckCircle2, Home, Layers3, MapPin } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "../../../lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { ActivatePropertyButton } from "../../../components/hostels/ActivatePropertyButton";
@@ -74,7 +73,8 @@ export default async function PropertiesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              {error.message || "Something went wrong while fetching properties."}
+              {error.message ||
+                "Something went wrong while fetching properties."}
             </p>
           </CardContent>
         </Card>
@@ -157,7 +157,6 @@ export default async function PropertiesPage() {
               {activeProperties}
             </p>
           </div>
-
         </div>
       </div>
 
@@ -169,8 +168,8 @@ export default async function PropertiesPage() {
             </div>
             <h3 className="text-lg font-semibold">No properties added yet</h3>
             <p className="max-w-md text-sm text-muted-foreground">
-              Complete onboarding or add your first property to start managing rooms,
-              tenants, and payments.
+              Complete onboarding or add your first property to start managing
+              rooms, tenants, and payments.
             </p>
           </CardContent>
         </Card>
@@ -244,7 +243,8 @@ export default async function PropertiesPage() {
                       {property.isFloorPlanComplete ? (
                         <div className="space-y-2">
                           <p className="text-xs text-foreground/80">
-                            Floor plan complete. You can activate this property now.
+                            Floor plan complete. You can activate this property
+                            now.
                           </p>
                           <ActivatePropertyButton
                             hostelId={property.id}
@@ -254,8 +254,8 @@ export default async function PropertiesPage() {
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">
-                          At least one floor and rooms on that floor must be setup to
-                          unlock property activation.
+                          At least one floor and rooms on that floor must be
+                          setup to unlock property activation.
                         </p>
                       )}
                     </div>
@@ -263,10 +263,13 @@ export default async function PropertiesPage() {
                 </div>
 
                 <div className="mt-auto pt-4">
-                  <Button asChild variant="default" className="w-full rounded-xl">
+                  <Button
+                    asChild
+                    variant="default"
+                    className="w-full rounded-xl"
+                  >
                     <Link href={`/hostels/${property.id}/setup`}>
                       Setup Floor Plan & Rooms
-                   
                     </Link>
                   </Button>
                 </div>
@@ -274,13 +277,9 @@ export default async function PropertiesPage() {
             </Card>
           ))}
 
-          <div className="flex flex-col justify-end rounded-2xl border-0 bg-transparent p-0 md:min-h-full md:items-center md:justify-center md:gap-3 md:border md:border-dashed md:border-primary/35 md:bg-primary/[0.03] md:p-6 md:text-center">
-            
+          <div className="flex flex-col justify-end rounded-2xl border-0 bg-transparent p-0 mx-2 md:min-h-full md:items-center md:justify-center md:gap-3 md:border md:border-dashed md:border-primary/35 md:bg-primary/[0.03] md:p-6 md:text-center">
             <Button asChild className="w-full rounded-xl md:w-auto">
-              <Link href="/hostels/new">
-                Add new property
-               
-              </Link>
+              <Link href="/hostels/new">Add new property</Link>
             </Button>
           </div>
         </div>

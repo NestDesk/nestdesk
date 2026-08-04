@@ -68,6 +68,7 @@ import {
 import { cn } from "../../../lib/utils";
 
 import ExpenseDailyTrend from "./ExpenseDailyTrend";
+import ExpenseReport from "./ExpenseReport";
 import { ExpensesFilterPopover } from "../../../components/expenses/ExpensesFilterPopover";
 import { ExpensesTabs } from "../../../components/expenses/ExpensesTabs";
 
@@ -234,39 +235,70 @@ function summarizeExpenses(rows: ExpenseRow[], start: string, end: string) {
   if (start && end) {
     const startDate = new Date(`${start}T00:00:00`);
     const endDate = new Date(`${end}T00:00:00`);
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    for (
+      let date = new Date(startDate);
+      date <= endDate;
+      date.setDate(date.getDate() + 1)
+    ) {
       dailyMap.set(toIndianDateString(date), 0);
     }
   }
   for (const row of filtered) {
-    dailyMap.set(row.expense_date, (dailyMap.get(row.expense_date) ?? 0) + (Number(row.amount) || 0));
+    dailyMap.set(
+      row.expense_date,
+      (dailyMap.get(row.expense_date) ?? 0) + (Number(row.amount) || 0),
+    );
   }
 
   return {
     summary: periodSummary as Summary,
-    propertyTotals: Array.from(propertyMap.values()).sort((a, b) => b.total - a.total),
-    dailyTotals: Array.from(dailyMap.entries()).map(([date, total]) => ({ date, total })),
+    propertyTotals: Array.from(propertyMap.values()).sort(
+      (a, b) => b.total - a.total,
+    ),
+    dailyTotals: Array.from(dailyMap.entries()).map(([date, total]) => ({
+      date,
+      total,
+    })),
   };
 }
 
 export default function OwnerExpensesPage() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [hostels, setHostels] = useState<HostelOption[]>([]);
-  const [summary, setSummary] = useState<Summary>({ total: 0, paid: 0, pending: 0, disputed: 0, this_month: 0 });
-  const [thisMonthPropertyTotals, setThisMonthPropertyTotals] = useState<PropertyTotal[]>([]);
+  const [summary, setSummary] = useState<Summary>({
+    total: 0,
+    paid: 0,
+    pending: 0,
+    disputed: 0,
+    this_month: 0,
+  });
+  const [thisMonthPropertyTotals, setThisMonthPropertyTotals] = useState<
+    PropertyTotal[]
+  >([]);
   const [dailyTotals, setDailyTotals] = useState<DailyTotal[]>([]);
   const hasProperties = hostels.length > 0;
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => getCurrentMonthRange());
-  const [summaryDateRange, setSummaryDateRange] = useState<{ start: string; end: string }>(() => getCurrentMonthRange());
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>(
+    () => getCurrentMonthRange(),
+  );
+  const [summaryDateRange, setSummaryDateRange] = useState<{
+    start: string;
+    end: string;
+  }>(() => getCurrentMonthRange());
   const [loading, setLoading] = useState(true);
-  const [sorting, setSorting] = useState<SortingState>([{ id: "expense_date", desc: true }]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "expense_date", desc: true },
+  ]);
   const [activeTab, setActiveTab] = useState<"expense" | "summary">("expense");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterHostelId, setFilterHostelId] = useState("all");
-  const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>("all");
+  const [filterCategory, setFilterCategory] = useState<"all" | ExpenseCategory>(
+    "all",
+  );
   const [summaryHostelId, setSummaryHostelId] = useState("all");
-  const [summaryCategory, setSummaryCategory] = useState<"all" | ExpenseCategory>("all");
+  const [summaryCategory, setSummaryCategory] = useState<
+    "all" | ExpenseCategory
+  >("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ExpenseDraft>(EMPTY_DRAFT);
@@ -283,27 +315,30 @@ export default function OwnerExpensesPage() {
   useEffect(() => {
     const get = () => {
       if (typeof document === "undefined") return false;
-      const prefers = typeof window !== "undefined" && window.matchMedia
-        ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        : false;
+      const prefers =
+        typeof window !== "undefined" && window.matchMedia
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          : false;
       return document.documentElement.classList.contains("dark") || prefers;
     };
     setIsDarkTheme(get());
-    const mql = typeof window !== "undefined" && window.matchMedia
-      ? window.matchMedia("(prefers-color-scheme: dark)")
-      : null;
+    const mql =
+      typeof window !== "undefined" && window.matchMedia
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : null;
     const onChange = () => setIsDarkTheme(get());
     if (mql && mql.addEventListener) mql.addEventListener("change", onChange);
     else if (mql && mql.addListener) mql.addListener(onChange);
-    const observer = typeof MutationObserver !== "undefined"
-      ? new MutationObserver(() => setIsDarkTheme(get()))
-      : null;
-      if (observer) {
-        observer.observe(document.documentElement, {
-          attributes: true,
-          attributeFilter: ["class"],
-        });
-      }
+    const observer =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(() => setIsDarkTheme(get()))
+        : null;
+    if (observer) {
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    }
     return () => {
       if (mql && mql.removeEventListener)
         mql.removeEventListener("change", onChange);
@@ -369,12 +404,15 @@ export default function OwnerExpensesPage() {
 
       setExpenses(serverExpenses);
       setHostels((json.hostels ?? []) as HostelOption[]);
+      const result = summarizeExpenses(serverExpenses, dateRange.start, dateRange.end);
+      setThisMonthPropertyTotals(result.propertyTotals);
+      setDailyTotals(result.dailyTotals);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchQuery, filterCategory, filterHostelId, dateRange]);
+  }, [dateRange, debouncedSearchQuery, filterCategory, filterHostelId]);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -1053,9 +1091,6 @@ export default function OwnerExpensesPage() {
                       <h3 className="text-sm font-semibold text-foreground">
                         Spend by property
                       </h3>
-                      <p className="text-xs text-muted-foreground">
-                        Highest operating costs in this period
-                      </p>
                     </div>
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                   </div>
@@ -1079,14 +1114,6 @@ export default function OwnerExpensesPage() {
                               <p className="truncate text-sm font-medium text-foreground">
                                 {item.hostel_name}
                               </p>
-                              <div className="mt-1 h-1.5 rounded-full bg-muted">
-                                <div
-                                  className="h-full rounded-full bg-primary"
-                                  style={{
-                                    width: `${summary.total > 0 ? Math.max(4, (item.total / summary.total) * 100) : 0}%`,
-                                  }}
-                                />
-                              </div>
                             </div>
                             <span className="text-sm font-semibold text-foreground">
                               {formatAmount(item.total)}
@@ -1097,16 +1124,12 @@ export default function OwnerExpensesPage() {
                   )}
                 </div>
               </div>
-
               <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">
-                      Daily expense trend
+                      Expense trend
                     </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Spend movement across the selected reporting period
-                    </p>
                   </div>
                   <span className="text-xs font-medium text-muted-foreground">
                     {formatDate(summaryDateRange.start)} -{" "}
@@ -1121,6 +1144,7 @@ export default function OwnerExpensesPage() {
                   <ExpenseDailyTrend
                     dailyTotals={dailyTotals}
                     isDarkTheme={isDarkTheme}
+                    className="h-72 w-full"
                   />
                 )}
               </div>
@@ -1247,6 +1271,15 @@ export default function OwnerExpensesPage() {
             </div>
           </div>
         ))}
+
+      {activeTab === "expense" && !loading && hasProperties ? (
+        <ExpenseReport
+          propertyTotals={thisMonthPropertyTotals}
+          dailyTotals={dailyTotals}
+          dateRange={dateRange}
+          isDarkTheme={isDarkTheme}
+        />
+      ) : null}
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-3 py-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:px-0">
