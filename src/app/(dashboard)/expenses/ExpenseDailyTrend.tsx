@@ -3,7 +3,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
-import { formatDateInIndia } from "../../../lib/date";
 import { useIsMobile } from "../../../hooks/use-mobile";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -13,24 +12,34 @@ type DailyTotal = {
   total: number;
 };
 
+type DailyPropertyTotal = {
+  hostel_id: string;
+  hostel_name: string;
+  totals: DailyTotal[];
+};
+
 type Props = {
   dailyTotals: DailyTotal[];
+  dailyPropertyTotals: DailyPropertyTotal[];
   isDarkTheme: boolean;
   className?: string;
 };
 
 export default function ExpenseDailyTrend({
   dailyTotals,
+  dailyPropertyTotals,
   isDarkTheme,
   className,
 }: Props) {
   const isMobile = useIsMobile();
+  const [isMounted, setIsMounted] = useState(false);
 
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1024,
   );
 
   useEffect(() => {
+    setIsMounted(true);
     if (typeof window === "undefined") return;
     const onResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
@@ -38,11 +47,9 @@ export default function ExpenseDailyTrend({
   }, []);
 
   const chartOptions = useMemo<ApexOptions>(() => {
-    const color = isDarkTheme ? "#22d3ee" : "#0284c7";
-    const tooltipBackground = isDarkTheme ? "#111827" : "#ffffff";
-    const tooltipText = isDarkTheme ? "#f8fafc" : "#0f172a";
-    const tooltipMutedText = isDarkTheme ? "#94a3b8" : "#64748b";
-    const tooltipBorder = isDarkTheme ? "#334155" : "#e2e8f0";
+    const colors = isDarkTheme
+      ? ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#fb7185", "#60a5fa"]
+      : ["#0284c7", "#7c3aed", "#059669", "#d97706", "#e11d48", "#2563eb"];
     // Compute how many labels we can reasonably display based on viewport
     const approxLabelWidth = isMobile ? 96 : 120; // px per label, larger = fewer labels
     const maxLabels = Math.max(2, Math.floor(viewportWidth / approxLabelWidth));
@@ -53,10 +60,31 @@ export default function ExpenseDailyTrend({
     return {
       chart: {
         id: "expenseDailyTrend",
-        toolbar: { show: false },
-        animations: { enabled: true, speed: 450 },
+        background: "transparent",
+        foreColor: isDarkTheme ? "#94a3b8" : "#64748b",
+        toolbar: {
+          show: true,
+          tools: {
+            download: false,
+            selection: false,
+            zoom: false,
+            zoomin: true,
+            zoomout: true,
+            pan: true,
+            reset: true,
+          },
+          autoSelected: "pan",
+        },
+        zoom: {
+          enabled: true,
+          type: "x",
+          autoScaleYaxis: true,
+          allowMouseWheelZoom: false,
+        },
+        animations: { enabled: false },
         fontFamily: "inherit",
       },
+      theme: { mode: isDarkTheme ? "dark" : "light" },
       grid: {
         borderColor: "hsl(var(--border))",
         strokeDashArray: 3,
@@ -107,9 +135,9 @@ export default function ExpenseDailyTrend({
             }).format(val),
         },
       },
-      colors: [color],
+      colors,
       fill: {
-        colors: [color],
+        colors,
         type: "gradient",
         gradient: {
           shadeIntensity: 1,
@@ -128,41 +156,34 @@ export default function ExpenseDailyTrend({
         shared: true,
         intersect: false,
         marker: { show: true },
-        custom: ({ series, seriesIndex, dataPointIndex, w }) => {
-          const date = w.globals.categoryLabels[dataPointIndex] ?? "";
-          const amount = Number(series[seriesIndex]?.[dataPointIndex] ?? 0);
-          const formattedDate = formatDateInIndia(`${date}T00:00:00`, {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          });
-          const formattedAmount = new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 0,
-          }).format(amount);
-
-          return `<div style="background:${tooltipBackground};border:1px solid ${tooltipBorder};border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.18);padding:10px 12px;min-width:150px;color:${tooltipText};font-family:inherit">
-            <div style="color:${tooltipMutedText};font-size:11px;margin-bottom:4px">${formattedDate}</div>
-            <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600">
-              <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block"></span>
-              <span>${formattedAmount}</span>
-            </div>
-          </div>`;
+        y: {
+          formatter: (value: number) =>
+            new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              maximumFractionDigits: 0,
+            }).format(value),
         },
       },
-      legend: { show: false },
+      legend: {
+        show: dailyPropertyTotals.length > 1,
+        position: "top",
+        horizontalAlign: "left",
+        labels: { colors: isDarkTheme ? "#cbd5e1" : "#475569" },
+        markers: { size: 5 },
+      },
     } as ApexOptions;
-  }, [dailyTotals, isDarkTheme, isMobile, viewportWidth]);
+  }, [dailyPropertyTotals.length, dailyTotals, isDarkTheme, isMobile, viewportWidth]);
 
   const series = useMemo(
-    () => [
-      {
-        name: "Expenses",
-        data: dailyTotals.map((r) => Number(r.total)),
-      },
-    ],
-    [dailyTotals],
+    () =>
+      dailyPropertyTotals.length > 0
+        ? dailyPropertyTotals.map((property) => ({
+            name: property.hostel_name,
+            data: property.totals.map((row) => Number(row.total)),
+          }))
+        : [{ name: "Expenses", data: dailyTotals.map((row) => Number(row.total)) }],
+    [dailyPropertyTotals, dailyTotals],
   );
 
   return (
@@ -170,13 +191,15 @@ export default function ExpenseDailyTrend({
       className={className ?? "h-72 w-full"}
       style={{ width: "100%" }}
     >
-      <ApexChart
-        type="area"
-        options={chartOptions}
-        series={series}
-        width="100%"
-        height="100%"
-      />
+      {isMounted ? (
+        <ApexChart
+          type="area"
+          options={chartOptions}
+          series={series}
+          width="100%"
+          height="100%"
+        />
+      ) : null}
     </div>
   );
 }
