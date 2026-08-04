@@ -68,7 +68,6 @@ import {
 import { cn } from "../../../lib/utils";
 
 import ExpenseDailyTrend from "./ExpenseDailyTrend";
-import ExpenseReport from "./ExpenseReport";
 import { ExpensesFilterPopover } from "../../../components/expenses/ExpensesFilterPopover";
 import { ExpensesTabs } from "../../../components/expenses/ExpensesTabs";
 
@@ -119,6 +118,12 @@ type PropertyTotal = {
 type DailyTotal = {
   date: string;
   total: number;
+};
+
+type DailyPropertyTotal = {
+  hostel_id: string;
+  hostel_name: string;
+  totals: DailyTotal[];
 };
 
 type ExpenseDraft = {
@@ -232,6 +237,7 @@ function summarizeExpenses(rows: ExpenseRow[], start: string, end: string) {
   }
 
   const dailyMap = new Map<string, number>();
+  const dailyPropertyMap = new Map<string, Map<string, number>>();
   if (start && end) {
     const startDate = new Date(`${start}T00:00:00`);
     const endDate = new Date(`${end}T00:00:00`);
@@ -244,6 +250,14 @@ function summarizeExpenses(rows: ExpenseRow[], start: string, end: string) {
     }
   }
   for (const row of filtered) {
+    if (!dailyPropertyMap.has(row.hostel_id)) {
+      dailyPropertyMap.set(row.hostel_id, new Map(dailyMap));
+    }
+    const propertyDailyMap = dailyPropertyMap.get(row.hostel_id)!;
+    propertyDailyMap.set(
+      row.expense_date,
+      (propertyDailyMap.get(row.expense_date) ?? 0) + (Number(row.amount) || 0),
+    );
     dailyMap.set(
       row.expense_date,
       (dailyMap.get(row.expense_date) ?? 0) + (Number(row.amount) || 0),
@@ -259,6 +273,21 @@ function summarizeExpenses(rows: ExpenseRow[], start: string, end: string) {
       date,
       total,
     })),
+    dailyPropertyTotals: Array.from(dailyPropertyMap.entries())
+      .map(([hostel_id, totals]) => ({
+        hostel_id,
+        hostel_name:
+          propertyMap.get(hostel_id)?.hostel_name ?? "Unknown property",
+        totals: Array.from(totals.entries()).map(([date, total]) => ({
+          date,
+          total,
+        })),
+      }))
+      .sort(
+        (a, b) =>
+          (propertyMap.get(b.hostel_id)?.total ?? 0) -
+          (propertyMap.get(a.hostel_id)?.total ?? 0),
+      ),
   };
 }
 
@@ -276,6 +305,9 @@ export default function OwnerExpensesPage() {
     PropertyTotal[]
   >([]);
   const [dailyTotals, setDailyTotals] = useState<DailyTotal[]>([]);
+  const [dailyPropertyTotals, setDailyPropertyTotals] = useState<
+    DailyPropertyTotal[]
+  >([]);
   const hasProperties = hostels.length > 0;
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(
     () => getCurrentMonthRange(),
@@ -407,6 +439,7 @@ export default function OwnerExpensesPage() {
       const result = summarizeExpenses(serverExpenses, dateRange.start, dateRange.end);
       setThisMonthPropertyTotals(result.propertyTotals);
       setDailyTotals(result.dailyTotals);
+      setDailyPropertyTotals(result.dailyPropertyTotals);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -443,6 +476,7 @@ export default function OwnerExpensesPage() {
       setSummary(result.summary);
       setThisMonthPropertyTotals(result.propertyTotals);
       setDailyTotals(result.dailyTotals);
+      setDailyPropertyTotals(result.dailyPropertyTotals);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -1085,45 +1119,6 @@ export default function OwnerExpensesPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Spend by property
-                      </h3>
-                    </div>
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  {thisMonthPropertyTotals.length === 0 ? (
-                    <p className="py-5 text-sm text-muted-foreground">
-                      No expenses recorded for these filters.
-                    </p>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {thisMonthPropertyTotals
-                        .slice(0, 6)
-                        .map((item, index) => (
-                          <div
-                            key={item.hostel_id}
-                            className="flex items-center gap-3"
-                          >
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
-                              {index + 1}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium text-foreground">
-                                {item.hostel_name}
-                              </p>
-                            </div>
-                            <span className="text-sm font-semibold text-foreground">
-                              {formatAmount(item.total)}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
               <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
@@ -1143,10 +1138,50 @@ export default function OwnerExpensesPage() {
                 ) : (
                   <ExpenseDailyTrend
                     dailyTotals={dailyTotals}
+                    dailyPropertyTotals={dailyPropertyTotals}
                     isDarkTheme={isDarkTheme}
                     className="h-72 w-full"
                   />
                 )}
+              </div>
+              <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Spend by property
+                    </h3>
+                  </div>
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                </div>
+                {thisMonthPropertyTotals.length === 0 ? (
+                  <p className="py-5 text-sm text-muted-foreground">
+                    No expenses recorded for these filters.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {thisMonthPropertyTotals
+                      .slice(0, 6)
+                      .map((item, index) => (
+                        <div
+                          key={item.hostel_id}
+                          className="flex items-center gap-3"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {item.hostel_name}
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatAmount(item.total)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
               </div>
             </>
           )}
@@ -1271,15 +1306,6 @@ export default function OwnerExpensesPage() {
             </div>
           </div>
         ))}
-
-      {activeTab === "expense" && !loading && hasProperties ? (
-        <ExpenseReport
-          propertyTotals={thisMonthPropertyTotals}
-          dailyTotals={dailyTotals}
-          dateRange={dateRange}
-          isDarkTheme={isDarkTheme}
-        />
-      ) : null}
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-3 py-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:px-0">
