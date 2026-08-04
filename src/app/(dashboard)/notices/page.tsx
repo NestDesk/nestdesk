@@ -445,13 +445,7 @@ export default function OwnerNoticesPage() {
 
       {/* Stats strip */}
       {!loading && notices.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-border/70 bg-card/70 p-3">
-            <p className="text-xs text-muted-foreground">Total</p>
-            <p className="mt-1 text-xl font-bold text-foreground">
-              {notices.length}
-            </p>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
             <p className="text-xs text-emerald-700 dark:text-emerald-400">
               Published

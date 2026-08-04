@@ -38,17 +38,17 @@ export default function ExpenseDailyTrend({
   }, []);
 
   const chartOptions = useMemo<ApexOptions>(() => {
-    const color = isDarkTheme ? "#06b6d4" : "#0ea5e9";
+    const color = isDarkTheme ? "#22d3ee" : "#0284c7";
+    const tooltipBackground = isDarkTheme ? "#111827" : "#ffffff";
+    const tooltipText = isDarkTheme ? "#f8fafc" : "#0f172a";
+    const tooltipMutedText = isDarkTheme ? "#94a3b8" : "#64748b";
+    const tooltipBorder = isDarkTheme ? "#334155" : "#e2e8f0";
     // Compute how many labels we can reasonably display based on viewport
     const approxLabelWidth = isMobile ? 96 : 120; // px per label, larger = fewer labels
     const maxLabels = Math.max(2, Math.floor(viewportWidth / approxLabelWidth));
     const len = dailyTotals.length;
     const desiredLabels = Math.min(len, maxLabels);
-    // Compute a step so we show roughly `desiredLabels` labels evenly.
-    const step = len > 0 ? Math.max(1, Math.ceil(len / desiredLabels)) : 1;
-    const indices = new Set<number>();
-    for (let i = 0; i < len; i += step) indices.add(i);
-    const tickAmount = Math.max(0, Math.floor((len - 1) / step));
+    const tickAmount = Math.max(1, desiredLabels - 1);
 
     return {
       chart: {
@@ -66,16 +66,23 @@ export default function ExpenseDailyTrend({
         // categories hold full date strings so tooltip can show complete date
         categories: dailyTotals.map((row) => row.date),
         tickAmount,
+        tickPlacement: "on",
         labels: {
           show: true,
           style: { colors: "hsl(var(--muted-foreground))", fontSize: "10px" },
-          rotate: 0,
-          rotateAlways: false,
+          rotate: isMobile ? -45 : 0,
+          rotateAlways: isMobile,
+          hideOverlappingLabels: false,
+          showDuplicates: true,
           formatter: (val: string) => {
             const d = new Date(val + "T00:00:00");
-            return String(d.getDate());
+            if (Number.isNaN(d.getTime())) return val;
+            return d.toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "short",
+            });
           },
-          trim: true,
+          trim: false,
         },
         axisBorder: { show: false },
         axisTicks: { show: false },
@@ -101,39 +108,47 @@ export default function ExpenseDailyTrend({
         },
       },
       colors: [color],
-      plotOptions: {
-        bar: {
-          borderRadius: 0,
-        },
-      },
       fill: {
         colors: [color],
-        opacity: 1,
+        type: "gradient",
+        gradient: {
+          shadeIntensity: 1,
+          opacityFrom: 0.32,
+          opacityTo: 0.04,
+          stops: [0, 90, 100],
+        },
+      },
+      stroke: { curve: "smooth", width: 2 },
+      markers: {
+        size: 0,
+        hover: { size: 5, sizeOffset: 2 },
       },
       tooltip: {
+        theme: isDarkTheme ? "dark" : "light",
         shared: true,
         intersect: false,
-        x: {
-          // show full date in tooltip
-          formatter: (val: string) => {
-            try {
-              return formatDateInIndia(`${val}T00:00:00`, {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              });
-            } catch {
-              return String(val);
-            }
-          },
-        },
-        y: {
-          formatter: (value: number) =>
-            new Intl.NumberFormat("en-IN", {
-              style: "currency",
-              currency: "INR",
-              maximumFractionDigits: 0,
-            }).format(value),
+        marker: { show: true },
+        custom: ({ series, seriesIndex, dataPointIndex, w }) => {
+          const date = w.globals.categoryLabels[dataPointIndex] ?? "";
+          const amount = Number(series[seriesIndex]?.[dataPointIndex] ?? 0);
+          const formattedDate = formatDateInIndia(`${date}T00:00:00`, {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+          const formattedAmount = new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency: "INR",
+            maximumFractionDigits: 0,
+          }).format(amount);
+
+          return `<div style="background:${tooltipBackground};border:1px solid ${tooltipBorder};border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.18);padding:10px 12px;min-width:150px;color:${tooltipText};font-family:inherit">
+            <div style="color:${tooltipMutedText};font-size:11px;margin-bottom:4px">${formattedDate}</div>
+            <div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600">
+              <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block"></span>
+              <span>${formattedAmount}</span>
+            </div>
+          </div>`;
         },
       },
       legend: { show: false },
@@ -152,11 +167,11 @@ export default function ExpenseDailyTrend({
 
   return (
     <div
-      className={className ?? "w-full flex-1"}
-      style={{ width: "100%", height: "100%" }}
+      className={className ?? "h-72 w-full"}
+      style={{ width: "100%" }}
     >
       <ApexChart
-        type="bar"
+        type="area"
         options={chartOptions}
         series={series}
         width="100%"

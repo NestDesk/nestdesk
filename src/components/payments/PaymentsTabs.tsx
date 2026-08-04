@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle2, IndianRupee } from "lucide-react";
+import { BarChart3, BookOpen, IndianRupee } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type PaymentsTabsProps = {
@@ -41,7 +41,7 @@ export function PaymentsTabs({ activeTab, onTabChange }: PaymentsTabsProps) {
               : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
           )}
         >
-          <CheckCircle2 className="h-4 w-4" />
+          <BarChart3 className="h-4 w-4" />
           Summary
         </button>
         <button

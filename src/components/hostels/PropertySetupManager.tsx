@@ -495,27 +495,31 @@ export function PropertySetupManager({
                 <button
                   type="button"
                   onClick={() => goToStep(s.key)}
-                  className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium transition-colors sm:px-3 sm:py-2 sm:text-sm ${
+                  className={`group flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-2 sm:text-sm ${
                     active
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
                       : done
-                        ? "bg-primary/15 text-primary hover:bg-primary/20"
+                        ? "bg-primary/10 text-primary hover:bg-primary/15"
                         : reachable
                           ? "text-muted-foreground hover:text-foreground"
                           : "cursor-not-allowed text-muted-foreground/50"
                   }`}
                 >
                   <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold sm:text-[11px] ${
-                      active ? "bg-white/20" : done ? "bg-primary/20" : "bg-muted"
+                    className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold transition-colors sm:h-7 sm:w-7 sm:text-[11px] ${
+                      active
+                        ? "border-primary-foreground/30 bg-primary-foreground/20 text-primary-foreground"
+                        : done
+                          ? "border-primary/25 bg-primary/15 text-primary"
+                          : "border-border/70 bg-muted text-muted-foreground"
                     }`}
                   >
-                    {done ? <Check className="h-3 w-3" /> : s.num}
+                    {s.num}
                   </span>
                   {s.label}
                 </button>
                 {i < steps.length - 1 && (
-                  <ChevronRight className="ml-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 sm:ml-1 sm:h-4 sm:w-4" />
+                  <ChevronRight className="ml-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/35 transition-colors sm:ml-1 sm:h-4 sm:w-4" />
                 )}
               </div>
             );

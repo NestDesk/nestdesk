@@ -14,6 +14,7 @@ export type PaymentLedgerRow = {
   method: string | null;
   status: string;
   paid_on: string;
+  billing_end: string | null;
 };
 
 export type PaymentLedgerTenant = {
@@ -82,20 +83,30 @@ export function PaymentsLedger({
             (!rentStartDate || payment.paid_on >= rentStartDate) &&
             (!toDate || payment.paid_on <= toDate),
         );
-        const received = tenantPayments
+        const rangePayments = tenantPayments.filter(
+          (payment) => !fromDate || payment.paid_on >= fromDate,
+        );
+        const latestPaidPayment = tenantPayments
+          .filter((payment) => payment.status === "paid" && payment.billing_end)
+          .sort((a, b) => (b.billing_end ?? "").localeCompare(a.billing_end ?? ""))[0];
+        const isRentCovered = Boolean(
+          latestPaidPayment &&
+            (!toDate || (latestPaidPayment.billing_end ?? "") >= toDate),
+        );
+        const received = rangePayments
           .filter((payment) => payment.status === "paid")
           .reduce((total, payment) => total + Number(payment.amount || 0), 0);
-        const pending = Math.max(Number(tenant.agreed_rent_amount || 0) - received, 0);
-        const lastPayment = tenantPayments[0];
+        const pending = isRentCovered ? 0 : Number(tenant.agreed_rent_amount || 0);
         return {
           ...tenant,
           received,
           pending,
-          lastPaidOn: lastPayment?.paid_on ?? null,
+          isRentCovered,
+          billingEnd: latestPaidPayment?.billing_end ?? null,
         };
       })
       .sort((a, b) => a.hostel_name.localeCompare(b.hostel_name) || compareRooms(a.room_number, b.room_number));
-  }, [hostelFilter, payments, tenants, toDate]);
+  }, [fromDate, hostelFilter, payments, tenants, toDate]);
 
   const propertyGroups = useMemo(() => {
     const groups = new Map<string, { name: string; rows: typeof passbookRows }>();
@@ -120,8 +131,8 @@ export function PaymentsLedger({
           <table className="min-w-full divide-y divide-border text-left text-[13px]">
             <thead className="bg-muted text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
               <tr className="border-b border-border">
-                <th className="px-3 py-2">Room Number</th>
-                <th className="px-3 py-2">Tenant Name</th>
+                <th className="px-3 py-2">Tenant / Room</th>
+                <th className="px-3 py-2">Billing Covered Until</th>
                 <th className="px-3 py-2 text-right">Amount Received</th>
                 <th className="px-3 py-2 text-right">Amount Pending</th>
               </tr>
@@ -129,8 +140,13 @@ export function PaymentsLedger({
             <tbody className="divide-y divide-border bg-background">
               {property.rows.map((row) => (
                 <tr key={row.id} className="hover:bg-muted/50">
-                  <td className="px-3 py-2 text-foreground/90">{row.room_number ?? "-"}</td>
-                  <td className="px-3 py-2 text-foreground">{row.full_name}</td>
+                  <td className="px-3 py-2 text-foreground">
+                    <div>{row.full_name}</div>
+                    <div className="text-xs text-muted-foreground">Room {row.room_number ?? "-"}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
+                    {row.billingEnd ? formatDate(row.billingEnd) : "Not covered"}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-emerald-600">{formatAmount(row.received)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-amber-600">{formatAmount(row.pending)}</td>
                 </tr>

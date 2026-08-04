@@ -1,6 +1,5 @@
 import { Building2, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Separator } from "../../../components/ui/separator";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { formatDateInIndia } from "../../../lib/date";
@@ -87,9 +86,7 @@ export default async function OwnerProfilePage() {
     .slice(-10);
 
   return (
-    <div className="space-y-8">
-      <Separator />
-
+    <div className="space-y-2">
       <div className="grid gap-4 lg:grid-cols-3">
         <OwnerProfileCard
           initial={{
@@ -115,7 +112,7 @@ export default async function OwnerProfilePage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Account Snapshot</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-6">
             <div>
               <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Building2 className="h-3.5 w-3.5" /> Properties
