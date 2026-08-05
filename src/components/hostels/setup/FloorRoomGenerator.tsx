@@ -44,11 +44,6 @@ function normalizeRoomNumber(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-function parseIntOrFallback(value: string, fallback: number): number {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -89,17 +84,19 @@ export function FloorRoomGenerator({
     const match = floor.name.match(/(\d+)/);
     return match ? match[1] : floor.name.slice(0, 1).toUpperCase();
   });
-  const [start, setStart] = useState(1);
-  const [end, setEnd] = useState(8);
+  const [start, setStart] = useState<number | "">(1);
+  const [end, setEnd] = useState<number | "">(8);
   const [defaultCapacity, setDefaultCapacity] = useState(1);
   const [saving, setSaving] = useState(false);
   const [locked, setLocked] = useState(false);
 
   const normalizedPrefix = useMemo(() => normalizePrefix(prefix) || "R", [prefix]);
 
-  const clampedStart = clamp(start, MIN_ROOM_INDEX, MAX_ROOM_INDEX);
+  const numericStart = typeof start === "number" ? start : MIN_ROOM_INDEX;
+  const numericEnd = typeof end === "number" ? end : numericStart;
+  const clampedStart = clamp(numericStart, MIN_ROOM_INDEX, MAX_ROOM_INDEX);
   const clampedEnd = clamp(
-    Math.max(end, clampedStart),
+    Math.max(numericEnd, clampedStart),
     clampedStart,
     MAX_ROOM_INDEX,
   );
@@ -283,14 +280,21 @@ export function FloorRoomGenerator({
             max={MAX_ROOM_INDEX}
             value={start}
             onChange={(e) => {
+              if (e.target.value === "") {
+                setStart("");
+                return;
+              }
+
               const nextStart = clamp(
-                parseIntOrFallback(e.target.value, MIN_ROOM_INDEX),
+                Number.parseInt(e.target.value, 10),
                 MIN_ROOM_INDEX,
                 MAX_ROOM_INDEX,
               );
               setStart(nextStart);
               setEnd((prev) =>
-                clamp(Math.max(prev, nextStart), nextStart, MAX_ROOM_INDEX),
+                prev === ""
+                  ? prev
+                  : clamp(Math.max(prev, nextStart), nextStart, MAX_ROOM_INDEX),
               );
             }}
             className="h-9 text-sm"
@@ -304,13 +308,18 @@ export function FloorRoomGenerator({
           <Input
             id={`end-${floor.id}`}
             type="number"
-            min={start}
+            min={clampedStart}
             max={MAX_ROOM_INDEX}
             value={end}
             onChange={(e) => {
+              if (e.target.value === "") {
+                setEnd("");
+                return;
+              }
+
               const nextEnd = clamp(
-                parseIntOrFallback(e.target.value, start),
-                start,
+                Number.parseInt(e.target.value, 10),
+                clampedStart,
                 MAX_ROOM_INDEX,
               );
               setEnd(nextEnd);
@@ -464,7 +473,7 @@ export function FloorRoomGenerator({
           onClick={() => {
             if (locked) {
               const rangeSize = clamp(
-                end - start + 1,
+                clampedEnd - clampedStart + 1,
                 MIN_ROOM_INDEX,
                 MAX_ROOM_INDEX,
               );
