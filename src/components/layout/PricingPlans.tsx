@@ -896,6 +896,13 @@ export function PricingPlans({
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <p className="font-medium text-foreground">Credit summary</p>
                   <p>
+                    Current plan billing: {previewData.currentPlan} (
+                    {previewData.currentPlanBillingCycle})
+                  </p>
+                  <p>
+                    New plan billing: {selectedPlanName} ({previewData.billingCycle})
+                  </p>
+                  <p>
                     Existing credit: ₹
                     {formatRupee(previewData.currentOwnerCreditPaise)}
                   </p>
@@ -904,7 +911,7 @@ export function PricingPlans({
                     {formatRupee(previewData.prorationCreditPaise)}
                   </p>
                   <p>
-                    Available credit: ₹
+                    Available credit (existing + proration): ₹
                     {formatRupee(previewData.availableCreditPaise)}
                   </p>
                   <p>Credit applied: ₹{formatRupee(previewData.creditUsedPaise)}</p>

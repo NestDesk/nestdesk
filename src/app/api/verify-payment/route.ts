@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
         ? paymentOrder.notes.available_credit_paise
         : typeof paymentOrder.notes?.previous_owner_credit_paise === "number"
           ? paymentOrder.notes.previous_owner_credit_paise
-          : 0;
+        : 0;
 
     const balanceAfter =
       typeof leftoverCreditAfter === "number" ? leftoverCreditAfter : 0;
