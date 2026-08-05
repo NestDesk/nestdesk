@@ -321,15 +321,22 @@ export async function POST(request: NextRequest) {
       : getPlanAmountPaiseForCycle(requestedPlan, billingCycle);
 
   let prorationCreditPaise = 0;
-  let remainingDays = 0;
   const currentPlanEndsAt = activeEndsAt?.toISOString() ?? null;
 
   if (hasActiveSubscription && activeEndsAt) {
     const millisRemaining = activeEndsAt.getTime() - now.getTime();
-    remainingDays = Math.max(0, Math.ceil(millisRemaining / (1000 * 60 * 60 * 24)));
-    const daysInCycle = activeBillingCycle === "yearly" ? 365 : 30;
+    const fallbackCycleMillis =
+      (activeBillingCycle === "yearly" ? 365 : 30) *
+      24 *
+      60 *
+      60 *
+      1000;
+    const cycleMillis =
+      activeStartsAt && activeEndsAt.getTime() > activeStartsAt.getTime()
+        ? activeEndsAt.getTime() - activeStartsAt.getTime()
+        : fallbackCycleMillis;
     prorationCreditPaise = Math.round(
-      (currentAmountPaise / daysInCycle) * remainingDays,
+      (currentAmountPaise * Math.max(0, millisRemaining)) / cycleMillis,
     );
   }
 
@@ -337,8 +344,11 @@ export async function POST(request: NextRequest) {
     0,
     currentOwnerCreditPaise + prorationCreditPaise,
   );
-  const creditUsedPaise = Math.min(availableCreditPaise, newAmountPaise);
-  const leftoverCreditPaise = Math.max(0, availableCreditPaise - newAmountPaise);
+  const totalCreditAppliedPaise = Math.min(availableCreditPaise, newAmountPaise);
+  const leftoverCreditPaise = Math.max(
+    0,
+    availableCreditPaise - totalCreditAppliedPaise,
+  );
   const amountDuePaise = Math.max(0, newAmountPaise - availableCreditPaise);
 
   if (preview) {
@@ -355,7 +365,7 @@ export async function POST(request: NextRequest) {
       currentOwnerCreditPaise,
       prorationCreditPaise,
       availableCreditPaise,
-      creditUsedPaise,
+      creditUsedPaise: totalCreditAppliedPaise,
       leftoverCreditPaise,
       amountDuePaise,
       currentPlanEndsAt,
@@ -410,7 +420,8 @@ export async function POST(request: NextRequest) {
           current_plan_ends_at: currentPlanEndsAt,
           previous_owner_credit_paise: currentOwnerCreditPaise,
           proration_credit_paise: prorationCreditPaise,
-          credit_used_paise: creditUsedPaise,
+          credit_used_paise: totalCreditAppliedPaise,
+          total_credit_applied_paise: totalCreditAppliedPaise,
           available_credit_paise: availableCreditPaise,
           unused_credit_paise_after: leftoverCreditPaise,
           amount_due_paise: amountDuePaise,
@@ -634,7 +645,8 @@ export async function POST(request: NextRequest) {
         previous_owner_credit_paise: currentOwnerCreditPaise,
         proration_credit_paise: prorationCreditPaise,
         available_credit_paise: availableCreditPaise,
-        credit_used_paise: creditUsedPaise,
+        credit_used_paise: totalCreditAppliedPaise,
+        total_credit_applied_paise: totalCreditAppliedPaise,
         unused_credit_paise_after: leftoverCreditPaise,
         amount_due_paise: amountDuePaise,
         is_proration: prorationCreditPaise > 0,
