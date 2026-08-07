@@ -873,7 +873,7 @@ export default function OwnerPaymentsPage() {
         </Suspense>
       ) : (
         <div id="payments-panel" role="tabpanel" aria-labelledby="payments-tab" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-nowrap items-center justify-between gap-2">
             <div className="flex min-w-0 max-w-full items-center gap-2">
               <Button
                 type="button"
@@ -886,7 +886,7 @@ export default function OwnerPaymentsPage() {
               >
                 <Plus className="h-4 w-4" />
               </Button>
-              <div className="relative w-56 max-w-full shrink-0">
+              <div className="relative w-48 max-w-full shrink-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="h-10 border-border/80 bg-muted/30 pl-9 focus-visible:bg-background"
