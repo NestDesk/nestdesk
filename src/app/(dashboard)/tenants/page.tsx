@@ -1107,6 +1107,7 @@ export default function OwnerTenantsPage() {
       setReviewTenant((prev) =>
         prev && json.signedUrl ? { ...prev, [urlField]: json.signedUrl } : prev,
       );
+      loadTenants().catch(() => undefined);
       toast.success("Photo uploaded successfully.");
     } catch {
       toast.error("Could not process this image. Try a clearer photo.");

@@ -525,6 +525,16 @@ export async function PATCH(
     .eq("owner_id", ctx.ownerId);
 
   if (updateError) {
+    if (
+      updateError.message
+        .toLowerCase()
+        .includes("aadhar_number_hash")
+    ) {
+      return NextResponse.json(
+        { error: "This Aadhaar number is already linked to another tenant." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
