@@ -23,6 +23,7 @@ import {
   Building2,
   CalendarDays,
   Download,
+  Funnel,
   Home,
   IndianRupee,
   Loader2,
@@ -40,6 +41,7 @@ import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { DatePicker } from "../../../components/ui/DatePicker";
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
 import { ReportChart } from "../../../components/reports/ReportChart";
 import { exportToCSV } from "../../../lib/reports/exportUtils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -55,6 +57,30 @@ interface Filters {
   startDate: string;
   endDate: string;
   hostelIds: string[];
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  return {
+    startDate: toDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1)),
+    endDate: toDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
+}
+
+function formatReportDate(value: string) {
+  if (!value) return "Not set";
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 interface FinancialKPI {
@@ -180,7 +206,7 @@ const FiltersCtx = createContext<{
   filters: Filters;
   set: (f: Partial<Filters>) => void;
 }>({
-  filters: { startDate: "", endDate: "", hostelIds: [] },
+  filters: { ...getCurrentMonthRange(), hostelIds: [] },
   set: () => {},
 });
 function useFilters() {
@@ -1010,84 +1036,118 @@ type TabId = (typeof TABS)[number]["id"];
 
 function FiltersBar({ hostels }: { hostels: Hostel[] }) {
   const { filters, set } = useFilters();
+  const hasActivePropertyFilter = filters.hostelIds.length > 0;
+  const currentMonth = getCurrentMonthRange();
+
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/95 shadow-sm px-3 py-3 sm:px-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-              From
-            </span>
-            <div className="w-40">
-              <DatePicker
-                value={filters.startDate || undefined}
-                onChange={(v) => set({ startDate: v })}
-                placeholder="Start date"
-                max={filters.endDate || undefined}
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-              To
-            </span>
-            <div className="w-40">
-              <DatePicker
-                value={filters.endDate || undefined}
-                onChange={(v) => set({ endDate: v })}
-                placeholder="End date"
-                min={filters.startDate || undefined}
-              />
-            </div>
-          </div>
-          {hostels.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-                Property
-              </span>
-              <button
-                onClick={() => set({ hostelIds: [] })}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  filters.hostelIds.length === 0
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border hover:bg-muted",
-                )}
-              >
-                All
-              </button>
-              {hostels.map((h) => (
-                <button
-                  key={h.id}
-                  onClick={() => {
-                    const on = filters.hostelIds.includes(h.id);
-                    set({
-                      hostelIds: on
-                        ? filters.hostelIds.filter((x) => x !== h.id)
-                        : [...filters.hostelIds, h.id],
-                    });
-                  }}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                    filters.hostelIds.includes(h.id)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border hover:bg-muted",
-                  )}
-                >
-                  {h.name}
-                </button>
-              ))}
-            </div>
-          )}
+    <section className="rounded-2xl border border-border/70 bg-card/95 px-2 py-1 shadow-sm sm:px-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground">Reporting period</p>
+          <p className="truncate text-sm font-semibold text-foreground">
+            {formatReportDate(filters.startDate)} <span className="px-1 text-muted-foreground">-</span>{" "}
+            {formatReportDate(filters.endDate)}
+          </p>
         </div>
-        {(filters.startDate || filters.endDate || filters.hostelIds.length > 0) && (
-          <button
-            onClick={() => set({ startDate: "", endDate: "", hostelIds: [] })}
-            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 shrink-0"
-          >
-            <X className="h-3 w-3" /> Clear filters
-          </button>
-        )}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Open report filters"
+              title="Open report filters"
+              className={cn("shrink-0", hasActivePropertyFilter && "border-primary text-primary")}
+            >
+              <Funnel className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="max-h-[calc(100dvh-1rem)] w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-y-auto p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Funnel className="h-3.5 w-3.5 text-primary" />
+                <h2 className="text-sm font-semibold text-foreground">Report filters</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => set({ ...currentMonth, hostelIds: [] })}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Reset
+                </button>
+                <PopoverClose
+                  aria-label="Close report filters"
+                  title="Close report filters"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </PopoverClose>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Date range</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <DatePicker
+                    value={filters.startDate}
+                    onChange={(v) => set({ startDate: v })}
+                    placeholder="From"
+                    buttonClassName="gap-1 px-2 text-xs"
+                    max={filters.endDate || undefined}
+                  />
+                  <DatePicker
+                    value={filters.endDate}
+                    onChange={(v) => set({ endDate: v })}
+                    placeholder="To"
+                    buttonClassName="gap-1 px-2 text-xs"
+                    min={filters.startDate || undefined}
+                  />
+                </div>
+              </div>
+              {hostels.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">Property</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => set({ hostelIds: [] })}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                        !hasActivePropertyFilter
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:bg-muted",
+                      )}
+                    >
+                      All
+                    </button>
+                    {hostels.map((h) => (
+                      <button
+                        type="button"
+                        key={h.id}
+                        onClick={() => {
+                          const on = filters.hostelIds.includes(h.id);
+                          set({
+                            hostelIds: on
+                              ? filters.hostelIds.filter((x) => x !== h.id)
+                              : [...filters.hostelIds, h.id],
+                          });
+                        }}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                          filters.hostelIds.includes(h.id)
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:bg-muted",
+                        )}
+                      >
+                        {h.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </section>
   );
@@ -1100,13 +1160,16 @@ function ReportsShell() {
   const router = useRouter();
   const [hostels, setHostels] = useState<Hostel[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("financial");
-  const [filters, setFiltersState] = useState<Filters>(() => ({
-    startDate: searchParams?.get("startDate") ?? "",
-    endDate: searchParams?.get("endDate") ?? "",
+  const [filters, setFiltersState] = useState<Filters>(() => {
+    const currentMonth = getCurrentMonthRange();
+    return {
+    startDate: searchParams?.get("startDate") ?? currentMonth.startDate,
+    endDate: searchParams?.get("endDate") ?? currentMonth.endDate,
     hostelIds: searchParams?.get("hostelIds")
       ? searchParams.get("hostelIds")!.split(",")
       : [],
-  }));
+    };
+  });
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -1143,7 +1206,7 @@ function ReportsShell() {
 
   return (
     <FiltersCtx.Provider value={ctxValue}>
-      <div className="space-y-5 pb-2">
+      <div className="space-y-2">
         <div className="sticky top-0 z-20 rounded-2xl border border-border/60 bg-background/90 p-2 shadow-sm backdrop-blur-md">
           <FiltersBar hostels={hostels} />
         </div>
