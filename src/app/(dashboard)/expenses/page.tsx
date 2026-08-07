@@ -848,53 +848,55 @@ export default function OwnerExpensesPage() {
       <ExpensesTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === "expense" ? (
-        <div className="flex items-center gap-2">
-          {!loading && hasProperties ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Add expense"
-              title="Add expense"
-              onClick={openCreateModal}
-              className="h-10 w-10 shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          ) : !loading && !hasProperties ? (
-            <Link href="/hostels/new">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 max-w-full items-center gap-2">
+            {!loading && hasProperties ? (
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                aria-label="Add property"
-                title="Add property"
+                aria-label="Add expense"
+                title="Add expense"
+                onClick={openCreateModal}
                 className="h-10 w-10 shrink-0"
               >
                 <Plus className="h-4 w-4" />
               </Button>
-            </Link>
-          ) : null}
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="h-10 border-border/80 bg-muted/30 pl-9 pr-9 focus-visible:bg-background"
-              placeholder="Search expenses"
-              aria-label="Search expenses"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                title="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setSearchQuery("")}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+            ) : !loading && !hasProperties ? (
+              <Link href="/hostels/new">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Add property"
+                  title="Add property"
+                  className="h-10 w-10 shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </Link>
             ) : null}
+            <div className="relative w-56 max-w-full shrink-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-10 border-border/80 bg-muted/30 pl-9 pr-9 focus-visible:bg-background"
+                placeholder="Search expenses"
+                aria-label="Search expenses"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  title="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
           </div>
           <ExpensesFilterPopover
             hostelFilter={filterHostelId}
@@ -929,7 +931,7 @@ export default function OwnerExpensesPage() {
               size="icon"
               aria-label="Open expense filters"
               title="Open expense filters"
-              className="h-10 w-10 border-border/80 bg-muted/30 hover:bg-background"
+              className="h-10 w-10 shrink-0 border-border/80 bg-muted/30 hover:bg-background"
             >
               <Funnel className="h-4 w-4" />
             </Button>

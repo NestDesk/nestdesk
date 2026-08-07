@@ -873,27 +873,29 @@ export default function OwnerPaymentsPage() {
         </Suspense>
       ) : (
         <div id="payments-panel" role="tabpanel" aria-labelledby="payments-tab" className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Record payment"
-              title="Record payment"
-              onClick={openRecordModal}
-              className="h-10 w-10 shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <div className="relative min-w-0 max-w-md flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="h-10 border-border/80 bg-muted/30 pl-9 focus-visible:bg-background"
-                placeholder="Search payments"
-                aria-label="Search payments"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 max-w-full items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Record payment"
+                title="Record payment"
+                onClick={openRecordModal}
+                className="h-10 w-10 shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <div className="relative w-56 max-w-full shrink-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-10 border-border/80 bg-muted/30 pl-9 focus-visible:bg-background"
+                  placeholder="Search payments"
+                  aria-label="Search payments"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <DropdownMenu>
