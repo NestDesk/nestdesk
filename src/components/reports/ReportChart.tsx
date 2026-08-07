@@ -83,6 +83,7 @@ export function ReportChart({
       background: "transparent",
       events: {
         dataPointSelection: (event, _chartContext, config) => {
+          if (!config) return;
           const index = config.dataPointIndex;
           const rect = chartContainerRef.current?.getBoundingClientRect();
           if (index < 0 || !rect) return;
@@ -95,6 +96,7 @@ export function ReportChart({
           setSelectedPoint(currentPoint);
         },
         click: (_event, _chartContext, config) => {
+          if (!config) return;
           if (config.dataPointIndex < 0) setSelectedPoint(null);
         },
       },
