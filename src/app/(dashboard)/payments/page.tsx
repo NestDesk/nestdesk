@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUpDown,
   Download,
@@ -47,6 +47,7 @@ import { PaymentsFilterPopover } from "../../../components/payments/PaymentsFilt
 import { PaymentsSummary, type PaymentSummaryData } from "../../../components/payments/PaymentsSummary";
 import { PaymentsTabs } from "../../../components/payments/PaymentsTabs";
 import { PaymentsLedger } from "../../../components/payments/PaymentsLedger";
+import { PaymentsLedgerSkeleton } from "../../../components/payments/PaymentsLedgerSkeleton";
 import {
   createColumnHelper,
   flexRender,
@@ -214,10 +215,8 @@ export default function OwnerPaymentsPage() {
   const [summaryFromDate, setSummaryFromDate] = useState(() => thisMonthRange().startDate);
   const [summaryToDate, setSummaryToDate] = useState(() => thisMonthRange().endDate);
   const [ledgerHostelId, setLedgerHostelId] = useState("all");
-  const [ledgerFromDate, setLedgerFromDate] = useState(() => thisMonthRange().startDate);
-  const [ledgerToDate, setLedgerToDate] = useState(() => thisMonthRange().endDate);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [activeTab, setActiveTab] = useState<"payments" | "summary" | "ledger">("payments");
+  const [activeTab, setActiveTab] = useState<"payments" | "summary" | "ledger">("ledger");
 
   // Record modal
   const [recordOpen, setRecordOpen] = useState(false);
@@ -422,14 +421,17 @@ export default function OwnerPaymentsPage() {
   }, [summaryPayments]);
 
   const ledgerPayments = useMemo(() => {
+    const { endDate } = thisMonthRange();
     return payments
       .filter((payment) => {
         if (ledgerHostelId !== "all" && payment.hostel_id !== ledgerHostelId) return false;
-        if (ledgerToDate && payment.paid_on > ledgerToDate) return false;
+        if (payment.paid_on > endDate) return false;
         return true;
       })
       .sort((a, b) => b.paid_on.localeCompare(a.paid_on));
-  }, [ledgerHostelId, ledgerToDate, payments]);
+  }, [ledgerHostelId, payments]);
+
+  const ledgerRange = thisMonthRange();
 
   const columns = [
     columnHelper.accessor("hostel_name", {
@@ -848,26 +850,27 @@ export default function OwnerPaymentsPage() {
           }}
         />
       ) : activeTab === "ledger" ? (
-        <PaymentsLedger
-          payments={ledgerPayments}
-          tenants={tenants}
-          hostels={hostels}
-          hostelFilter={ledgerHostelId}
-          fromDate={ledgerFromDate}
-          toDate={ledgerToDate}
-          hasActiveFilters={ledgerHostelId !== "all" || ledgerFromDate !== thisMonthRange().startDate || ledgerToDate !== thisMonthRange().endDate}
-          onHostelChange={setLedgerHostelId}
-          onFromDateChange={setLedgerFromDate}
-          onToDateChange={setLedgerToDate}
-          onClear={() => {
-            setLedgerHostelId("all");
-            const range = thisMonthRange();
-            setLedgerFromDate(range.startDate);
-            setLedgerToDate(range.endDate);
-          }}
-          formatAmount={formatAmount}
-          formatDate={formatDateShort}
-        />
+        <Suspense fallback={<PaymentsLedgerSkeleton />}>
+          {loading || tenantsLoading ? (
+            <PaymentsLedgerSkeleton />
+          ) : (
+            <PaymentsLedger
+              payments={ledgerPayments}
+              tenants={tenants}
+              hostels={hostels}
+              hostelFilter={ledgerHostelId}
+              fromDate={ledgerRange.startDate}
+              toDate={ledgerRange.endDate}
+              hasActiveFilters={ledgerHostelId !== "all"}
+              onHostelChange={setLedgerHostelId}
+              onClear={() => {
+                setLedgerHostelId("all");
+              }}
+              formatAmount={formatAmount}
+              formatDate={formatDateShort}
+            />
+          )}
+        </Suspense>
       ) : (
         <div id="payments-panel" role="tabpanel" aria-labelledby="payments-tab" className="space-y-4">
           <div className="flex items-center justify-between gap-2">

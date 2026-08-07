@@ -13,6 +13,23 @@ export function PaymentsTabs({ activeTab, onTabChange }: PaymentsTabsProps) {
         <button
           type="button"
           role="tab"
+          id="payment-ledger-tab"
+          aria-controls="payment-ledger-panel"
+          aria-selected={activeTab === "ledger"}
+          onClick={() => onTabChange("ledger")}
+          className={cn(
+            "relative flex items-center gap-2 border-b-2 px-1 pb-3 pt-1 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+            activeTab === "ledger"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+          )}
+        >
+          <BookOpen className="h-4 w-4" />
+          Ledger
+        </button>
+        <button
+          type="button"
+          role="tab"
           id="payments-tab"
           aria-controls="payments-panel"
           aria-selected={activeTab === "payments"}
@@ -43,23 +60,6 @@ export function PaymentsTabs({ activeTab, onTabChange }: PaymentsTabsProps) {
         >
           <BarChart3 className="h-4 w-4" />
           Summary
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="payment-ledger-tab"
-          aria-controls="payment-ledger-panel"
-          aria-selected={activeTab === "ledger"}
-          onClick={() => onTabChange("ledger")}
-          className={cn(
-            "relative flex items-center gap-2 border-b-2 px-1 pb-3 pt-1 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-            activeTab === "ledger"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
-          )}
-        >
-          <BookOpen className="h-4 w-4" />
-          Ledger
         </button>
       </div>
     </div>

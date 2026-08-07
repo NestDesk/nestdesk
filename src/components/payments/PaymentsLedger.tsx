@@ -37,8 +37,6 @@ type PaymentsLedgerProps = {
   toDate: string;
   hasActiveFilters: boolean;
   onHostelChange: (value: string) => void;
-  onFromDateChange: (value: string) => void;
-  onToDateChange: (value: string) => void;
   onClear: () => void;
   formatAmount: (amount: number) => string;
   formatDate: (value: string) => string;
@@ -62,8 +60,6 @@ export function PaymentsLedger({
   toDate,
   hasActiveFilters,
   onHostelChange,
-  onFromDateChange,
-  onToDateChange,
   onClear,
   formatAmount,
   formatDate,
@@ -184,8 +180,9 @@ export function PaymentsLedger({
           hasActiveFilters={hasActiveFilters}
           onHostelChange={onHostelChange}
           onStatusChange={() => {}}
-          onFromDateChange={onFromDateChange}
-          onToDateChange={onToDateChange}
+          showDateRange={false}
+          onFromDateChange={() => {}}
+          onToDateChange={() => {}}
           onClear={onClear}
         >
           <Button type="button" variant="outline" size="icon" aria-label="Open ledger filters" title="Open ledger filters" className="h-10 w-10 shrink-0">
