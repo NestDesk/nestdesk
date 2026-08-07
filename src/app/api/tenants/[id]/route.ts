@@ -4,6 +4,11 @@ import { createClient } from "../../../../lib/supabase/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-completion";
 import {
+  isValidAadhaarNumber,
+  normalizeAadhaarNumber,
+} from "../../../../lib/aadhaar";
+import { encryptAadhaar, hashAadhaar } from "../../../../lib/aadhaar-encryption";
+import {
   getEffectivePlan,
   type OwnerPlan,
   type SubscriptionRecord,
@@ -18,6 +23,9 @@ const paramsSchema = z.object({
 
 const updateTenantSchema = z.object({
   fullName: z.string().min(2).max(100).optional(),
+  aadharNumber: z.string().regex(/^\d{12}$/, "Aadhaar must be exactly 12 digits.").optional(),
+  occupationType: z.string().max(100).nullable().optional(),
+  institutionName: z.string().max(200).nullable().optional(),
   phone: z
     .string()
     .regex(/^[\d]{10}$/, "Phone must be exactly 10 digits.")
@@ -253,6 +261,13 @@ export async function PATCH(
   }
 
   const input = parsedBody.data;
+  const normalizedAadhaar = input.aadharNumber
+    ? normalizeAadhaarNumber(input.aadharNumber)
+    : undefined;
+
+  if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
+    return NextResponse.json({ error: "Invalid Aadhaar number." }, { status: 400 });
+  }
   const nextStatus = input.status ?? tenant.status;
   let nextRoomId = input.roomId === undefined ? tenant.room_id : input.roomId;
   const nextAgreedRentAmount =
@@ -450,6 +465,11 @@ export async function PATCH(
 
   const updatePayload: {
     full_name?: string;
+    occupation_type?: string | null;
+    institution_name?: string | null;
+    aadhar_number?: string;
+    aadhar_number_hash?: string;
+    aadhar_last4?: string;
     phone?: string | null;
     status: string;
     room_id: string | null;
@@ -478,6 +498,20 @@ export async function PATCH(
     updatePayload.full_name = input.fullName.trim();
   }
 
+  if (input.occupationType !== undefined) {
+    updatePayload.occupation_type = input.occupationType?.trim() || null;
+  }
+
+  if (input.institutionName !== undefined) {
+    updatePayload.institution_name = input.institutionName?.trim() || null;
+  }
+
+  if (normalizedAadhaar) {
+    updatePayload.aadhar_number = encryptAadhaar(normalizedAadhaar);
+    updatePayload.aadhar_number_hash = hashAadhaar(normalizedAadhaar);
+    updatePayload.aadhar_last4 = normalizedAadhaar.slice(-4);
+  }
+
   if (input.phone !== undefined) {
     updatePayload.phone = input.phone ? input.phone : null;
   }
@@ -491,6 +525,16 @@ export async function PATCH(
     .eq("owner_id", ctx.ownerId);
 
   if (updateError) {
+    if (
+      updateError.message
+        .toLowerCase()
+        .includes("aadhar_number_hash")
+    ) {
+      return NextResponse.json(
+        { error: "This Aadhaar number is already linked to another tenant." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
@@ -553,6 +597,10 @@ export async function PATCH(
     record_id: tenant.id,
     new_value: {
       full_name: updatePayload.full_name ?? tenant.full_name,
+      occupation_type: updatePayload.occupation_type ?? tenant.occupation_type,
+      institution_name:
+        updatePayload.institution_name ?? tenant.institution_name,
+      aadhar_last4: updatePayload.aadhar_last4 ?? tenant.aadhar_last4,
       phone: updatePayload.phone ?? tenant.phone,
       status: nextStatus,
       room_id: nextRoomId,

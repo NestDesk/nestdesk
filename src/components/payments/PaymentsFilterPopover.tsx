@@ -7,6 +7,7 @@ type PaymentsFilterPopoverProps = {
   hostelFilter: string;
   statusFilter: "all" | "paid" | "disputed";
   showStatus?: boolean;
+  showDateRange?: boolean;
   fromDate: string;
   toDate: string;
   hostels: { id: string; name: string }[];
@@ -23,6 +24,7 @@ export function PaymentsFilterPopover({
   hostelFilter,
   statusFilter,
   showStatus = true,
+  showDateRange = true,
   fromDate,
   toDate,
   hostels,
@@ -99,26 +101,28 @@ export function PaymentsFilterPopover({
               ))}
             </select>
           </label>
-          <div className="space-y-1">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <CalendarCheck className="h-3.5 w-3.5" />
-              Paid on
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <DatePicker
-                value={fromDate}
-                onChange={onFromDateChange}
-                placeholder="From"
-                buttonClassName="gap-1 px-2 text-xs"
-              />
-              <DatePicker
-                value={toDate}
-                onChange={onToDateChange}
-                placeholder="To"
-                buttonClassName="gap-1 px-2 text-xs"
-              />
+          {showDateRange ? (
+            <div className="space-y-1">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CalendarCheck className="h-3.5 w-3.5" />
+                Paid on
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <DatePicker
+                  value={fromDate}
+                  onChange={onFromDateChange}
+                  placeholder="From"
+                  buttonClassName="gap-1 px-2 text-xs"
+                />
+                <DatePicker
+                  value={toDate}
+                  onChange={onToDateChange}
+                  placeholder="To"
+                  buttonClassName="gap-1 px-2 text-xs"
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>

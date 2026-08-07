@@ -5,10 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDateInIndia } from "../../../lib/date";
 import {
   Building2,
+  Camera,
   CheckCircle2,
   FileImage,
   IndianRupee,
   Loader2,
+  Pencil,
+  Save,
   ShieldCheck,
   User,
   X,
@@ -33,6 +36,7 @@ import {
 import { calculateRent } from "../../../lib/billing";
 import { printInvoice } from "../../../lib/invoice";
 import { cn } from "../../../lib/utils";
+import { processImageForUpload, type UploadDocType } from "../../../lib/image-upload";
 import { TenantsSearchToolbar } from "../../../components/tenants/TenantsSearchToolbar";
 import { TenantPaymentHistoryDialog } from "../../../components/tenants/TenantPaymentHistoryDialog";
 import { TenantPendingInfoDialog } from "../../../components/tenants/TenantPendingInfoDialog";
@@ -143,6 +147,14 @@ type ApprovalDraft = {
   securityDeposit: string;
   joinDate: string;
   rentStartDate: string;
+};
+
+type ReviewEditDraft = {
+  fullName: string;
+  phone: string;
+  occupationType: string;
+  institutionName: string;
+  aadharNumber: string;
 };
 
 const STATUS_CHIP_CLASS: Record<TenantStatus, string> = {
@@ -327,6 +339,18 @@ export default function OwnerTenantsPage() {
   const [reviewTenant, setReviewTenant] = useState<TenantProfileDetail | null>(
     null,
   );
+  const [reviewEditing, setReviewEditing] = useState(false);
+  const [reviewEditSaving, setReviewEditSaving] = useState(false);
+  const [reviewUploading, setReviewUploading] = useState<UploadDocType | null>(
+    null,
+  );
+  const [reviewEditDraft, setReviewEditDraft] = useState<ReviewEditDraft>({
+    fullName: "",
+    phone: "",
+    occupationType: "",
+    institutionName: "",
+    aadharNumber: "",
+  });
   const [approveSaving, setApproveSaving] = useState(false);
   const [approvalDraft, setApprovalDraft] = useState<ApprovalDraft>({
     roomId: "",
@@ -944,6 +968,13 @@ export default function OwnerTenantsPage() {
       }
 
       setReviewTenant(profile);
+      setReviewEditDraft({
+        fullName: profile.full_name,
+        phone: normalizePhone(profile.phone ?? ""),
+        occupationType: profile.occupation_type ?? "",
+        institutionName: profile.institution_name ?? "",
+        aadharNumber: "",
+      });
       setApprovalDraft((prev) => ({
         roomId: profile.room_id ?? prev.roomId,
         agreedRentAmount:
@@ -970,6 +1001,118 @@ export default function OwnerTenantsPage() {
       setReviewLoading(false);
       setReviewTenant(null);
       setApproveSaving(false);
+      setReviewEditing(false);
+      setReviewUploading(null);
+    }
+  }
+
+  async function saveReviewProfile() {
+    if (!reviewTenant) return;
+    const fullName = reviewEditDraft.fullName.trim();
+    const phone = normalizePhone(reviewEditDraft.phone);
+    if (!fullName) {
+      toast.error("Full name is required.");
+      return;
+    }
+    if (phone.length !== 10) {
+      toast.error("Valid 10-digit phone number is required.");
+      return;
+    }
+    if (
+      reviewEditDraft.aadharNumber &&
+      reviewEditDraft.aadharNumber.length !== 12
+    ) {
+      toast.error("Aadhaar number must be exactly 12 digits.");
+      return;
+    }
+
+    setReviewEditSaving(true);
+    try {
+      const response = await fetch(`/api/tenants/${reviewTenant.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          phone,
+          occupationType: reviewEditDraft.occupationType.trim() || null,
+          institutionName: reviewEditDraft.institutionName.trim() || null,
+          ...(reviewEditDraft.aadharNumber
+            ? { aadharNumber: reviewEditDraft.aadharNumber }
+            : {}),
+        }),
+      });
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not update tenant profile.");
+        return;
+      }
+
+      setReviewTenant((prev) =>
+        prev
+          ? {
+              ...prev,
+              full_name: fullName,
+              phone,
+              occupation_type: reviewEditDraft.occupationType.trim() || null,
+              institution_name: reviewEditDraft.institutionName.trim() || null,
+              aadhar_last4: reviewEditDraft.aadharNumber
+                ? reviewEditDraft.aadharNumber.slice(-4)
+                : prev.aadhar_last4,
+            }
+          : prev,
+      );
+      setTenants((prev) =>
+        prev.map((tenant) =>
+          tenant.id === reviewTenant.id
+            ? { ...tenant, full_name: fullName, phone }
+            : tenant,
+        ),
+      );
+      setReviewEditing(false);
+      toast.success("Tenant profile updated successfully.");
+      loadTenants().catch(() => undefined);
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setReviewEditSaving(false);
+    }
+  }
+
+  async function uploadReviewDocument(docType: UploadDocType, file: File) {
+    if (!reviewTenant) return;
+    setReviewUploading(docType);
+    try {
+      const processed = await processImageForUpload(file, docType);
+      const formData = new FormData();
+      formData.append("docType", docType);
+      formData.append("file", processed);
+      const response = await fetch(`/api/tenants/${reviewTenant.id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const json = (await response.json()) as {
+        error?: string;
+        signedUrl?: string | null;
+      };
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not upload image.");
+        return;
+      }
+
+      const urlField = `${docType}_url` as
+        | "profile_photo_url"
+        | "aadhar_front_url"
+        | "aadhar_back_url"
+        | "alternate_id_url";
+      setReviewTenant((prev) =>
+        prev && json.signedUrl ? { ...prev, [urlField]: json.signedUrl } : prev,
+      );
+      loadTenants().catch(() => undefined);
+      toast.success("Photo uploaded successfully.");
+    } catch {
+      toast.error("Could not process this image. Try a clearer photo.");
+    } finally {
+      setReviewUploading(null);
     }
   }
 
@@ -1699,11 +1842,40 @@ export default function OwnerTenantsPage() {
 
       <Dialog open={reviewOpen} onOpenChange={closeReview}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Tenant Profile Review</DialogTitle>
+          <DialogHeader className="pr-8">
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle>Tenant Profile Review</DialogTitle>
+              {reviewTenant ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={reviewEditing ? "outline" : "default"}
+                  className="h-8 shrink-0 rounded-lg px-3 text-xs"
+                  onClick={() => {
+                    if (reviewEditing) {
+                      setReviewEditing(false);
+                      setReviewEditDraft({
+                        fullName: reviewTenant.full_name,
+                        phone: normalizePhone(reviewTenant.phone ?? ""),
+                        occupationType: reviewTenant.occupation_type ?? "",
+                        institutionName: reviewTenant.institution_name ?? "",
+                        aadharNumber: "",
+                      });
+                    } else {
+                      setReviewEditing(true);
+                    }
+                  }}
+                  disabled={reviewEditSaving || Boolean(reviewUploading)}
+                >
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  {reviewEditing ? "Cancel Edit" : "Edit"}
+                </Button>
+              ) : null}
+            </div>
             <DialogDescription>
-              Review complete profile and uploaded documents before approving
-              this tenant as active.
+              {reviewEditing
+                ? "Update tenant details or replace profile documents."
+                : "Review complete profile and uploaded documents before approving this tenant as active."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1718,35 +1890,103 @@ export default function OwnerTenantsPage() {
           ) : (
             <div className="space-y-4">
               <div className="grid gap-4 rounded-xl border border-border/70 p-4 sm:grid-cols-[132px_1fr]">
-                {reviewTenant.profile_photo_url ? (
-                  <Image
-                    src={reviewTenant.profile_photo_url}
-                    alt={`${reviewTenant.full_name} profile photo`}
-                    width={128}
-                    height={128}
-                    className="h-32 w-32 rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
-                    {reviewTenant.full_name
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()}
-                  </div>
-                )}
+                <div className="space-y-2">
+                  {reviewTenant.profile_photo_url ? (
+                    <Image
+                      src={reviewTenant.profile_photo_url}
+                      alt={`${reviewTenant.full_name} profile photo`}
+                      width={128}
+                      height={128}
+                      className="h-32 w-32 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-32 w-32 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
+                      {reviewTenant.full_name
+                        .split(" ")
+                        .slice(0, 2)
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  {reviewEditing ? (
+                    <label className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-primary">
+                      {reviewUploading === "profile_photo" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Camera className="h-3 w-3" />
+                      )}
+                      Replace photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={Boolean(reviewUploading)}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) {
+                            uploadReviewDocument("profile_photo", file).catch(
+                              () => undefined,
+                            );
+                          }
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                </div>
 
-                <div className="space-y-1">
-                  <p className="text-base font-semibold text-foreground">
-                    {reviewTenant.full_name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {reviewTenant.email ?? "No email"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {reviewTenant.phone ?? "No phone"}
-                  </p>
+                <div className="space-y-2">
+                  {reviewEditing ? (
+                    <>
+                      <div className="space-y-1">
+                        <Label htmlFor="review-full-name" className="text-xs">
+                          Full name
+                        </Label>
+                        <Input
+                          id="review-full-name"
+                          value={reviewEditDraft.fullName}
+                          onChange={(event) =>
+                            setReviewEditDraft((prev) => ({
+                              ...prev,
+                              fullName: event.target.value,
+                            }))
+                          }
+                          disabled={reviewEditSaving}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="review-phone" className="text-xs">
+                          Phone
+                        </Label>
+                        <Input
+                          id="review-phone"
+                          value={reviewEditDraft.phone}
+                          onChange={(event) =>
+                            setReviewEditDraft((prev) => ({
+                              ...prev,
+                              phone: normalizePhone(event.target.value),
+                            }))
+                          }
+                          disabled={reviewEditSaving}
+                          className="h-9"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-semibold text-foreground">
+                        {reviewTenant.full_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {reviewTenant.email ?? "No email"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {reviewTenant.phone ?? "No phone"}
+                      </p>
+                    </>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     {reviewTenant.hostel_name}
                     {reviewTenant.hostel_location
@@ -1769,21 +2009,73 @@ export default function OwnerTenantsPage() {
               <div className="grid gap-3 rounded-xl border border-border/70 p-4 sm:grid-cols-2">
                 <div>
                   <p className="text-xs text-muted-foreground">Occupation</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {reviewTenant.occupation_type ?? "-"}
-                  </p>
+                  {reviewEditing ? (
+                    <Input
+                      value={reviewEditDraft.occupationType}
+                      onChange={(event) =>
+                        setReviewEditDraft((prev) => ({
+                          ...prev,
+                          occupationType: event.target.value,
+                        }))
+                      }
+                      disabled={reviewEditSaving}
+                      className="mt-1 h-9"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {reviewTenant.occupation_type ?? "-"}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Institution</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {reviewTenant.institution_name ?? "-"}
-                  </p>
+                  {reviewEditing ? (
+                    <Input
+                      value={reviewEditDraft.institutionName}
+                      onChange={(event) =>
+                        setReviewEditDraft((prev) => ({
+                          ...prev,
+                          institutionName: event.target.value,
+                        }))
+                      }
+                      disabled={reviewEditSaving}
+                      className="mt-1 h-9"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {reviewTenant.institution_name ?? "-"}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Aadhaar</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {maskAadhaar(reviewTenant.aadhar_last4)}
-                  </p>
+                  {reviewEditing ? (
+                    <>
+                      <Input
+                        inputMode="numeric"
+                        maxLength={12}
+                        placeholder="Enter 12-digit Aadhaar"
+                        value={reviewEditDraft.aadharNumber}
+                        onChange={(event) =>
+                          setReviewEditDraft((prev) => ({
+                            ...prev,
+                            aadharNumber: event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 12),
+                          }))
+                        }
+                        disabled={reviewEditSaving}
+                        className="mt-1 h-9"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Current: {maskAadhaar(reviewTenant.aadhar_last4)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {maskAadhaar(reviewTenant.aadhar_last4)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">
@@ -1850,14 +2142,17 @@ export default function OwnerTenantsPage() {
                   {[
                     {
                       label: "Aadhaar Front",
+                      docType: "aadhar_front" as const,
                       url: reviewTenant.aadhar_front_url,
                     },
                     {
                       label: "Aadhaar Back",
+                      docType: "aadhar_back" as const,
                       url: reviewTenant.aadhar_back_url,
                     },
                     {
                       label: "Alternate ID",
+                      docType: "alternate_id" as const,
                       url: reviewTenant.alternate_id_url,
                     },
                   ].map((doc) => (
@@ -1865,9 +2160,36 @@ export default function OwnerTenantsPage() {
                       key={doc.label}
                       className="rounded-lg border border-border/70 p-2"
                     >
-                      <p className="mb-2 text-xs font-medium text-foreground">
-                        {doc.label}
-                      </p>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-foreground">
+                          {doc.label}
+                        </p>
+                        {reviewEditing ? (
+                          <label className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-primary">
+                            {reviewUploading === doc.docType ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Camera className="h-3 w-3" />
+                            )}
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={Boolean(reviewUploading)}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) {
+                                  uploadReviewDocument(doc.docType, file).catch(
+                                    () => undefined,
+                                  );
+                                }
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                        ) : null}
+                      </div>
                       {doc.url ? (
                         <a
                           href={doc.url}
@@ -1989,6 +2311,35 @@ export default function OwnerTenantsPage() {
                       />
                     </div>
                   </div>
+                </div>
+              ) : null}
+
+              {reviewEditing ? (
+                <div className="flex justify-end gap-2 border-t border-border/50 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-lg"
+                    onClick={() => setReviewEditing(false)}
+                    disabled={reviewEditSaving || Boolean(reviewUploading)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 rounded-lg"
+                    onClick={saveReviewProfile}
+                    disabled={reviewEditSaving || Boolean(reviewUploading)}
+                  >
+                    {reviewEditSaving ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Save Changes
+                  </Button>
                 </div>
               ) : null}
             </div>

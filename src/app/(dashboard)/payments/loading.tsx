@@ -1,4 +1,5 @@
 import { Skeleton } from "../../../components/ui/skeleton";
+import { PaymentsLedgerSkeleton } from "../../../components/payments/PaymentsLedgerSkeleton";
 
 export default function PaymentsLoading() {
   return (
@@ -14,22 +15,13 @@ export default function PaymentsLoading() {
         <Skeleton className="h-9 w-36 rounded-md" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 rounded-xl" />
-        ))}
+      <div className="flex gap-5 border-b border-border/70 pb-3 sm:gap-7">
+        <Skeleton className="h-6 w-20" />
+        <Skeleton className="h-6 w-24" />
+        <Skeleton className="h-6 w-20" />
       </div>
 
-      <div className="flex gap-3">
-        <Skeleton className="h-9 flex-1 rounded-md" />
-        <Skeleton className="h-9 w-32 rounded-md" />
-      </div>
-
-      <div className="space-y-2.5">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-2xl" />
-        ))}
-      </div>
+      <PaymentsLedgerSkeleton />
     </div>
   );
 }
