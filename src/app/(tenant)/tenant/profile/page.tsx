@@ -39,10 +39,6 @@ import {
 } from "../../../../components/ui/dialog";
 import { OtpVerificationDialog } from "../../../../components/ui/otp-verification-dialog";
 import { UploadDocType, processImageForUpload } from "../../../../lib/image-upload";
-import {
-  isValidAadhaarNumber,
-  normalizeAadhaarNumber,
-} from "../../../../lib/aadhaar";
 import { normalizeIndianPhoneDigits } from "../../../../lib/phone";
 
 type TenantProfile = {
@@ -55,8 +51,13 @@ type TenantProfile = {
   status: string | null;
   occupation_type: string | null;
   institution_name: string | null;
+  govt_id_type: string | null;
+  govt_id_number: string | null;
+  govt_id_last4: string | null;
   aadhar_last4: string | null;
   profile_photo_url: string | null;
+  govt_id_front_url: string | null;
+  govt_id_back_url: string | null;
   aadhar_front_url: string | null;
   aadhar_back_url: string | null;
   alternate_id_url: string | null;
@@ -78,10 +79,46 @@ const OCCUPATION_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "other", label: "Other" },
 ];
 
+const GOVT_ID_OPTIONS = [
+  "Aadhaar",
+  "PAN",
+  "Voter ID card",
+  "Passport",
+  "Driving license",
+];
+
+function maskGovtIdNumber(value: string, type?: string): string {
+  const sanitized = value.trim();
+  if (!sanitized) return "";
+
+  const digits = sanitized.replace(/\D/g, "");
+  const last4 = digits.slice(-4) || sanitized.slice(-4);
+
+  if (!last4) return "";
+
+  switch (type) {
+    case "Aadhaar":
+      if (digits.length === 12) return `XXXX XXXX ${last4}`;
+      return `XXXXXX${last4}`;
+    case "PAN":
+      return `XXXX${last4}`;
+    case "Voter ID card":
+      return `XXXXXX${last4}`;
+    case "Passport":
+      return `XXXXXX${last4}`;
+    case "Driving license":
+      return `XXXXXX${last4}`;
+    default:
+      return `XXXXXX${last4}`;
+  }
+}
+
 const DOC_LABELS: Record<UploadDocType, string> = {
   profile_photo: "Profile picture",
-  aadhar_front: "Aadhaar front image",
-  aadhar_back: "Aadhaar back image",
+  govt_id_front: "Government ID front image",
+  govt_id_back: "Government ID back image",
+  aadhar_front: "Government ID front image",
+  aadhar_back: "Government ID back image",
   alternate_id: "Alternate government / institution ID",
 };
 
@@ -170,6 +207,9 @@ export default function TenantProfilePage() {
   const [originalPhone, setOriginalPhone] = useState("");
   const [occupationType, setOccupationType] = useState("student");
   const [institutionName, setInstitutionName] = useState("");
+  const [govtIdType, setGovtIdType] = useState("");
+  const [govtIdNumber, setGovtIdNumber] = useState("");
+  const [savedGovtIdNumber, setSavedGovtIdNumber] = useState<string | null>(null);
   const [aadharNumber, setAadharNumber] = useState("");
   const [savedAadharLast4, setSavedAadharLast4] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{
@@ -192,6 +232,13 @@ export default function TenantProfilePage() {
       setIsEditingDetails(false);
       setOccupationType(j.tenant.occupation_type ?? "student");
       setInstitutionName(j.tenant.institution_name ?? "");
+      const rawGovtIdNumber = j.tenant.govt_id_number ?? "";
+      const nextGovtIdType = j.tenant.govt_id_type ?? (j.tenant.aadhar_last4 ? "Aadhaar" : "");
+      const nextGovtIdNumber = rawGovtIdNumber ? maskGovtIdNumber(rawGovtIdNumber, nextGovtIdType) : "";
+
+      setGovtIdType(nextGovtIdType);
+      setGovtIdNumber(nextGovtIdNumber);
+      setSavedGovtIdNumber(rawGovtIdNumber || null);
       setSavedAadharLast4(j.tenant.aadhar_last4 ?? null);
       setAadharNumber("");
     }
@@ -295,18 +342,17 @@ export default function TenantProfilePage() {
       return;
     }
 
-    const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
-    const hasValidAadhaar =
-      Boolean(savedAadharLast4) ||
-      (Boolean(normalizedAadhaar) && isValidAadhaarNumber(normalizedAadhaar));
-    if (!hasValidAadhaar) {
-      toast.error(
-        normalizedAadhaar
-          ? "Enter a valid Aadhaar number."
-          : "Aadhaar number is required.",
-      );
-      return;
-    }
+    const selectedGovtIdType = govtIdType;
+    const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
+    const isExistingIdValue =
+      Boolean(savedGovtIdNumber) &&
+      govtIdNumber === maskGovtIdNumber(savedGovtIdNumber ?? "", savedGovtIdType);
+    const submittedGovtIdNumber =
+      savedGovtIdNumber &&
+      selectedGovtIdType === savedGovtIdType &&
+      isExistingIdValue
+        ? savedGovtIdNumber
+        : govtIdNumber.replace(/\s+/g, "").replace(/\*/g, "").trim();
 
     const missingDocuments = requiredDocumentErrors;
     if (missingDocuments.length > 0) {
@@ -321,6 +367,8 @@ export default function TenantProfilePage() {
         phone: string;
         occupationType: string;
         institutionName: string;
+        govtIdType?: string;
+        govtIdNumber?: string;
         aadharNumber?: string;
       } = {
         fullName: fullName.trim(),
@@ -329,9 +377,8 @@ export default function TenantProfilePage() {
         institutionName: institutionName.trim(),
       };
 
-      if (normalizedAadhaar) {
-        payload.aadharNumber = normalizedAadhaar;
-      }
+      payload.govtIdType = selectedGovtIdType;
+      payload.govtIdNumber = submittedGovtIdNumber;
 
       const res = await fetch("/api/tenant/profile", {
         method: "PATCH",
@@ -423,17 +470,20 @@ export default function TenantProfilePage() {
   const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
   const hasPhoneChanged =
     normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
-  const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
+  const primaryGovtFrontUrl = profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null;
+  const primaryGovtBackUrl = profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null;
+  const savedIdDisplay = savedGovtIdNumber
+    ? maskGovtIdNumber(savedGovtIdNumber, govtIdType || (savedAadharLast4 ? "Aadhaar" : undefined))
+    : savedAadharLast4
+      ? `XXXX XXXX ${savedAadharLast4}`
+      : null;
+  const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
   const requiredDocumentErrors = [
     !profile?.profile_photo_url ? DOC_LABELS.profile_photo : null,
-    !profile?.aadhar_front_url ? DOC_LABELS.aadhar_front : null,
-    !profile?.aadhar_back_url ? DOC_LABELS.aadhar_back : null,
-    !profile?.alternate_id_url ? DOC_LABELS.alternate_id : null,
+    !primaryGovtFrontUrl ? DOC_LABELS.govt_id_front : null,
+    !primaryGovtBackUrl ? DOC_LABELS.govt_id_back : null,
   ].filter((label): label is string => Boolean(label));
-  const missingRequiredFields = [
-    !normalizedAadhaar && !savedAadharLast4 ? "Aadhaar number" : null,
-    ...requiredDocumentErrors,
-  ].filter((label): label is string => Boolean(label));
+  const missingRequiredFields = [...requiredDocumentErrors].filter((label): label is string => Boolean(label));
 
   const canSave =
     !saving &&
@@ -454,7 +504,7 @@ export default function TenantProfilePage() {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-semibold uppercase text-muted-foreground">{DOC_LABELS[docType]}</p>
-            {!preview ? (
+            {!preview && docType !== "alternate_id" ? (
               <p className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                 <CircleAlert className="h-3 w-3 shrink-0" />
                 Please upload your {DOC_LABELS[docType].toLowerCase()}.
@@ -831,35 +881,59 @@ export default function TenantProfilePage() {
               />
             </div>
 
+                    <div className="space-y-2">
+              <Label htmlFor="govt-id-type" className="text-sm font-medium">
+                Government ID type
+              </Label>
+              <select
+                id="govt-id-type"
+                value={govtIdType}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  const nextType = e.target.value;
+                  if (
+                    savedGovtIdNumber &&
+                    govtIdNumber === maskGovtIdNumber(savedGovtIdNumber, govtIdType || savedGovtIdType)
+                  ) {
+                    setGovtIdNumber("");
+                  }
+                  setGovtIdType(nextType);
+                }}
+                className="block h-10 w-full max-w-sm rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+                disabled={!isEditingDetails}
+              >
+                <option value="">Select ID type</option>
+                {GOVT_ID_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="aadhar-number" className="text-sm font-medium">Aadhaar number</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="govt-id-number" className="text-sm font-medium">
+                  ID number
+                </Label>
+                <span className="text-[11px] text-muted-foreground">(Optional)</span>
+              </div>
               <Input
-                id="aadhar-number"
+                id="govt-id-number"
                 type="text"
-                inputMode="numeric"
-                maxLength={12}
-                value={aadharNumber}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setAadharNumber(normalizeAadhaarNumber(e.target.value))
-                }
-                placeholder="12-digit Aadhaar number"
+                value={govtIdNumber}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGovtIdNumber(e.target.value)}
+                placeholder={"Enter your ID number"}
                 className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
                 disabled={!isEditingDetails}
               />
-              {savedAadharLast4 && !aadharNumber ? (
+              {savedIdDisplay && !govtIdNumber ? (
+                <p className="text-[11px] text-muted-foreground/80">
+                  Existing ID: {savedIdDisplay}
+                </p>
+              ) : null}
+              {!govtIdNumber && !savedAadharLast4 && !govtIdType ? (
                 <p className="text-xs text-muted-foreground">
-                  Saved Aadhaar: **** **** {savedAadharLast4}
-                </p>
-              ) : null}
-              {aadharNumber && !isValidAadhaarNumber(aadharNumber) ? (
-                <p className="text-xs font-bold text-red-600 dark:text-red-400">
-                  Aadhaar number is invalid
-                </p>
-              ) : null}
-              {!normalizedAadhaar && !savedAadharLast4 ? (
-                <p className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
-                  <CircleAlert className="h-3 w-3 shrink-0" />
-                  Please enter your Aadhaar number.
+                  You can leave the ID number blank if you do not want to enter it.
                 </p>
               ) : null}
             </div>
@@ -907,12 +981,12 @@ export default function TenantProfilePage() {
                   preview={profile?.profile_photo_url ?? null}
                 />
                 <UploadBlock
-                  docType="aadhar_front"
-                  preview={profile?.aadhar_front_url ?? null}
+                  docType="govt_id_front"
+                  preview={profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null}
                 />
                 <UploadBlock
-                  docType="aadhar_back"
-                  preview={profile?.aadhar_back_url ?? null}
+                  docType="govt_id_back"
+                  preview={profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null}
                 />
                 <UploadBlock
                   docType="alternate_id"

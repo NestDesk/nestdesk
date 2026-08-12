@@ -7,6 +7,8 @@ const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 const DOC_COLUMN_MAP = {
   profile_photo: "profile_photo_path",
+  govt_id_front: "govt_id_front_path",
+  govt_id_back: "govt_id_back_path",
   aadhar_front: "aadhar_front_path",
   aadhar_back: "aadhar_back_path",
   alternate_id: "alternate_id_path",
@@ -17,6 +19,8 @@ type TenantDocColumn = (typeof DOC_COLUMN_MAP)[DocType];
 type TenantDocRow = {
   id: string;
   profile_photo_path: string | null;
+  govt_id_front_path: string | null;
+  govt_id_back_path: string | null;
   aadhar_front_path: string | null;
   aadhar_back_path: string | null;
   alternate_id_path: string | null;
@@ -76,7 +80,7 @@ export async function POST(request: Request) {
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
+      "id, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle<TenantDocRow>();

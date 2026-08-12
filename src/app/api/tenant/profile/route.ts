@@ -46,7 +46,7 @@ export async function GET() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
+      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, govt_id_type, govt_id_number, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -67,9 +67,11 @@ export async function GET() {
 
   const completion = getTenantProfileCompletion(tenant);
 
-  const [profilePhotoUrl, aadharFrontUrl, aadharBackUrl, alternateIdUrl] =
+  const [profilePhotoUrl, govtFrontUrl, govtBackUrl, aadharFrontUrl, aadharBackUrl, alternateIdUrl] =
     await Promise.all([
       createSignedUrl(tenant.profile_photo_path, admin),
+      createSignedUrl(tenant.govt_id_front_path, admin),
+      createSignedUrl(tenant.govt_id_back_path, admin),
       createSignedUrl(tenant.aadhar_front_path, admin),
       createSignedUrl(tenant.aadhar_back_path, admin),
       createSignedUrl(tenant.alternate_id_path, admin),
@@ -86,12 +88,19 @@ export async function GET() {
       status: tenant.status,
       occupation_type: tenant.occupation_type,
       institution_name: tenant.institution_name,
+      govt_id_type: tenant.govt_id_type ?? null,
+      govt_id_number: tenant.govt_id_number ?? null,
+      govt_id_last4: tenant.govt_id_last4 ?? null,
+      govt_id_front_path: tenant.govt_id_front_path ?? null,
+      govt_id_back_path: tenant.govt_id_back_path ?? null,
       aadhar_last4: tenant.aadhar_last4,
       profile_photo_path: tenant.profile_photo_path,
       aadhar_front_path: tenant.aadhar_front_path,
       aadhar_back_path: tenant.aadhar_back_path,
       alternate_id_path: tenant.alternate_id_path,
       profile_photo_url: profilePhotoUrl,
+      govt_id_front_url: govtFrontUrl,
+      govt_id_back_url: govtBackUrl,
       aadhar_front_url: aadharFrontUrl,
       aadhar_back_url: aadharBackUrl,
       alternate_id_url: alternateIdUrl,
@@ -133,6 +142,16 @@ const updateSchema = z.object({
     .string()
     .regex(/^\d{12}$/)
     .optional(),
+  govtIdType: z
+    .string()
+    .max(80)
+    .optional()
+    .transform((value) => value?.trim()),
+  govtIdNumber: z
+    .string()
+    .max(80)
+    .optional()
+    .transform((value) => value?.trim()),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -175,7 +194,22 @@ export async function PATCH(request: NextRequest) {
     ? normalizeAadhaarNumber(parsed.data.aadharNumber)
     : undefined;
 
-  if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
+  const rawGovtIdType = parsed.data.govtIdType?.trim();
+  const rawGovtIdNumber = parsed.data.govtIdNumber?.trim();
+  const normalizedGovtIdNumber = rawGovtIdNumber
+    ? rawGovtIdNumber.replace(/\s+/g, " ").trim()
+    : null;
+  const normalizedGovtIdType = rawGovtIdType || undefined;
+
+  if (normalizedGovtIdType === "Aadhaar" && normalizedGovtIdNumber) {
+    const aadhaarValue = normalizeAadhaarNumber(normalizedGovtIdNumber);
+    if (!isValidAadhaarNumber(aadhaarValue)) {
+      return NextResponse.json(
+        { error: "Invalid Aadhaar number." },
+        { status: 400 },
+      );
+    }
+  } else if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
     return NextResponse.json(
       { error: "Invalid Aadhaar number." },
       { status: 400 },
@@ -193,6 +227,13 @@ export async function PATCH(request: NextRequest) {
   const currentPhoneDigits = normalizeIndianPhoneDigits(currentPhone ?? "");
   const phoneChanged = parsed.data.phone !== undefined && normalizedPhoneDigits !== currentPhoneDigits;
 
+  const govtIdLast4 = normalizedGovtIdNumber
+    ? normalizedGovtIdNumber.replace(/\D/g, "").slice(-4) || normalizedGovtIdNumber.slice(-4)
+    : undefined;
+  const govtIdHash = normalizedGovtIdNumber
+    ? hashAadhaar(normalizedGovtIdNumber.replace(/\s+/g, ""))
+    : undefined;
+
   const { error } = await admin
     .from("tenants")
     .update({
@@ -202,6 +243,10 @@ export async function PATCH(request: NextRequest) {
       phone_verified_at: phoneChanged ? null : undefined,
       occupation_type: parsed.data.occupationType,
       institution_name: parsed.data.institutionName,
+      govt_id_type: parsed.data.govtIdType !== undefined ? normalizedGovtIdType ?? null : undefined,
+      govt_id_number: parsed.data.govtIdNumber !== undefined ? normalizedGovtIdNumber ?? null : undefined,
+      govt_id_number_hash: parsed.data.govtIdNumber !== undefined ? govtIdHash ?? null : undefined,
+      govt_id_last4: parsed.data.govtIdNumber !== undefined ? govtIdLast4 ?? null : undefined,
       aadhar_number: normalizedAadhaar
         ? encryptAadhaar(normalizedAadhaar)
         : undefined,
@@ -218,10 +263,14 @@ export async function PATCH(request: NextRequest) {
       error.message
         .toLowerCase()
         .includes("idx_tenants_aadhar_number_hash_unique") ||
-      error.message.toLowerCase().includes("aadhar_number_hash")
+      error.message.toLowerCase().includes("aadhar_number_hash") ||
+      error.message
+        .toLowerCase()
+        .includes("idx_tenants_govt_id_number_hash_unique") ||
+      error.message.toLowerCase().includes("govt_id_number_hash")
     ) {
       return NextResponse.json(
-        { error: "This Aadhaar number is already linked to another tenant." },
+        { error: "This government ID number is already linked to another tenant." },
         { status: 409 },
       );
     }
