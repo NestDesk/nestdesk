@@ -8,8 +8,8 @@ const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 const DOC_COLUMN_MAP = {
   profile_photo: "profile_photo_path",
-  aadhar_front: "aadhar_front_path",
-  aadhar_back: "aadhar_back_path",
+  govt_id_front: "govt_id_front_path",
+  govt_id_back: "govt_id_back_path",
   alternate_id: "alternate_id_path",
 } as const;
 
