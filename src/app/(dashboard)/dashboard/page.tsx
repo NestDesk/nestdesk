@@ -115,13 +115,22 @@ export default async function DashboardPage() {
       .maybeSingle<{ id: string; plan: string; phone_verified: boolean }>();
 
     if (owner) {
-      const { data: currentSubscription } = await admin
-        .from("subscriptions")
-        .select("plan, status, ends_at")
-        .eq("owner_id", owner.id)
-        .order("starts_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [subscriptionResult, hostelsResult] = await Promise.all([
+        admin
+          .from("subscriptions")
+          .select("plan, status, ends_at")
+          .eq("owner_id", owner.id)
+          .order("starts_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        admin
+          .from("hostels")
+          .select("id, name, is_active")
+          .eq("owner_id", owner.id)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      const currentSubscription = subscriptionResult.data;
 
       currentPlan = currentSubscription
         ? getEffectivePlan(currentSubscription)
@@ -152,11 +161,7 @@ export default async function DashboardPage() {
           currentPlan === "free" ? "Active" : subscriptionStatus;
       }
 
-      const { data: hostels, error: hostelsError } = await admin
-        .from("hostels")
-        .select("id, name, is_active")
-        .eq("owner_id", owner.id)
-        .order("created_at", { ascending: true });
+      const { data: hostels, error: hostelsError } = hostelsResult;
 
       if (hostelsError) {
         console.error("[dashboard] failed to load owner hostels", hostelsError);
@@ -182,11 +187,23 @@ export default async function DashboardPage() {
 
         const hostelIds = hostels.map((h) => h.id);
         if (hostelIds.length > 0) {
-          const { data: rooms, error: roomsError } = await admin
-            .from("rooms")
-            .select("id, hostel_id, capacity, rent_amount, status")
-            .in("hostel_id", hostelIds)
-            .is("deleted_at", null);
+          const [roomsResult, tenantsResult] = await Promise.all([
+            admin
+              .from("rooms")
+              .select("id, hostel_id, capacity, rent_amount, status")
+              .in("hostel_id", hostelIds)
+              .is("deleted_at", null),
+            admin
+              .from("tenants")
+              .select(
+                "id, hostel_id, room_id, status, created_at, agreed_rent_amount, join_date, rent_start_date, move_out_date",
+              )
+              .in("hostel_id", hostelIds)
+              .is("deleted_at", null),
+          ]);
+
+          const { data: rooms, error: roomsError } = roomsResult;
+          const { data: tenants, error: tenantsError } = tenantsResult;
 
           if (roomsError) {
             console.error(
@@ -194,14 +211,6 @@ export default async function DashboardPage() {
               roomsError,
             );
           }
-
-          const { data: tenants, error: tenantsError } = await admin
-            .from("tenants")
-            .select(
-              "id, hostel_id, room_id, status, created_at, agreed_rent_amount, join_date, rent_start_date, move_out_date",
-            )
-            .in("hostel_id", hostelIds)
-            .is("deleted_at", null);
 
           if (tenantsError) {
             console.error(
@@ -311,37 +320,38 @@ export default async function DashboardPage() {
               return bRate - aRate;
             });
 
-          const { count } = await admin
-            .from("maintenance_requests")
-            .select("id", { count: "exact", head: true })
-            .in("hostel_id", hostelIds)
-            .eq("status", "open")
-            .is("deleted_at", null);
+          const [maintenanceResult, paymentsResult, expensesResult] =
+            await Promise.all([
+              admin
+                .from("maintenance_requests")
+                .select("id", { count: "exact", head: true })
+                .in("hostel_id", hostelIds)
+                .eq("status", "open")
+                .is("deleted_at", null),
+              admin
+                .from("payments")
+                .select("amount")
+                .in("hostel_id", hostelIds)
+                .eq("status", "paid")
+                .gte("month", monthStart)
+                .lt("month", nextMonthStart),
+              admin
+                .from("expenses")
+                .select("amount")
+                .in("hostel_id", hostelIds)
+                .is("deleted_at", null)
+                .gte("expense_date", monthStart)
+                .lt("expense_date", nextMonthStart),
+            ]);
 
-          openMaintenanceCount = count ?? 0;
+          openMaintenanceCount = maintenanceResult.count ?? 0;
 
-          const { data: paidPayments } = await admin
-            .from("payments")
-            .select("amount")
-            .in("hostel_id", hostelIds)
-            .eq("status", "paid")
-            .gte("month", monthStart)
-            .lt("month", nextMonthStart);
-
-          thisMonthRentPaid = (paidPayments ?? []).reduce(
+          thisMonthRentPaid = (paymentsResult.data ?? []).reduce(
             (acc, row) => acc + Number(row.amount),
             0,
           );
 
-          const { data: expenses } = await admin
-            .from("expenses")
-            .select("amount")
-            .in("hostel_id", hostelIds)
-            .is("deleted_at", null)
-            .gte("expense_date", monthStart)
-            .lt("expense_date", nextMonthStart);
-
-          thisMonthExpenseTotal = (expenses ?? []).reduce(
+          thisMonthExpenseTotal = (expensesResult.data ?? []).reduce(
             (acc, row) => acc + Number(row.amount),
             0,
           );

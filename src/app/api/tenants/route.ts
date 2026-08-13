@@ -6,23 +6,34 @@ import { calculateRent } from "../../../lib/billing";
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
-async function createSignedUrl(
-  path: string | null,
+async function createSignedUrls(
+  paths: Array<string | null>,
   admin: ReturnType<typeof createAdminClient>,
-): Promise<string | null> {
-  if (!path) {
-    return null;
+): Promise<Map<string, string>> {
+  const uniquePaths = Array.from(
+    new Set(paths.filter((path): path is string => Boolean(path))),
+  );
+  const signedUrls = new Map<string, string>();
+
+  if (uniquePaths.length === 0) {
+    return signedUrls;
   }
 
   const { data, error } = await admin.storage
     .from(TENANT_DOCS_BUCKET)
-    .createSignedUrl(path, 60 * 30);
+    .createSignedUrls(uniquePaths, 60 * 30);
 
-  if (error || !data?.signedUrl) {
-    return null;
+  if (error || !data) {
+    return signedUrls;
   }
 
-  return data.signedUrl;
+  for (const entry of data) {
+    if (entry.path && entry.signedUrl) {
+      signedUrls.set(entry.path, entry.signedUrl);
+    }
+  }
+
+  return signedUrls;
 }
 
 type OwnerContext = {
@@ -129,25 +140,25 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const { data: rooms, error: roomsError } = await admin
-    .from("rooms")
-    .select("id, hostel_id, room_number, status, capacity")
-    .in("hostel_id", hostelIds)
-    .is("deleted_at", null)
-    .order("room_number", { ascending: true });
-
-  if (roomsError) {
-    return NextResponse.json({ error: roomsError.message }, { status: 500 });
-  }
-
-  const { data: tenants, error: tenantsError } = await admin
-    .from("tenants")
-    .select(
-      "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
-    )
-    .eq("owner_id", ctx.ownerId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+  const [
+    { data: rooms, error: roomsError },
+    { data: tenants, error: tenantsError },
+  ] = await Promise.all([
+    admin
+      .from("rooms")
+      .select("id, hostel_id, room_number, status, capacity")
+      .in("hostel_id", hostelIds)
+      .is("deleted_at", null)
+      .order("room_number", { ascending: true }),
+    admin
+      .from("tenants")
+      .select(
+        "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
+      )
+      .eq("owner_id", ctx.ownerId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false }),
+  ]);
 
   if (tenantsError) {
     return NextResponse.json({ error: tenantsError.message }, { status: 500 });
@@ -200,30 +211,51 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const { data: payments } = await admin
-    .from("payments")
-    .select("tenant_id, billing_end, status")
-    .eq("status", "paid")
-    .in("tenant_id", (tenants ?? []).map((tenant) => tenant.id))
-    .not("billing_end", "is", null);
-
   const latestPaidByTenant = new Map<string, string>();
-  for (const payment of payments ?? []) {
-    const current = latestPaidByTenant.get(payment.tenant_id);
-    if (!current || (payment.billing_end ?? "") > current) {
-      latestPaidByTenant.set(payment.tenant_id, payment.billing_end ?? "");
+  const tenantIds = (tenants ?? []).map((tenant) => tenant.id);
+
+  if (tenantIds.length > 0) {
+    const { data: latestPaidRows, error: latestPaidError } = await admin.rpc(
+      "get_latest_paid_billing_end",
+      { p_tenant_ids: tenantIds },
+    );
+
+    if (!latestPaidError) {
+      for (const payment of latestPaidRows ?? []) {
+        if (payment.tenant_id && payment.billing_end) {
+          latestPaidByTenant.set(payment.tenant_id, payment.billing_end);
+        }
+      }
+    } else {
+      const { data: payments } = await admin
+        .from("payments")
+        .select("tenant_id, billing_end, status")
+        .eq("status", "paid")
+        .in("tenant_id", tenantIds)
+        .not("billing_end", "is", null);
+
+      for (const payment of payments ?? []) {
+        const current = latestPaidByTenant.get(payment.tenant_id);
+        if (!current || (payment.billing_end ?? "") > current) {
+          latestPaidByTenant.set(payment.tenant_id, payment.billing_end ?? "");
+        }
+      }
     }
   }
+
+  const profilePhotoUrls = await createSignedUrls(
+    (tenants ?? []).map((tenant) => tenant.profile_photo_path),
+    admin,
+  );
 
   const tenantRows = await Promise.all(
     (tenants ?? []).map(async (tenant) => {
       const hostel = hostelMap.get(tenant.hostel_id);
       const room = tenant.room_id ? roomMap.get(tenant.room_id) : null;
       const completion = getTenantProfileCompletion(tenant);
-      const profilePhotoUrl = await createSignedUrl(
-        tenant.profile_photo_path,
-        admin,
-      );
+      const profilePhotoUrl = tenant.profile_photo_path
+        ? profilePhotoUrls.get(tenant.profile_photo_path) ?? null
+        : null;
 
       const latestPaidEnd = latestPaidByTenant.get(tenant.id) ?? null;
       const effectiveEnd = tenant.status === "moved_out" && tenant.move_out_date

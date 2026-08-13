@@ -19,7 +19,6 @@ import { getTenantPageDetails } from "./tenant-page-details";
 import type { PortalType } from "./Sidebar";
 import {
   formatPlanLabel,
-  normalizeOwnerPlan,
   type OwnerPlan,
   type SubscriptionStatus,
 } from "../../lib/subscriptions";
@@ -51,6 +50,8 @@ interface TopBarProps {
   onToggleSidebar?: () => void;
   portal?: PortalType;
   userName?: string;
+  subscriptionPlan?: OwnerPlan;
+  subscriptionStatus?: SubscriptionStatus | "free";
 }
 
 export function TopBar({
@@ -60,6 +61,8 @@ export function TopBar({
   onToggleSidebar,
   portal = "owner",
   userName,
+  subscriptionPlan,
+  subscriptionStatus,
 }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -70,8 +73,8 @@ export function TopBar({
   const ActivePageIcon = activePage?.icon;
   const [user, setUser] = useState<TopBarUser | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionSnapshot>({
-    plan: "free",
-    status: "free",
+    plan: subscriptionPlan ?? "free",
+    status: subscriptionStatus ?? "free",
   });
   const [loggingOut, setLoggingOut] = useState(false);
   const userLoadedRef = useRef(false);
@@ -85,14 +88,7 @@ export function TopBar({
 
     async function loadUser() {
       const supabase = createBrowserClient();
-      const [{ data: authData }, subscriptionRes] = await Promise.all([
-        supabase.auth.getUser(),
-        portal === "owner"
-          ? fetch("/api/owner/subscription/current", {
-              cache: "no-store",
-            }).catch(() => null)
-          : Promise.resolve(null),
-      ]);
+      const { data: authData } = await supabase.auth.getUser();
 
       const authUser = authData.user;
 
@@ -116,23 +112,23 @@ export function TopBar({
         avatarUrl,
       });
 
-      if (subscriptionRes?.ok) {
-        const payload = (await subscriptionRes.json().catch(() => null)) as {
-          plan?: string;
-          subscription?: { status?: SubscriptionStatus } | null;
-        } | null;
-
-        setSubscription({
-          plan: normalizeOwnerPlan(payload?.plan),
-          status: payload?.subscription?.status ?? "free",
-        });
-      }
     }
 
     loadUser().catch(() => {
       setUser(null);
     });
   }, [portal, userName]);
+
+  useEffect(() => {
+    if (subscriptionPlan === undefined && subscriptionStatus === undefined) {
+      return;
+    }
+
+    setSubscription({
+      plan: subscriptionPlan ?? "free",
+      status: subscriptionStatus ?? "free",
+    });
+  }, [subscriptionPlan, subscriptionStatus]);
 
   const statusPill = useMemo(() => {
     const plan = formatPlanLabel(subscription.plan);
