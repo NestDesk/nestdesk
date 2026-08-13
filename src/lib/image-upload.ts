@@ -2,8 +2,6 @@ export type UploadDocType =
   | "profile_photo"
   | "govt_id_front"
   | "govt_id_back"
-  | "aadhar_front"
-  | "aadhar_back"
   | "alternate_id";
 
 function loadImage(file: File): Promise<HTMLImageElement> {

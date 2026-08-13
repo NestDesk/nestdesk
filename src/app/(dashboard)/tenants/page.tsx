@@ -131,8 +131,6 @@ type TenantProfileDetail = {
   profile_photo_url: string | null;
   govt_id_front_url: string | null;
   govt_id_back_url: string | null;
-  aadhar_front_url: string | null;
-  aadhar_back_url: string | null;
   alternate_id_url: string | null;
   profile_completion_percentage: number;
   profile_completion_missing: string[];
@@ -335,7 +333,7 @@ export default function OwnerTenantsPage() {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<
     "all" | "paid" | "pending"
   >("all");
-  const [sortOption, setSortOption] = useState<TenantSortOption>("none");
+  const [sortOption, setSortOption] = useState<TenantSortOption>("room_number");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, TenantDraft>>({});
@@ -1142,8 +1140,8 @@ export default function OwnerTenantsPage() {
 
       const urlField = `${docType}_url` as
         | "profile_photo_url"
-        | "aadhar_front_url"
-        | "aadhar_back_url"
+        | "govt_id_front_url"
+        | "govt_id_back_url"
         | "alternate_id_url";
       setReviewTenant((prev) =>
         prev && json.signedUrl ? { ...prev, [urlField]: json.signedUrl } : prev,
@@ -2255,22 +2253,12 @@ export default function OwnerTenantsPage() {
                     {
                       label: "Government ID Front",
                       docType: "govt_id_front" as const,
-                      url: reviewTenant.govt_id_front_url ?? reviewTenant.aadhar_front_url,
+                      url: reviewTenant.govt_id_front_url,
                     },
                     {
                       label: "Government ID Back",
                       docType: "govt_id_back" as const,
-                      url: reviewTenant.govt_id_back_url ?? reviewTenant.aadhar_back_url,
-                    },
-                    {
-                      label: "Aadhaar Front",
-                      docType: "aadhar_front" as const,
-                      url: reviewTenant.aadhar_front_url,
-                    },
-                    {
-                      label: "Aadhaar Back",
-                      docType: "aadhar_back" as const,
-                      url: reviewTenant.aadhar_back_url,
+                      url: reviewTenant.govt_id_back_url,
                     },
                     {
                       label: "Alternate ID",

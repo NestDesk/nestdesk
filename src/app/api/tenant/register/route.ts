@@ -55,6 +55,15 @@ const bodySchema = z.object({
   gender: z.enum(["male", "female", "rather_not_say"], {
     message: "Select a valid gender option.",
   }),
+  govtIdType: z.enum(["Aadhaar", "PAN", "Voter ID card", "Passport", "Driving license"], {
+    message: "Select a valid government ID type.",
+  }).optional(),
+  govtIdNumber: z
+    .string()
+    .min(1, "Enter your government ID number.")
+    .max(80, "Government ID number is too long.")
+    .optional()
+    .or(z.literal("")),
   aadharNumber: z
     .string()
     .regex(/^\d{12}$/, "Enter a valid 12-digit Aadhaar number.")
@@ -96,19 +105,32 @@ export async function POST(request: NextRequest) {
     occupationType,
     institutionName,
     gender,
+    govtIdType,
+    govtIdNumber,
     aadharNumber,
     consentGiven,
   } = parsed.data;
 
+  const normalizedGovtIdNumber = govtIdNumber ? govtIdNumber.trim() : null;
   const normalizedAadhaar = aadharNumber
     ? normalizeAadhaarNumber(aadharNumber)
-    : null;
+    : govtIdType === "Aadhaar" && normalizedGovtIdNumber
+      ? normalizeAadhaarNumber(normalizedGovtIdNumber)
+      : null;
+
   if (normalizedAadhaar && !isValidAadhaarNumber(normalizedAadhaar)) {
     return NextResponse.json(
       { error: "Invalid Aadhaar number. Please verify and try again." },
       { status: 400 },
     );
   }
+
+  const govtIdLast4 = normalizedGovtIdNumber
+    ? normalizedGovtIdNumber.replace(/\D/g, "").slice(-4) || normalizedGovtIdNumber.slice(-4)
+    : null;
+  const govtIdHash = normalizedGovtIdNumber
+    ? hashAadhaar(normalizedGovtIdNumber.replace(/\s+/g, ""))
+    : null;
   const ip = getClientIp(request);
   const admin = createAdminClient();
 
@@ -254,6 +276,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (normalizedGovtIdNumber && govtIdHash) {
+    const { data: existingGvtTenant, error: existingGvtTenantError } = await admin
+      .from("tenants")
+      .select("id")
+      .eq("govt_id_number_hash", govtIdHash)
+      .maybeSingle();
+
+    if (existingGvtTenantError) {
+      return NextResponse.json(
+        { error: existingGvtTenantError.message },
+        { status: 500 },
+      );
+    }
+
+    if (existingGvtTenant) {
+      return NextResponse.json(
+        { error: "This government ID number is already linked to an existing tenant." },
+        { status: 409 },
+      );
+    }
+  }
+
   const normalizedPhone = phone ? normalizeIndianPhone(phone) : null;
 
   const duplicatePhoneCheck = await admin
@@ -318,6 +362,10 @@ export async function POST(request: NextRequest) {
     occupation_type: occupationType,
     institution_name: institutionName,
     gender,
+    govt_id_type: govtIdType,
+    govt_id_number: normalizedGovtIdNumber,
+    govt_id_number_hash: govtIdHash,
+    govt_id_last4: govtIdLast4,
     aadhar_number: normalizedAadhaar ? encryptAadhaar(normalizedAadhaar) : null,
     aadhar_number_hash: normalizedAadhaar ? hashAadhaar(normalizedAadhaar) : null,
     aadhar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : null,

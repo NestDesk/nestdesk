@@ -128,7 +128,7 @@ export default async function TenantDashboardPage() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, status, join_date, rent_start_date, move_out_date, agreed_rent_amount, room_id, hostel_id, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, security_deposit, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
+      "id, full_name, email, phone, status, join_date, rent_start_date, move_out_date, agreed_rent_amount, room_id, hostel_id, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, alternate_id_path, security_deposit, hostels(name, address, city, state, pincode, property_type), rooms(room_number, capacity)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();

@@ -13,6 +13,7 @@ import {
   InfoIcon,
   Loader2,
   MapPin,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,6 +35,7 @@ import { TenantConsentLink } from "../../../components/legal/TenantConsentLink";
 import { OtpVerificationDialog } from "../../../components/ui/otp-verification-dialog";
 import { EmailOtpVerificationDialog } from "../../../components/ui/email-otp-verification-dialog";
 import { ValidationChecklist } from "../../../components/auth/ValidationChecklist";
+import { UploadDocType, processImageForUpload } from "../../../lib/image-upload";
 import { cn } from "../../../lib/utils";
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -67,6 +69,18 @@ const tenantRegisterSchema = z
     gender: z.enum(["male", "female", "rather_not_say"], {
       message: "Select your gender option.",
     }),
+    govtIdType: z.enum(
+      ["Aadhaar", "PAN", "Voter ID card", "Passport", "Driving license"],
+      {
+        message: "Select your government ID type.",
+      },
+    ).optional(),
+    govtIdNumber: z
+      .string()
+      .min(1, "Enter your government ID number.")
+      .max(80, "Government ID number is too long.")
+      .optional()
+      .or(z.literal("",)),
     aadharNumber: z
       .string()
       .optional()
@@ -184,6 +198,14 @@ const GENDER_LABELS: Record<string, string> = {
   rather_not_say: "Rather not say",
 };
 
+const GOVT_ID_OPTIONS = [
+  "Aadhaar",
+  "PAN",
+  "Voter ID card",
+  "Passport",
+  "Driving license",
+];
+
 function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
   const address = [hostel.address, hostel.city, hostel.state]
     .filter(Boolean)
@@ -206,6 +228,80 @@ function PropertyBanner({ hostel }: { hostel: HostelInfo }) {
           <span className="break-words">{address}</span>
         </p>
       </div>
+    </div>
+  );
+}
+
+function DocumentUploadCard({
+  label,
+  required = false,
+  value,
+  preview,
+  error,
+  onChange,
+  onRemove,
+}: {
+  label: string;
+  required?: boolean;
+  value: File | null;
+  preview: string | null;
+  error?: string | null;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-foreground/80">
+        {label}
+        {required ? <span className="text-red-400"> *</span> : null}
+      </Label>
+
+      <div className="group relative">
+        <label className="relative block cursor-pointer overflow-hidden rounded-2xl border border-dashed border-border bg-background/80 p-2 transition-all duration-200 hover:border-primary/60 hover:bg-primary/5">
+          <input type="file" accept="image/*" onChange={onChange} className="sr-only" />
+
+          {preview ? (
+            <div className="relative h-32 overflow-hidden rounded-xl bg-muted/40">
+              <img
+                src={preview}
+                alt={label}
+                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+              />
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-center bg-gradient-to-t from-slate-950/75 via-slate-900/25 to-transparent px-3 py-2 text-center text-[11px] font-medium text-white">
+                {value ? "Replace image" : "Upload image"}
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/20 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+                  <path d="M12 16V4m0 0 3.5 3.5M12 4 8.5 7.5M4 15.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Upload image</p>
+                <p className="text-xs text-muted-foreground">PNG, JPG, or JPEG</p>
+              </div>
+            </div>
+          )}
+        </label>
+
+        {preview ? (
+          <button
+            type="button"
+            aria-label={`Remove ${label}`}
+            onClick={(event) => {
+              event.preventDefault();
+              onRemove();
+            }}
+            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-slate-950/70 text-white shadow-lg backdrop-blur-sm transition hover:scale-105 hover:bg-red-500"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </div>
   );
 }
@@ -253,6 +349,44 @@ function TenantRegisterPageContent() {
   const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [emailOtpCode, setEmailOtpCode] = useState("");
   const [emailOtpDialogOpen, setEmailOtpDialogOpen] = useState(false);
+  const [govtIdFrontFile, setGovtIdFrontFile] = useState<File | null>(null);
+  const [govtIdBackFile, setGovtIdBackFile] = useState<File | null>(null);
+  const [alternateIdFile, setAlternateIdFile] = useState<File | null>(null);
+  const [govtIdFrontPreview, setGovtIdFrontPreview] = useState<string | null>(null);
+  const [govtIdBackPreview, setGovtIdBackPreview] = useState<string | null>(null);
+  const [alternateIdPreview, setAlternateIdPreview] = useState<string | null>(null);
+  const [idFrontError, setIdFrontError] = useState<string | null>(null);
+  const [idBackError, setIdBackError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!govtIdFrontFile) {
+      setGovtIdFrontPreview(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(govtIdFrontFile);
+    setGovtIdFrontPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [govtIdFrontFile]);
+
+  useEffect(() => {
+    if (!govtIdBackFile) {
+      setGovtIdBackPreview(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(govtIdBackFile);
+    setGovtIdBackPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [govtIdBackFile]);
+
+  useEffect(() => {
+    if (!alternateIdFile) {
+      setAlternateIdPreview(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(alternateIdFile);
+    setAlternateIdPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [alternateIdFile]);
 
   // Validate token + fetch hostel info
   useEffect(() => {
@@ -293,6 +427,23 @@ function TenantRegisterPageContent() {
       gender: "male",
     },
   });
+
+  const selectedGovtIdType = watch("govtIdType") || "";
+  const govtIdNumberLabel = selectedGovtIdType
+    ? `${selectedGovtIdType} number`
+    : "Government ID number";
+  const govtIdNumberPlaceholder = selectedGovtIdType
+    ? `Enter your ${selectedGovtIdType} number`
+    : "Enter your ID number";
+  const govtFrontLabel = selectedGovtIdType
+    ? `${selectedGovtIdType} front photo`
+    : "ID front photo";
+  const govtBackLabel = selectedGovtIdType
+    ? `${selectedGovtIdType} back photo`
+    : "ID back photo";
+  const alternateGovtLabel = selectedGovtIdType
+    ? `Alternate ${selectedGovtIdType} photo`
+    : "Alternate ID photo";
 
   useEffect(() => {
     const sub = watch((v) => setPasswordValue(v.password ?? ""));
@@ -508,6 +659,26 @@ function TenantRegisterPageContent() {
 
   const [registeringTenant, setRegisteringTenant] = useState(false);
 
+  async function uploadSignupDocument(
+    docType: Exclude<UploadDocType, "profile_photo">,
+    file: File,
+  ) {
+    const processed = await processImageForUpload(file, docType);
+    const formData = new FormData();
+    formData.append("docType", docType);
+    formData.append("file", processed);
+
+    const response = await fetch("/api/tenant/profile/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const json = await response.json();
+
+    if (!response.ok) {
+      throw new Error(json.error ?? "Could not upload document.");
+    }
+  }
+
   async function onSubmit(data: TenantRegisterForm) {
     if (!phoneVerified) {
       toast.error("Verify your phone number before creating the tenant account.");
@@ -516,6 +687,27 @@ function TenantRegisterPageContent() {
 
     if (!emailVerified) {
       toast.error("Verify your email address before creating the tenant account.");
+      return;
+    }
+
+    let hasError = false;
+
+    if (!govtIdFrontFile) {
+      setIdFrontError("ID front photo is required.");
+      hasError = true;
+    } else {
+      setIdFrontError(null);
+    }
+
+    if (!govtIdBackFile) {
+      setIdBackError("ID back photo is required.");
+      hasError = true;
+    } else {
+      setIdBackError(null);
+    }
+
+    if (hasError) {
+      toast.error("Please upload your ID front and back photos to continue.");
       return;
     }
 
@@ -535,6 +727,8 @@ function TenantRegisterPageContent() {
           occupationType: data.occupationType,
           institutionName: data.institutionName,
           gender: data.gender,
+          govtIdType: data.govtIdType || (data.aadharNumber ? "Aadhaar" : ""),
+          govtIdNumber: data.govtIdNumber || data.aadharNumber || "",
           aadharNumber: data.aadharNumber
             ? normalizeAadhaarNumber(data.aadharNumber)
             : "",
@@ -548,10 +742,30 @@ function TenantRegisterPageContent() {
         return;
       }
 
-      toast.success(json.message ?? "Account created successfully.");
+      // Upload documents in background (don't wait for completion)
+      // This keeps the redirect instant while uploads continue in parallel
+      const documentUploads = [
+        uploadSignupDocument("govt_id_front", govtIdFrontFile!),
+        uploadSignupDocument("govt_id_back", govtIdBackFile!),
+      ];
+
+      if (alternateIdFile) {
+        documentUploads.push(uploadSignupDocument("alternate_id", alternateIdFile));
+      }
+
+      Promise.all(documentUploads).catch((err) => {
+        // Log silently; the account was already created successfully
+        console.error("Background document upload failed:", err);
+      });
+
+      toast.success(json.message ?? "Account created successfully. Uploading documents…");
       router.replace(json.redirectTo ?? "/tenant/dashboard");
-    } catch {
-      toast.error("Network error while creating account.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Your account was created but one of the document uploads failed.",
+      );
     } finally {
       setRegisteringTenant(false);
     }
@@ -768,36 +982,105 @@ function TenantRegisterPageContent() {
                 )}
               </div>
 
-              {/* Aadhaar */}
+              {/* Government ID */}
               <div className="space-y-1.5">
-                <Label htmlFor="aadharNumber" className="text-foreground/80">
-                  Aadhaar number{" "}
+                <Label htmlFor="govtIdType" className="text-foreground/80">
+                  Government ID type{" "}
+                 
+                </Label>
+                <select
+                  id="govtIdType"
+                  className="h-10 w-full rounded-xl border border-border bg-popover/80 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  {...register("govtIdType")}
+                >
+                  <option value="">Select ID type</option>
+                  {GOVT_ID_OPTIONS.map((option) => (
+                    <option key={option} value={option} className="text-black">
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                {errors.govtIdType && (
+                  <p className="text-xs text-red-400">{errors.govtIdType.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="govtIdNumber" className="text-foreground/80">
+                  {govtIdNumberLabel}{" "}
                   <span className="text-muted-foreground/70 font-normal">
                     (optional)
                   </span>
                 </Label>
                 <Input
-                  id="aadharNumber"
+                  id="govtIdNumber"
                   type="text"
-                  inputMode="numeric"
-                  maxLength={12}
-                  placeholder="12-digit Aadhaar number"
+                  placeholder={govtIdNumberPlaceholder}
                   className="rounded-xl border-border bg-popover/80 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-primary/20"
-                  {...register("aadharNumber", {
+                  {...register("govtIdNumber", {
                     onChange: (e) => {
-                      setValue(
-                        "aadharNumber",
-                        normalizeAadhaarNumber(e.target.value),
-                        { shouldValidate: true },
-                      );
+                      const value = e.target.value;
+                      setValue("govtIdNumber", value, { shouldValidate: true });
+                      if (watch("govtIdType") === "Aadhaar") {
+                        setValue("aadharNumber", normalizeAadhaarNumber(value), { shouldValidate: true });
+                      }
                     },
                   })}
                 />
-                {errors.aadharNumber && (
-                  <p className="text-xs text-red-400">
-                    {errors.aadharNumber.message}
-                  </p>
+                {errors.govtIdNumber && (
+                  <p className="text-xs text-red-400">{errors.govtIdNumber.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-border bg-popover/80 p-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Upload ID documents</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Front and back photos are required</p>
+                </div>
+                <DocumentUploadCard
+                  label={govtFrontLabel}
+                  required
+                  value={govtIdFrontFile}
+                  preview={govtIdFrontPreview}
+                  error={idFrontError}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    setGovtIdFrontFile(event.target.files?.[0] ?? null);
+                    setIdFrontError(null);
+                  }}
+                  onRemove={() => {
+                    setGovtIdFrontFile(null);
+                    setGovtIdFrontPreview(null);
+                    setIdFrontError(null);
+                  }}
+                />
+                <DocumentUploadCard
+                  label={govtBackLabel}
+                  required
+                  value={govtIdBackFile}
+                  preview={govtIdBackPreview}
+                  error={idBackError}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    setGovtIdBackFile(event.target.files?.[0] ?? null);
+                    setIdBackError(null);
+                  }}
+                  onRemove={() => {
+                    setGovtIdBackFile(null);
+                    setGovtIdBackPreview(null);
+                    setIdBackError(null);
+                  }}
+                />
+                <DocumentUploadCard
+                  label={alternateGovtLabel}
+                  value={alternateIdFile}
+                  preview={alternateIdPreview}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    setAlternateIdFile(event.target.files?.[0] ?? null);
+                  }}
+                  onRemove={() => {
+                    setAlternateIdFile(null);
+                    setAlternateIdPreview(null);
+                  }}
+                />
               </div>
 
               {/* Email */}
@@ -936,7 +1219,7 @@ function TenantRegisterPageContent() {
               )}
 
               {/* Validation Checklist */}
-              {(!phoneVerified || !emailVerified) && (
+              {(!phoneVerified || !emailVerified || !govtIdFrontFile || !govtIdBackFile) && (
                 <ValidationChecklist
                   items={[
                     {
@@ -949,6 +1232,16 @@ function TenantRegisterPageContent() {
                       label: "Verify your email address",
                       completed: emailVerified,
                     },
+                    {
+                      id: "idFront",
+                      label: "Upload ID front photo",
+                      completed: !!govtIdFrontFile,
+                    },
+                    {
+                      id: "idBack",
+                      label: "Upload ID back photo",
+                      completed: !!govtIdBackFile,
+                    },
                   ]}
                 />
               )}
@@ -956,7 +1249,7 @@ function TenantRegisterPageContent() {
               {/* Submit */}
               <Button
                 type="submit"
-                disabled={isSubmitting || registeringTenant || !phoneVerified || !emailVerified}
+                disabled={isSubmitting || registeringTenant || !phoneVerified || !emailVerified || !govtIdFrontFile || !govtIdBackFile}
                 className="w-full rounded-xl bg-gradient-to-r from-primary to-blue-500 font-semibold shadow-lg shadow-primary/30 hover:brightness-110"
               >
                 {isSubmitting || registeringTenant ? (

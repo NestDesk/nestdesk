@@ -52,8 +52,6 @@ type TenantProfile = {
   profile_photo_url: string | null;
   govt_id_front_url: string | null;
   govt_id_back_url: string | null;
-  aadhar_front_url: string | null;
-  aadhar_back_url: string | null;
   alternate_id_url: string | null;
   profile_completion_percentage: number;
   profile_completion_missing: string[];
@@ -111,10 +109,18 @@ const DOC_LABELS: Record<UploadDocType, string> = {
   profile_photo: "Profile picture",
   govt_id_front: "Government ID front image",
   govt_id_back: "Government ID back image",
-  aadhar_front: "Government ID front image",
-  aadhar_back: "Government ID back image",
   alternate_id: "Alternate government / institution ID",
 };
+
+function getDocumentLabels(type?: string | null) {
+  const selectedType = type?.trim();
+  const labelPrefix = selectedType && selectedType !== "Government" ? selectedType : "Government";
+  return {
+    ...DOC_LABELS,
+    govt_id_front: `${labelPrefix} ID front image`,
+    govt_id_back: `${labelPrefix} ID back image`,
+  } satisfies Record<UploadDocType, string>;
+}
 
 const STATUS_CONFIG: Record<
   string,
@@ -349,6 +355,12 @@ export default function TenantProfilePage() {
       .replace(/\*/g, "")
       .trim();
 
+    const effectiveGovtIdType = selectedGovtIdType || savedGovtIdType;
+    if (!effectiveGovtIdType) {
+      toast.error("Select your government ID type.");
+      return;
+    }
+
     const missingDocuments = requiredDocumentErrors;
     if (missingDocuments.length > 0) {
       toast.error(`Upload ${missingDocuments.join(", ")} before saving.`);
@@ -408,8 +420,6 @@ export default function TenantProfilePage() {
                 profile_photo_url: j.tenant!.profile_photo_url,
                 govt_id_front_url: j.tenant!.govt_id_front_url,
                 govt_id_back_url: j.tenant!.govt_id_back_url,
-                aadhar_front_url: j.tenant!.aadhar_front_url,
-                aadhar_back_url: j.tenant!.aadhar_back_url,
                 alternate_id_url: j.tenant!.alternate_id_url,
                 profile_completion_percentage:
                   j.tenant!.profile_completion_percentage,
@@ -443,7 +453,7 @@ export default function TenantProfilePage() {
         return;
       }
 
-      toast.success(`${DOC_LABELS[docType]} uploaded successfully.`);
+      toast.success(`${documentLabels[docType]} uploaded successfully.`);
       await refreshCompletion();
     } catch {
       toast.error("Could not process this image. Try a clearer photo.");
@@ -465,12 +475,13 @@ export default function TenantProfilePage() {
   const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
   const StatusIcon = statusCfg.icon;
   const completion = profile?.profile_completion_percentage ?? 0;
+  const documentLabels = getDocumentLabels(govtIdType || profile?.govt_id_type || null);
 
   const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
   const hasPhoneChanged =
     normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
-  const primaryGovtFrontUrl = profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null;
-  const primaryGovtBackUrl = profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null;
+  const primaryGovtFrontUrl = profile?.govt_id_front_url ?? null;
+  const primaryGovtBackUrl = profile?.govt_id_back_url ?? null;
   const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
   const savedGovtIdLast4 = profile?.govt_id_last4 ?? savedAadharLast4;
   const savedIdDisplay = savedGovtIdLast4
@@ -478,14 +489,44 @@ export default function TenantProfilePage() {
     : null;
   const requiredDocumentErrors = [
     !profile?.profile_photo_url ? DOC_LABELS.profile_photo : null,
-    !primaryGovtFrontUrl ? DOC_LABELS.govt_id_front : null,
-    !primaryGovtBackUrl ? DOC_LABELS.govt_id_back : null,
+    !primaryGovtFrontUrl ? documentLabels.govt_id_front : null,
+    !primaryGovtBackUrl ? documentLabels.govt_id_back : null,
   ].filter((label): label is string => Boolean(label));
   const missingRequiredFields = [...requiredDocumentErrors].filter((label): label is string => Boolean(label));
 
+  const originalGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
+  const originalGovtIdDisplay = profile?.govt_id_last4
+    ? maskGovtIdNumber(profile.govt_id_last4, originalGovtIdType || undefined)
+    : savedAadharLast4
+      ? maskGovtIdNumber(savedAadharLast4, originalGovtIdType || undefined)
+      : "";
+  const trimmedGovtIdNumber = govtIdNumber.replace(/\s+/g, "").replace(/\*/g, "").trim();
+  const trimmedOriginalGovtIdNumber = originalGovtIdDisplay
+    .replace(/\s+/g, "")
+    .replace(/\*/g, "")
+    .trim();
+
+  const hasActualProfileChanges =
+    fullName.trim() !== (profile?.full_name ?? "").trim() ||
+    normalizedPhone !== normalizeIndianPhoneDigits(originalPhone) ||
+    occupationType !== (profile?.occupation_type ?? "student") ||
+    institutionName.trim() !== (profile?.institution_name ?? "").trim() ||
+    (govtIdType || savedGovtIdType) !== originalGovtIdType ||
+    trimmedGovtIdNumber !== trimmedOriginalGovtIdNumber;
+
+  const isProfileFormValid =
+    !!fullName.trim() &&
+    !!normalizedPhone &&
+    /^\d{10}$/.test(normalizedPhone) &&
+    !!(govtIdType || savedGovtIdType) &&
+    !(hasPhoneChanged && !phoneVerified) &&
+    requiredDocumentErrors.length === 0;
+
   const canSave =
     !saving &&
-    isEditingDetails;
+    isEditingDetails &&
+    hasActualProfileChanges &&
+    isProfileFormValid;
 
   function UploadBlock({
     docType,
@@ -504,34 +545,34 @@ export default function TenantProfilePage() {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-xs font-semibold uppercase text-muted-foreground">
-              {DOC_LABELS[docType]}
+              {documentLabels[docType]}
               {required ? <span className="ml-1 text-rose-500">*</span> : null}
             </p>
             {!preview && docType !== "alternate_id" ? (
               <p className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                 <CircleAlert className="h-3 w-3 shrink-0" />
-                Please upload your {DOC_LABELS[docType].toLowerCase()}.
+                Please upload your {documentLabels[docType].toLowerCase()}.
               </p>
             ) : null}
           </div>
           <span className="shrink-0 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">KYC</span>
         </div>
         <div className="mt-3 flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
-          <div className="h-20 w-full max-w-[7rem] shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-muted/40 shadow-inner sm:w-28">
+          <div className="h-32 w-full shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-muted/40 shadow-inner sm:h-40 sm:w-full">
             {preview ? (
               <button
                 type="button"
                 onClick={() =>
-                  setPreviewImage({ src: preview, title: DOC_LABELS[docType] })
+                  setPreviewImage({ src: preview, title: documentLabels[docType] })
                 }
                 className="h-full w-full cursor-zoom-in"
-                aria-label={`Open ${DOC_LABELS[docType]} image preview`}
+                aria-label={`Open ${documentLabels[docType]} image preview`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={preview}
-                  alt={DOC_LABELS[docType]}
-                  className="h-full w-full object-cover"
+                  alt={documentLabels[docType]}
+                  className="h-full w-full object-cover transition-transform duration-200 hover:scale-[1.02]"
                 />
               </button>
             ) : (
@@ -608,17 +649,17 @@ export default function TenantProfilePage() {
                   <User className="h-9 w-9 sm:h-11 sm:w-11" />
                 )}
                 <label
-                  className="absolute inset-x-1 bottom-0 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-black/65 px-2 py-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-black/80"
+                  className="absolute inset-x-1 bottom-0 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-black/65 px-4 py-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-black/80"
                 >
                   {uploadingDoc === "profile_photo" ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Camera className="h-3 w-3" />
+                    <Camera className="h-3 w-3" />  
                   )}
                   {uploadingDoc === "profile_photo"
                     ? "Uploading..."
                     : profile?.profile_photo_url
-                      ? "Update photo"
+                      ? "Change photo"
                       : "Add photo"}
                   <input
                     type="file"
@@ -704,7 +745,7 @@ export default function TenantProfilePage() {
           }
         }}
       >
-        <DialogContent className="max-w-3xl border-border/70 p-3 sm:p-4">
+        <DialogContent className="max-w-5xl border-border/70 p-3 sm:p-4">
           <DialogTitle className="text-sm">
             {previewImage?.title ?? "Image preview"}
           </DialogTitle>
@@ -713,7 +754,7 @@ export default function TenantProfilePage() {
             <img
               src={previewImage.src}
               alt={previewImage.title}
-              className="max-h-[75vh] w-full rounded-lg object-contain"
+              className="max-h-[80vh] w-full rounded-lg object-contain bg-muted/20"
             />
           ) : null}
         </DialogContent>
@@ -917,7 +958,7 @@ export default function TenantProfilePage() {
 
                     <div className="space-y-2">
               <Label htmlFor="govt-id-type" className="text-sm font-medium">
-                Government ID type <span className="text-muted-foreground text-[11px]">(Optional)</span>
+                Government ID type <span className="text-rose-500">*</span>
               </Label>
               <select
                 id="govt-id-type"
@@ -947,7 +988,7 @@ export default function TenantProfilePage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label htmlFor="govt-id-number" className="text-sm font-medium">
-                  ID number
+                  {govtIdType ? `${govtIdType} number` : "Government ID number"}
                 </Label>
                 <span className="text-[11px] text-muted-foreground">(Optional)</span>
               </div>
@@ -956,7 +997,7 @@ export default function TenantProfilePage() {
                 type="text"
                 value={govtIdNumber}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGovtIdNumber(e.target.value)}
-                placeholder={"Enter your ID number"}
+                placeholder={govtIdType ? `Enter your ${govtIdType} number` : "Enter your government ID number"}
                 className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
                 disabled={!isEditingDetails}
               />
@@ -971,44 +1012,8 @@ export default function TenantProfilePage() {
               </div>
             </div>
 
-            <div className="space-y-4 border-t border-border/60 pt-6">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-                  <IdCard className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Documents</p>
-                  <p className="text-xs text-muted-foreground">Upload clear images for a faster review.</p>
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <UploadBlock
-                  docType="govt_id_front"
-                  preview={profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null}
-                  required
-                />
-                <UploadBlock
-                  docType="govt_id_back"
-                  preview={profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null}
-                  required
-                />
-                <UploadBlock
-                  docType="alternate_id"
-                  preview={profile?.alternate_id_url ?? null}
-                />
-              </div>
-              {showValidationErrors && missingRequiredFields.length > 0 ? (
-                <p className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
-                  Missing: {missingRequiredFields.join(", ")}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Ready to save your changes?</p>
-                <p className="mt-1 text-xs text-muted-foreground">Your updated details will be reflected in your tenant profile.</p>
-              </div>
+          { isEditingDetails &&   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:p-5">
+             
               <Button type="submit" disabled={!canSave} className="rounded-xl sm:min-w-32">
               {saving ? (
                 <>
@@ -1022,6 +1027,39 @@ export default function TenantProfilePage() {
                 </>
               )}
               </Button>
+            </div>}
+
+            <div className="space-y-4 border-t border-border/60 pt-6">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+                  <IdCard className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Documents</p>
+                  <p className="text-xs text-muted-foreground">Upload clear images for a faster review.</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <UploadBlock
+                  docType="govt_id_front"
+                  preview={profile?.govt_id_front_url ?? null}
+                  required
+                />
+                <UploadBlock
+                  docType="govt_id_back"
+                  preview={profile?.govt_id_back_url ?? null}
+                  required
+                />
+                <UploadBlock
+                  docType="alternate_id"
+                  preview={profile?.alternate_id_url ?? null}
+                />
+              </div>
+              {showValidationErrors && missingRequiredFields.length > 0 ? (
+                <p className="mt-1 text-xs font-bold text-red-600 dark:text-red-400">
+                  Missing: {missingRequiredFields.join(", ")}
+                </p>
+              ) : null}
             </div>
           </form>
         </CardContent>
