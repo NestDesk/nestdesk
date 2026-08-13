@@ -159,7 +159,7 @@ export async function GET(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, phone_verified, status, occupation_type, institution_name, govt_id_type, govt_id_last4, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state), rooms(room_number)",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, phone_verified, status, occupation_type, institution_name, govt_id_type, govt_id_last4, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state), rooms(room_number)",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -189,8 +189,6 @@ export async function GET(
       tenant.profile_photo_path,
       tenant.govt_id_front_path,
       tenant.govt_id_back_path,
-      tenant.aadhar_front_path,
-      tenant.aadhar_back_path,
       tenant.alternate_id_path,
     ],
     admin,
@@ -203,12 +201,6 @@ export async function GET(
     : null;
   const govtBackUrl = tenant.govt_id_back_path
     ? signedUrls.get(tenant.govt_id_back_path) ?? null
-    : null;
-  const aadharFrontUrl = tenant.aadhar_front_path
-    ? signedUrls.get(tenant.aadhar_front_path) ?? null
-    : null;
-  const aadharBackUrl = tenant.aadhar_back_path
-    ? signedUrls.get(tenant.aadhar_back_path) ?? null
     : null;
   const alternateIdUrl = tenant.alternate_id_path
     ? signedUrls.get(tenant.alternate_id_path) ?? null
@@ -236,8 +228,6 @@ export async function GET(
       profile_photo_url: profilePhotoUrl,
       govt_id_front_url: govtFrontUrl,
       govt_id_back_url: govtBackUrl,
-      aadhar_front_url: aadharFrontUrl,
-      aadhar_back_url: aadharBackUrl,
       alternate_id_url: alternateIdUrl,
       profile_completion_percentage: completion.percentage,
       profile_completion_missing: completion.missingFields,
@@ -287,7 +277,7 @@ export async function PATCH(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, govt_id_type, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, govt_id_type, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, alternate_id_path, first_activated_at",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -686,7 +676,7 @@ export async function DELETE(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, auth_user_id, hostel_id, room_id, full_name, profile_photo_path, aadhar_doc_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
+      "id, auth_user_id, hostel_id, room_id, full_name, profile_photo_path, govt_id_front_path, govt_id_back_path, alternate_id_path",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -726,9 +716,8 @@ export async function DELETE(
 
   const documentPaths = [
     tenant.profile_photo_path,
-    tenant.aadhar_doc_path,
-    tenant.aadhar_front_path,
-    tenant.aadhar_back_path,
+    tenant.govt_id_front_path,
+    tenant.govt_id_back_path,
     tenant.alternate_id_path,
   ].filter((path): path is string => Boolean(path));
   if (documentPaths.length > 0) {

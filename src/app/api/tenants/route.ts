@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
     admin
       .from("tenants")
       .select(
-        "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
+        "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, alternate_id_path, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
       )
       .eq("owner_id", ctx.ownerId)
       .is("deleted_at", null)
@@ -305,6 +305,22 @@ export async function GET(request: NextRequest) {
       };
     }),
   );
+
+  const roomNumberCollator = new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+
+  tenantRows.sort((a, b) => {
+    const aRoom = (a.room_number ?? "").trim();
+    const bRoom = (b.room_number ?? "").trim();
+
+    if (!aRoom && !bRoom) return 0;
+    if (!aRoom) return 1;
+    if (!bRoom) return -1;
+
+    return roomNumberCollator.compare(aRoom, bRoom) || a.full_name.localeCompare(b.full_name);
+  });
 
   const summary = tenantRows.reduce(
     (acc, tenant) => {

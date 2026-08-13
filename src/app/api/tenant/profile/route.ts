@@ -12,6 +12,42 @@ import { getTenantProfileCompletion } from "../../../../lib/tenant-profile-compl
 
 const TENANT_DOCS_BUCKET = "tenant-documents";
 
+/**
+ * Cleanup orphaned documents from pending signups.
+ * Deletes documents older than 24 hours that belong to tenants still in "pending" status.
+ * Runs as fire-and-forget to avoid blocking the main request.
+ */
+async function cleanupOrphanedDocuments(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<void> {
+  try {
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Find tenants still in "pending" status created more than 24 hours ago
+    const { data: orphanedTenants, error: queryError } = await admin
+      .from("tenants")
+      .select("id, auth_user_id, profile_photo_path, govt_id_front_path, govt_id_back_path, alternate_id_path")
+      .eq("status", "pending")
+      .lt("created_at", cutoffTime);
+
+    if (queryError || !orphanedTenants) return;
+
+    const pathsToDelete: string[] = [];
+    for (const tenant of orphanedTenants) {
+      if (tenant.profile_photo_path) pathsToDelete.push(tenant.profile_photo_path);
+      if (tenant.govt_id_front_path) pathsToDelete.push(tenant.govt_id_front_path);
+      if (tenant.govt_id_back_path) pathsToDelete.push(tenant.govt_id_back_path);
+      if (tenant.alternate_id_path) pathsToDelete.push(tenant.alternate_id_path);
+    }
+
+    if (pathsToDelete.length > 0) {
+      await admin.storage.from(TENANT_DOCS_BUCKET).remove(pathsToDelete).catch(() => {});
+    }
+  } catch {
+    // Silently fail; cleanup is best-effort and should not impact user experience
+  }
+}
+
 async function createSignedUrls(
   paths: Array<string | null>,
   admin: ReturnType<typeof createAdminClient>,
@@ -57,7 +93,7 @@ export async function GET() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, govt_id_type, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
+      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, govt_id_type, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -78,13 +114,14 @@ export async function GET() {
 
   const completion = getTenantProfileCompletion(tenant);
 
+  // Trigger cleanup of orphaned documents in background (fire-and-forget)
+  cleanupOrphanedDocuments(admin).catch(() => {});
+
   const signedUrls = await createSignedUrls(
     [
       tenant.profile_photo_path,
       tenant.govt_id_front_path,
       tenant.govt_id_back_path,
-      tenant.aadhar_front_path,
-      tenant.aadhar_back_path,
       tenant.alternate_id_path,
     ],
     admin,
@@ -97,12 +134,6 @@ export async function GET() {
     : null;
   const govtBackUrl = tenant.govt_id_back_path
     ? signedUrls.get(tenant.govt_id_back_path) ?? null
-    : null;
-  const aadharFrontUrl = tenant.aadhar_front_path
-    ? signedUrls.get(tenant.aadhar_front_path) ?? null
-    : null;
-  const aadharBackUrl = tenant.aadhar_back_path
-    ? signedUrls.get(tenant.aadhar_back_path) ?? null
     : null;
   const alternateIdUrl = tenant.alternate_id_path
     ? signedUrls.get(tenant.alternate_id_path) ?? null
@@ -125,14 +156,10 @@ export async function GET() {
       govt_id_back_path: tenant.govt_id_back_path ?? null,
       aadhar_last4: tenant.aadhar_last4,
       profile_photo_path: tenant.profile_photo_path,
-      aadhar_front_path: tenant.aadhar_front_path,
-      aadhar_back_path: tenant.aadhar_back_path,
       alternate_id_path: tenant.alternate_id_path,
       profile_photo_url: profilePhotoUrl,
       govt_id_front_url: govtFrontUrl,
       govt_id_back_url: govtBackUrl,
-      aadhar_front_url: aadharFrontUrl,
-      aadhar_back_url: aadharBackUrl,
       alternate_id_url: alternateIdUrl,
       first_activated_at: tenant.first_activated_at,
       hostel_name: hostel?.name ?? null,

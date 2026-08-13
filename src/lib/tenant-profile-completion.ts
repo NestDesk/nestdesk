@@ -14,8 +14,6 @@ export type TenantProfileCompletionInput = {
   profile_photo_path?: string | null;
   govt_id_front_path?: string | null;
   govt_id_back_path?: string | null;
-  aadhar_front_path?: string | null;
-  aadhar_back_path?: string | null;
   alternate_id_path?: string | null;
 };
 
@@ -69,20 +67,12 @@ const REQUIREMENTS: Requirement[] = [
   {
     key: "govt_id_front_path",
     label: "Government ID front image",
-    isComplete: (input) =>
-      Boolean(
-        input.govt_id_front_path?.trim() ||
-          input.aadhar_front_path?.trim(),
-      ),
+    isComplete: (input) => Boolean(input.govt_id_front_path?.trim()),
   },
   {
     key: "govt_id_back_path",
     label: "Government ID back image",
-    isComplete: (input) =>
-      Boolean(
-        input.govt_id_back_path?.trim() ||
-          input.aadhar_back_path?.trim(),
-      ),
+    isComplete: (input) => Boolean(input.govt_id_back_path?.trim()),
   },
 ];
 

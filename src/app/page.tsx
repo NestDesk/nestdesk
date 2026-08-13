@@ -390,6 +390,20 @@ export default async function LandingPage() {
                 colives, hostels, and rental properties in one simple dashboard.
               </p>
 
+              <div className="mt-6 flex items-center justify-center gap-3 lg:justify-start">
+                <span className="text-sm text-muted-foreground">
+                  Already using NestDesk?
+                </span>
+                <Link href="/login">
+                  <Button
+                    size="sm"
+                    className="h-9 rounded-xl bg-gradient-to-r from-violet-700 via-purple-500 to-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-200 hover:scale-[1.02] hover:shadow-violet-500/40 focus-visible:ring-violet-500/60 px-8"
+                  >
+                    Log in
+                  </Button>
+                </Link>
+              </div>
+
               <div className="mt-8 flex flex-row flex-wrap justify-center gap-4 lg:justify-start">
                 <Link href="/register">
                   <Button
