@@ -13,6 +13,7 @@ import {
   Pencil,
   Save,
   ShieldCheck,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -120,11 +121,16 @@ type TenantProfileDetail = {
   full_name: string;
   email: string | null;
   phone: string | null;
+  phone_verified: boolean;
   status: TenantStatus;
   occupation_type: string | null;
   institution_name: string | null;
+  govt_id_type: string | null;
+  govt_id_last4: string | null;
   aadhar_last4: string | null;
   profile_photo_url: string | null;
+  govt_id_front_url: string | null;
+  govt_id_back_url: string | null;
   aadhar_front_url: string | null;
   aadhar_back_url: string | null;
   alternate_id_url: string | null;
@@ -334,6 +340,9 @@ export default function OwnerTenantsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, TenantDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deleteTenant, setDeleteTenant] = useState<TenantRow | null>(null);
+  const [deleteConfirmationName, setDeleteConfirmationName] = useState("");
+  const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewTenant, setReviewTenant] = useState<TenantProfileDetail | null>(
@@ -739,18 +748,6 @@ export default function OwnerTenantsPage() {
       return;
     }
 
-    if (draft.status === "active" && !draft.securityDeposit) {
-      toast.error("Security deposit amount is required to activate a tenant.");
-      return;
-    }
-
-    if (draft.status === "moved_out" && draft.securityDepositReturned === "") {
-      toast.error(
-        "Security deposit returned amount is required when moving out.",
-      );
-      return;
-    }
-
     if (draft.status === "moved_out" && !draft.moveOutDate) {
       toast.error("Move-out date is required when moving out.");
       return;
@@ -923,11 +920,55 @@ export default function OwnerTenantsPage() {
     }
   }
 
+  async function confirmDeleteTenant() {
+    if (!deleteTenant || deleteConfirmationName !== deleteTenant.full_name) {
+      return;
+    }
+
+    setDeletingTenantId(deleteTenant.id);
+    try {
+      const response = await fetch(`/api/tenants/${deleteTenant.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmationName: deleteConfirmationName }),
+      });
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        toast.error(json.error ?? "Could not delete tenant.");
+        return;
+      }
+
+      setTenants((prev) => prev.filter((tenant) => tenant.id !== deleteTenant.id));
+      setSummary((prev) => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1),
+        [deleteTenant.status]: Math.max(0, prev[deleteTenant.status] - 1),
+      }));
+      setDeleteTenant(null);
+      setDeleteConfirmationName("");
+      if (editingId === deleteTenant.id) {
+        setEditingId(null);
+      }
+      toast.success("Tenant deleted permanently.");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setDeletingTenantId(null);
+    }
+  }
+
   function maskAadhaar(value: string | null) {
     if (!value || value.length < 4) {
       return "-";
     }
     return `XXXX XXXX ${value.slice(-4)}`;
+  }
+
+  function maskGovernmentId(value: string | null, type: string | null) {
+    if (!value || value.length < 4) {
+      return "-";
+    }
+    return `${type ?? "Government ID"} ending ${value.slice(-4)}`;
   }
 
   async function openReview(tenant: TenantRow) {
@@ -1487,13 +1528,7 @@ export default function OwnerTenantsPage() {
                             <Input
                               id={`name-${tenant.id}`}
                               value={draft.fullName}
-                              onChange={(e) =>
-                                updateDraft(
-                                  tenant.id,
-                                  "fullName",
-                                  e.target.value,
-                                )
-                              }
+                              disabled
                               className="h-9 text-sm"
                             />
                           </div>
@@ -1512,13 +1547,7 @@ export default function OwnerTenantsPage() {
                               <Input
                                 id={`phone-${tenant.id}`}
                                 value={draft.phone}
-                                onChange={(e) =>
-                                  updateDraft(
-                                    tenant.id,
-                                    "phone",
-                                    normalizePhone(e.target.value),
-                                  )
-                                }
+                                disabled
                                 placeholder="9876543210"
                                 className="h-9 flex-1 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
                               />
@@ -1623,7 +1652,6 @@ export default function OwnerTenantsPage() {
                               className="text-xs font-medium"
                             >
                               Security Deposit
-                              <span className="ml-1 text-rose-500">*</span>
                             </Label>
                             <div className="relative">
                               <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -1719,16 +1747,6 @@ export default function OwnerTenantsPage() {
                                 <option
                                   key={option.value}
                                   value={option.value}
-                                  disabled={
-                                    option.value === "active" &&
-                                    !draft.securityDeposit
-                                  }
-                                  title={
-                                    option.value === "active" &&
-                                    !draft.securityDeposit
-                                      ? "Fill security deposit before activating"
-                                      : undefined
-                                  }
                                 >
                                   {option.label}
                                 </option>
@@ -1766,39 +1784,58 @@ export default function OwnerTenantsPage() {
                                   className="h-9 text-sm w-full"
                                 />
                               </div>
-                              <div className="space-y-1.5">
-                                <Label
-                                  htmlFor={`security-returned-${tenant.id}`}
-                                  className="text-xs font-medium"
-                                >
-                                  Security deposit returned
-                                  <span className="ml-1 text-rose-500">*</span>
-                                </Label>
-                                <div className="relative">
-                                  <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                                  <Input
-                                    id={`security-returned-${tenant.id}`}
-                                    value={draft.securityDepositReturned}
-                                    onChange={(e) =>
-                                      updateDraft(
-                                        tenant.id,
-                                        "securityDepositReturned",
-                                        normalizeRentInput(e.target.value),
-                                      )
-                                    }
-                                    placeholder="Amount returned"
-                                    disabled={savingId === tenant.id}
-                                    className="h-9 w-full pl-8 text-sm"
-                                  />
+                              {draft.securityDeposit !== "" ? (
+                                <div className="space-y-1.5">
+                                  <Label
+                                    htmlFor={`security-returned-${tenant.id}`}
+                                    className="text-xs font-medium"
+                                  >
+                                    Security deposit returned
+                                  </Label>
+                                  <div className="relative">
+                                    <IndianRupee className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                    <Input
+                                      id={`security-returned-${tenant.id}`}
+                                      value={draft.securityDepositReturned}
+                                      onChange={(e) =>
+                                        updateDraft(
+                                          tenant.id,
+                                          "securityDepositReturned",
+                                          normalizeRentInput(e.target.value),
+                                        )
+                                      }
+                                      placeholder="Amount returned"
+                                      disabled={savingId === tenant.id}
+                                      className="h-9 w-full pl-8 text-sm"
+                                    />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Security deposit received: ₹{draft.securityDeposit}
+                                  </p>
                                 </div>
-                              </div>
+                              ) : null}
                             </div>
                           </div>
                         </>
                       ) : null}
 
                       {/* Footer actions */}
-                      <div className="flex items-center justify-end gap-3 border-t border-border/50 pt-4">
+                      <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 rounded-lg p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                          disabled={savingId === tenant.id || deletingTenantId === tenant.id}
+                          onClick={() => {
+                            setDeleteTenant(tenant);
+                            setDeleteConfirmationName("");
+                          }}
+                          aria-label={`Delete ${tenant.full_name}`}
+                          title="Delete tenant permanently"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                         <div className="flex shrink-0 items-center gap-2">
                           <Button
                             type="button"
@@ -1839,6 +1876,69 @@ export default function OwnerTenantsPage() {
 
         </div>
       )}
+
+      <Dialog
+        open={Boolean(deleteTenant)}
+        onOpenChange={(open) => {
+          if (!open && !deletingTenantId) {
+            setDeleteTenant(null);
+            setDeleteConfirmationName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete tenant permanently?</DialogTitle>
+            <DialogDescription>
+              This permanently removes the tenant, login, documents, payments,
+              and invoices from the application. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTenant ? (
+            <div className="space-y-4">
+              <p className="text-sm text-foreground">
+                Type <span className="font-semibold">{deleteTenant.full_name}</span> exactly to confirm.
+              </p>
+              <Input
+                value={deleteConfirmationName}
+                onChange={(event) => setDeleteConfirmationName(event.target.value)}
+                placeholder={deleteTenant.full_name}
+                autoFocus
+                disabled={deletingTenantId === deleteTenant.id}
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteTenant(null);
+                    setDeleteConfirmationName("");
+                  }}
+                  disabled={deletingTenantId === deleteTenant.id}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={confirmDeleteTenant}
+                  disabled={
+                    deletingTenantId === deleteTenant.id ||
+                    deleteConfirmationName !== deleteTenant.full_name
+                  }
+                >
+                  {deletingTenantId === deleteTenant.id ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1.5 h-4 w-4" />
+                  )}
+                  Delete permanently
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={reviewOpen} onOpenChange={closeReview}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
@@ -1984,6 +2084,9 @@ export default function OwnerTenantsPage() {
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {reviewTenant.phone ?? "No phone"}
+                        <span className="ml-2 text-xs">
+                          {reviewTenant.phone_verified ? "Verified" : "Not verified"}
+                        </span>
                       </p>
                     </>
                   )}
@@ -2078,6 +2181,15 @@ export default function OwnerTenantsPage() {
                   )}
                 </div>
                 <div>
+                  <p className="text-xs text-muted-foreground">Government ID</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {maskGovernmentId(
+                      reviewTenant.govt_id_last4 ?? reviewTenant.aadhar_last4,
+                      reviewTenant.govt_id_type ?? (reviewTenant.aadhar_last4 ? "Aadhaar" : null),
+                    )}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-muted-foreground">
                     Profile Completion
                   </p>
@@ -2140,6 +2252,16 @@ export default function OwnerTenantsPage() {
                 </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
+                    {
+                      label: "Government ID Front",
+                      docType: "govt_id_front" as const,
+                      url: reviewTenant.govt_id_front_url ?? reviewTenant.aadhar_front_url,
+                    },
+                    {
+                      label: "Government ID Back",
+                      docType: "govt_id_back" as const,
+                      url: reviewTenant.govt_id_back_url ?? reviewTenant.aadhar_back_url,
+                    },
                     {
                       label: "Aadhaar Front",
                       docType: "aadhar_front" as const,

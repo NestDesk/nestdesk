@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
   const { data: tenants, error: tenantsError } = await admin
     .from("tenants")
     .select(
-      "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
+      "id, hostel_id, room_id, full_name, email, phone, occupation_type, institution_name, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, status, agreed_rent_amount, security_deposit, security_deposit_returned, join_date, rent_start_date, move_out_date, created_at, updated_at, first_activated_at",
     )
     .eq("owner_id", ctx.ownerId)
     .is("deleted_at", null)

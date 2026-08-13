@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Camera,
+  Check,
   CheckCircle2,
   CircleAlert,
   Clock,
@@ -26,12 +27,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../../components/ui/card";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "../../../../components/ui/accordion";
 import {
   Dialog,
   DialogContent,
@@ -177,7 +172,7 @@ export default function TenantProfilePage() {
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
-  const [isPhoneEditing, setIsPhoneEditing] = useState(false);
+  const [originalPhoneVerified, setOriginalPhoneVerified] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [showStatusNote, setShowStatusNote] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -226,7 +221,7 @@ export default function TenantProfilePage() {
       setPhone(nextPhone);
       setOriginalPhone(nextPhone);
       setPhoneVerified(Boolean(j.tenant.phone_verified));
-      setIsPhoneEditing(false);
+      setOriginalPhoneVerified(Boolean(j.tenant.phone_verified));
       setIsEditingDetails(false);
       setOccupationType(j.tenant.occupation_type ?? "student");
       setInstitutionName(j.tenant.institution_name ?? "");
@@ -495,9 +490,11 @@ export default function TenantProfilePage() {
   function UploadBlock({
     docType,
     preview,
+    required = false,
   }: {
     docType: UploadDocType;
     preview: string | null;
+    required?: boolean;
   }) {
     const isUploading = uploadingDoc === docType;
     const uploadDisabled = isUploading || isAccountActive;
@@ -506,7 +503,10 @@ export default function TenantProfilePage() {
       <div className="rounded-2xl border border-border/70 bg-card/80 p-3 shadow-sm transition-colors hover:border-primary/30 hover:bg-background/95 sm:p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">{DOC_LABELS[docType]}</p>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              {DOC_LABELS[docType]}
+              {required ? <span className="ml-1 text-rose-500">*</span> : null}
+            </p>
             {!preview && docType !== "alternate_id" ? (
               <p className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                 <CircleAlert className="h-3 w-3 shrink-0" />
@@ -595,46 +595,51 @@ export default function TenantProfilePage() {
         <CardContent className="flex flex-col gap-4 p-3 sm:gap-5 sm:p-5">
           <div className="flex min-w-0 items-start gap-3 sm:gap-5">
             {/* Avatar */}
-            <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-28 sm:w-28">
-              {profile?.profile_photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={profile.profile_photo_url}
-                  alt="Profile"
-                  className="h-24 w-24 rounded-3xl object-cover sm:h-28 sm:w-28"
-                />
-              ) : (
-                <User className="h-7 w-7 sm:h-9 sm:w-9" />
-              )}
-              <label
-                className="absolute inset-x-1 bottom-0 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-black/65 px-2 py-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-black/80"
-              >
-                {uploadingDoc === "profile_photo" ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-36 sm:w-36">
+                {profile?.profile_photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.profile_photo_url}
+                    alt="Profile"
+                    className="h-32 w-32 rounded-3xl object-cover sm:h-36 sm:w-36"
+                  />
                 ) : (
-                  <Camera className="h-3 w-3" />
+                  <User className="h-9 w-9 sm:h-11 sm:w-11" />
                 )}
-                {uploadingDoc === "profile_photo"
-                  ? "Uploading..."
-                  : profile?.profile_photo_url
-                    ? "Update photo"
-                    : "Add photo"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploadingDoc === "profile_photo"}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleUpload("profile_photo", file).catch(() => {
-                        // handled in upload function
-                      });
-                    }
-                    e.currentTarget.value = "";
-                  }}
-                />
-              </label>
+                <label
+                  className="absolute inset-x-1 bottom-0 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-black/65 px-2 py-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-black/80"
+                >
+                  {uploadingDoc === "profile_photo" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Camera className="h-3 w-3" />
+                  )}
+                  {uploadingDoc === "profile_photo"
+                    ? "Uploading..."
+                    : profile?.profile_photo_url
+                      ? "Update photo"
+                      : "Add photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingDoc === "profile_photo"}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleUpload("profile_photo", file).catch(() => {
+                          // handled in upload function
+                        });
+                      }
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+              <p className="text-[11px] font-semibold text-muted-foreground">
+                Profile picture <span className="text-rose-500">*</span>
+              </p>
             </div>
 
             <div className="min-w-0 flex-1 space-y-1">
@@ -743,11 +748,13 @@ export default function TenantProfilePage() {
         </CardHeader>
         <CardContent className="p-0">
           <form onSubmit={handleSave} className="space-y-8 p-4 sm:p-6">
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div>
               <div className="space-y-6">
             {/* Full name */}
             <div className="space-y-2">
-              <Label htmlFor="profile-name" className="text-sm font-medium">Full name</Label>
+              <Label htmlFor="profile-name" className="text-sm font-medium">
+                Full name <span className="text-rose-500">*</span>
+              </Label>
               <Input
                 id="profile-name"
                 type="text"
@@ -771,7 +778,7 @@ export default function TenantProfilePage() {
             {/* Email (read-only) */}
             <div className="space-y-2">
               <Label htmlFor="profile-email" className="text-sm font-medium">
-                Email{" "}
+                Email <span className="text-rose-500">*</span>{" "}
                 <span className="text-muted-foreground font-normal">
                   (cannot be changed here)
                 </span>
@@ -792,58 +799,51 @@ export default function TenantProfilePage() {
               </Label>
               <div className="flex max-w-sm flex-row items-center gap-2">
                 <span className="inline-flex h-10 items-center rounded-xl border border-border/70 bg-muted/40 px-3 text-sm font-medium text-muted-foreground">+91</span>
-                <Input
-                  id="profile-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  value={phone}
-                  disabled={!isPhoneEditing}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    const nextPhone = e.target.value.replace(/\D/g, "").slice(0, 10);
-                    setPhone(nextPhone);
-                    setPhoneVerified(false);
-                    setOtpSent(false);
-                  }}
-                  placeholder="10-digit mobile number"
-                  className="w-full flex-1 rounded-xl border-border/70 bg-background/80 shadow-sm"
-                />
-                <Button
-                  type="button"
-                  variant="default"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 rounded-xl"
-                  onClick={() => {
-                    if (isPhoneEditing) {
-                      setPhone(originalPhone);
-                      setPhoneVerified(false);
+                <div className="relative min-w-0 flex-1">
+                  <Input
+                    id="profile-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    value={phone}
+                    disabled={!isEditingDetails}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const nextPhone = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setPhone(nextPhone);
+                      setPhoneVerified(
+                        normalizeIndianPhoneDigits(nextPhone) ===
+                          normalizeIndianPhoneDigits(originalPhone)
+                          ? originalPhoneVerified
+                          : false,
+                      );
                       setOtpSent(false);
-                      setOtpCode("");
-                    }
-                    setIsPhoneEditing((prev) => !prev);
-                  }}
-                  aria-label={isPhoneEditing ? "Cancel phone update" : "Update phone number"}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                    }}
+                    placeholder="10-digit mobile number"
+                    className="w-full rounded-xl border-border/70 bg-background/80 pr-10 shadow-sm"
+                  />
+                  {phoneVerified ? (
+                    <span
+                      className="group absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-help items-center justify-center text-emerald-600 dark:text-emerald-400"
+                      aria-label="Phone number verified"
+                      tabIndex={0}
+                    >
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1 text-xs font-medium text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                        Verified
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="flex min-w-0 flex-nowrap items-center gap-2 pt-1">
-                {phoneVerified ? (
-                  <>
-                    <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Phone verified
-                    </span>
-                   
-                  </>
-                ) : (
+                {!phoneVerified ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm dark:border-red-400/30 dark:bg-red-500/15 dark:text-red-300">
-                    {isPhoneEditing
-                      ? "Verify this number in the OTP dialog before saving."
-                      : "Phone number is locked. Click the pencil icon to change it."}
+                    {isEditingDetails
+                      ? "Verify phone number."
+                      : "Phone number is locked. Click Edit to change it."}
                   </span>
-                )}
+                ) : null}
 
-                {isPhoneEditing && !phoneVerified && hasPhoneChanged && (
+                {isEditingDetails && !phoneVerified && hasPhoneChanged && (
                   <>
                     <Button
                       type="button"
@@ -854,11 +854,10 @@ export default function TenantProfilePage() {
                     >
                       {sendingOtp ? "Sending OTP..." : otpSent ? "Resend OTP" : "Send OTP"}
                     </Button>
-                    <span className="text-xs text-muted-foreground">Verify in the OTP dialog</span>
                   </>
                 )}
               </div>
-              {isPhoneEditing && (
+              {isEditingDetails && (
                 <p className="text-xs text-muted-foreground/80">
                   A secure 6-digit OTP dialog will open after the code is sent.
                 </p>
@@ -879,7 +878,7 @@ export default function TenantProfilePage() {
 
             <div className="space-y-2">
               <Label htmlFor="occupation-type" className="block">
-                Occupation type
+                Occupation type <span className="text-rose-500">*</span>
               </Label>
               <select
                 id="occupation-type"
@@ -900,7 +899,7 @@ export default function TenantProfilePage() {
 
             <div className="space-y-2">
               <Label htmlFor="institution-name" className="text-sm font-medium">
-                Institution name
+                Institution name <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="institution-name"
@@ -966,38 +965,10 @@ export default function TenantProfilePage() {
                   Existing ID: {savedIdDisplay}
                 </p>
               ) : null}
-              {!govtIdNumber && !savedAadharLast4 && !govtIdType ? (
-                <p className="text-xs text-muted-foreground">
-                  You can leave the ID number blank if you do not want to enter it.
-                </p>
-              ) : null}
+              
             </div>
 
               </div>
-
-              <aside className="self-start rounded-2xl border border-primary/15 bg-primary/[0.04] p-5 shadow-sm lg:max-w-sm">
-                <Accordion type="single" collapsible className="w-full" defaultValue="quick-tips">
-                  <AccordionItem
-                    value="quick-tips"
-                    className="border-0"
-                  >
-                    <AccordionTrigger className="px-0 py-0 text-left hover:no-underline [&>svg]:ml-2">
-                      <div className="space-y-1 text-left">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Quick tips</p>
-                        <h3 className="text-sm font-semibold text-foreground">Keep your account review-ready</h3>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-3">
-                      <ul className="space-y-2 text-sm leading-5 text-muted-foreground">
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Verify your phone number before saving any updated contact detail.</li>
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Alternate ID documents can be used if Aadhaar is not available.</li>
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Keep front and back Aadhaar and alternate ID images clear and cropped.</li>
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Update institution details if your stay or role changes.</li>
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </aside>
             </div>
 
             <div className="space-y-4 border-t border-border/60 pt-6">
@@ -1014,10 +985,12 @@ export default function TenantProfilePage() {
                 <UploadBlock
                   docType="govt_id_front"
                   preview={profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null}
+                  required
                 />
                 <UploadBlock
                   docType="govt_id_back"
                   preview={profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null}
+                  required
                 />
                 <UploadBlock
                   docType="alternate_id"
