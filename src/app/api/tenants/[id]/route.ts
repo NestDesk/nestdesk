@@ -51,23 +51,34 @@ type OwnerContext = {
   ownerPlan: OwnerPlan;
 };
 
-async function createSignedUrl(
-  path: string | null,
+async function createSignedUrls(
+  paths: Array<string | null>,
   admin: ReturnType<typeof createAdminClient>,
-): Promise<string | null> {
-  if (!path) {
-    return null;
+): Promise<Map<string, string>> {
+  const uniquePaths = Array.from(
+    new Set(paths.filter((path): path is string => Boolean(path))),
+  );
+  const signedUrls = new Map<string, string>();
+
+  if (uniquePaths.length === 0) {
+    return signedUrls;
   }
 
   const { data, error } = await admin.storage
     .from(TENANT_DOCS_BUCKET)
-    .createSignedUrl(path, 60 * 30);
+    .createSignedUrls(uniquePaths, 60 * 30);
 
-  if (error || !data?.signedUrl) {
-    return null;
+  if (error || !data) {
+    return signedUrls;
   }
 
-  return data.signedUrl;
+  for (const entry of data) {
+    if (entry.path && entry.signedUrl) {
+      signedUrls.set(entry.path, entry.signedUrl);
+    }
+  }
+
+  return signedUrls;
 }
 
 function todayDateString() {
@@ -173,22 +184,35 @@ export async function GET(
   const room = tenant.rooms as { room_number: string | null } | null;
   const completion = getTenantProfileCompletion(tenant);
 
-  const [
-    profilePhotoUrl,
-    govtFrontUrl,
-    govtBackUrl,
-    aadharFrontUrl,
-    aadharBackUrl,
-    alternateIdUrl,
-  ] =
-    await Promise.all([
-      createSignedUrl(tenant.profile_photo_path, admin),
-      createSignedUrl(tenant.govt_id_front_path, admin),
-      createSignedUrl(tenant.govt_id_back_path, admin),
-      createSignedUrl(tenant.aadhar_front_path, admin),
-      createSignedUrl(tenant.aadhar_back_path, admin),
-      createSignedUrl(tenant.alternate_id_path, admin),
-    ]);
+  const signedUrls = await createSignedUrls(
+    [
+      tenant.profile_photo_path,
+      tenant.govt_id_front_path,
+      tenant.govt_id_back_path,
+      tenant.aadhar_front_path,
+      tenant.aadhar_back_path,
+      tenant.alternate_id_path,
+    ],
+    admin,
+  );
+  const profilePhotoUrl = tenant.profile_photo_path
+    ? signedUrls.get(tenant.profile_photo_path) ?? null
+    : null;
+  const govtFrontUrl = tenant.govt_id_front_path
+    ? signedUrls.get(tenant.govt_id_front_path) ?? null
+    : null;
+  const govtBackUrl = tenant.govt_id_back_path
+    ? signedUrls.get(tenant.govt_id_back_path) ?? null
+    : null;
+  const aadharFrontUrl = tenant.aadhar_front_path
+    ? signedUrls.get(tenant.aadhar_front_path) ?? null
+    : null;
+  const aadharBackUrl = tenant.aadhar_back_path
+    ? signedUrls.get(tenant.aadhar_back_path) ?? null
+    : null;
+  const alternateIdUrl = tenant.alternate_id_path
+    ? signedUrls.get(tenant.alternate_id_path) ?? null
+    : null;
 
   return NextResponse.json({
     tenant: {

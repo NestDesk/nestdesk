@@ -91,14 +91,12 @@ export async function GET(req: NextRequest) {
     .in("hostel_id", scopedIds);
   if (startDate) payQ = payQ.gte("paid_on", startDate);
   if (endDate) payQ = payQ.lte("paid_on", endDate);
-  const { data: payments } = (await payQ) as SupabaseResponse<PaymentRecord[]>;
-
   // outstanding (no date filter)
-  const { data: unpaid } = (await admin
+  const unpaidQ = admin
     .from("payments")
     .select("amount")
     .in("hostel_id", scopedIds)
-    .neq("status", "paid")) as SupabaseResponse<PaymentAmountRecord[]>;
+    .neq("status", "paid");
 
   // --- expenses ---
   let expQ = admin
@@ -109,7 +107,16 @@ export async function GET(req: NextRequest) {
     .in("hostel_id", scopedIds);
   if (startDate) expQ = expQ.gte("expense_date", startDate);
   if (endDate) expQ = expQ.lte("expense_date", endDate);
-  const { data: expenses } = (await expQ) as SupabaseResponse<ExpenseRecord[]>;
+
+  const [
+    { data: payments },
+    { data: unpaid },
+    { data: expenses },
+  ] = (await Promise.all([payQ, unpaidQ, expQ])) as [
+    SupabaseResponse<PaymentRecord[]>,
+    SupabaseResponse<PaymentAmountRecord[]>,
+    SupabaseResponse<ExpenseRecord[]>,
+  ];
 
   // --- tenant / room names for table ---
   const tIds = Array.from(

@@ -57,6 +57,7 @@ function isFreePlanAllowedPath(pathname: string) {
 
 function shouldBypassAuthCheck(pathname: string) {
   return (
+    pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api/auth/") ||
