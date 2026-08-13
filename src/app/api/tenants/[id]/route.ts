@@ -41,6 +41,10 @@ const updateTenantSchema = z.object({
   moveOutDate: z.string().date().nullable().optional(),
 });
 
+const deleteTenantSchema = z.object({
+  confirmationName: z.string().min(1),
+});
+
 type OwnerContext = {
   ownerId: string;
   userId: string;
@@ -144,7 +148,7 @@ export async function GET(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, status, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state), rooms(room_number)",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, full_name, email, phone, phone_verified, status, occupation_type, institution_name, govt_id_type, govt_id_last4, aadhar_last4, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path, agreed_rent_amount, join_date, move_out_date, first_activated_at, created_at, updated_at, hostels(name, city, state), rooms(room_number)",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -169,9 +173,18 @@ export async function GET(
   const room = tenant.rooms as { room_number: string | null } | null;
   const completion = getTenantProfileCompletion(tenant);
 
-  const [profilePhotoUrl, aadharFrontUrl, aadharBackUrl, alternateIdUrl] =
+  const [
+    profilePhotoUrl,
+    govtFrontUrl,
+    govtBackUrl,
+    aadharFrontUrl,
+    aadharBackUrl,
+    alternateIdUrl,
+  ] =
     await Promise.all([
       createSignedUrl(tenant.profile_photo_path, admin),
+      createSignedUrl(tenant.govt_id_front_path, admin),
+      createSignedUrl(tenant.govt_id_back_path, admin),
       createSignedUrl(tenant.aadhar_front_path, admin),
       createSignedUrl(tenant.aadhar_back_path, admin),
       createSignedUrl(tenant.alternate_id_path, admin),
@@ -189,11 +202,16 @@ export async function GET(
       full_name: tenant.full_name,
       email: tenant.email,
       phone: tenant.phone,
+      phone_verified: tenant.phone_verified ?? false,
       status: tenant.status,
       occupation_type: tenant.occupation_type,
       institution_name: tenant.institution_name,
+      govt_id_type: tenant.govt_id_type,
+      govt_id_last4: tenant.govt_id_last4,
       aadhar_last4: tenant.aadhar_last4,
       profile_photo_url: profilePhotoUrl,
+      govt_id_front_url: govtFrontUrl,
+      govt_id_back_url: govtBackUrl,
       aadhar_front_url: aadharFrontUrl,
       aadhar_back_url: aadharBackUrl,
       alternate_id_url: alternateIdUrl,
@@ -245,7 +263,7 @@ export async function PATCH(
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
+      "id, owner_id, hostel_id, room_id, security_deposit, security_deposit_returned, status, agreed_rent_amount, join_date, rent_start_date, move_out_date, full_name, phone, email, occupation_type, institution_name, govt_id_type, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at",
     )
     .eq("id", parsedParams.data.id)
     .eq("owner_id", ctx.ownerId)
@@ -353,15 +371,6 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    if (!nextSecurityDeposit || nextSecurityDeposit <= 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Add a security deposit amount before setting tenant status to active.",
-        },
-        { status: 400 },
-      );
-    }
     if (!nextJoinDate) {
       nextJoinDate = todayDateString();
     }
@@ -382,14 +391,6 @@ export async function PATCH(
       );
     }
     nextRoomId = null;
-    if (nextSecurityDepositReturned === null) {
-      return NextResponse.json(
-        {
-          error: "Security deposit returned amount is required when moving out.",
-        },
-        { status: 400 },
-      );
-    }
     if (!nextMoveOutDate) {
       return NextResponse.json(
         {
@@ -627,4 +628,121 @@ export async function PATCH(
   }
 
   return NextResponse.json({ success: true, tenant: updatedTenant });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> | { id: string } },
+) {
+  const params = await Promise.resolve(context.params);
+  const parsedParams = paramsSchema.safeParse(params);
+
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Invalid tenant id." }, { status: 400 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Confirmation is required." }, { status: 400 });
+  }
+
+  const parsedBody = deleteTenantSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Confirmation is required." }, { status: 400 });
+  }
+
+  const ctx = await getOwnerContext();
+  if (ctx instanceof NextResponse) {
+    return ctx;
+  }
+
+  const admin = createAdminClient();
+  const { data: tenant, error: tenantError } = await admin
+    .from("tenants")
+    .select(
+      "id, auth_user_id, hostel_id, room_id, full_name, profile_photo_path, aadhar_doc_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
+    )
+    .eq("id", parsedParams.data.id)
+    .eq("owner_id", ctx.ownerId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (tenantError) {
+    return NextResponse.json({ error: tenantError.message }, { status: 500 });
+  }
+
+  if (!tenant) {
+    return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
+  }
+
+  if (parsedBody.data.confirmationName !== tenant.full_name) {
+    return NextResponse.json(
+      { error: "The tenant name does not match exactly." },
+      { status: 400 },
+    );
+  }
+
+  const { error: paymentsError } = await admin
+    .from("payments")
+    .delete()
+    .eq("tenant_id", tenant.id);
+  if (paymentsError) {
+    return NextResponse.json({ error: paymentsError.message }, { status: 500 });
+  }
+
+  const { error: invoicesError } = await admin
+    .from("invoices")
+    .delete()
+    .eq("tenant_id", tenant.id);
+  if (invoicesError) {
+    return NextResponse.json({ error: invoicesError.message }, { status: 500 });
+  }
+
+  const documentPaths = [
+    tenant.profile_photo_path,
+    tenant.aadhar_doc_path,
+    tenant.aadhar_front_path,
+    tenant.aadhar_back_path,
+    tenant.alternate_id_path,
+  ].filter((path): path is string => Boolean(path));
+  if (documentPaths.length > 0) {
+    await admin.storage.from(TENANT_DOCS_BUCKET).remove(documentPaths);
+  }
+
+  const { error: deleteTenantError } = await admin
+    .from("tenants")
+    .delete()
+    .eq("id", tenant.id)
+    .eq("owner_id", ctx.ownerId);
+  if (deleteTenantError) {
+    return NextResponse.json({ error: deleteTenantError.message }, { status: 500 });
+  }
+
+  if (tenant.auth_user_id) {
+    const { error: deleteAuthUserError } = await admin.auth.admin.deleteUser(
+      tenant.auth_user_id,
+    );
+    if (deleteAuthUserError) {
+      return NextResponse.json(
+        {
+          error:
+            "Tenant data was deleted, but the tenant login could not be removed. Contact support.",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  await admin.from("audit_logs").insert({
+    owner_id: ctx.ownerId,
+    user_id: ctx.userId,
+    action: "DELETE",
+    table_name: "tenants",
+    record_id: tenant.id,
+    old_value: { full_name: tenant.full_name },
+  });
+
+  return NextResponse.json({ success: true });
 }

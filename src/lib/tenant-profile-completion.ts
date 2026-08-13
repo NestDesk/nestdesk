@@ -6,9 +6,14 @@ export type TenantProfileCompletionInput = {
   phone?: string | null;
   occupation_type?: string | null;
   institution_name?: string | null;
+  govt_id_type?: string | null;
+  govt_id_number?: string | null;
+  govt_id_last4?: string | null;
   aadhar_number?: string | null;
   aadhar_last4?: string | null;
   profile_photo_path?: string | null;
+  govt_id_front_path?: string | null;
+  govt_id_back_path?: string | null;
   aadhar_front_path?: string | null;
   aadhar_back_path?: string | null;
   alternate_id_path?: string | null;
@@ -57,30 +62,27 @@ const REQUIREMENTS: Requirement[] = [
     isComplete: (input) => Boolean(input.institution_name?.trim()),
   },
   {
-    key: "aadhar_number",
-    label: "Aadhaar number",
-    isComplete: (input) =>
-      Boolean(input.aadhar_last4?.trim() || input.aadhar_number?.trim()),
-  },
-  {
     key: "profile_photo_path",
     label: "Profile picture",
     isComplete: (input) => Boolean(input.profile_photo_path?.trim()),
   },
   {
-    key: "aadhar_front_path",
-    label: "Aadhaar front image",
-    isComplete: (input) => Boolean(input.aadhar_front_path?.trim()),
+    key: "govt_id_front_path",
+    label: "Government ID front image",
+    isComplete: (input) =>
+      Boolean(
+        input.govt_id_front_path?.trim() ||
+          input.aadhar_front_path?.trim(),
+      ),
   },
   {
-    key: "aadhar_back_path",
-    label: "Aadhaar back image",
-    isComplete: (input) => Boolean(input.aadhar_back_path?.trim()),
-  },
-  {
-    key: "alternate_id_path",
-    label: "Alternate ID image",
-    isComplete: (input) => Boolean(input.alternate_id_path?.trim()),
+    key: "govt_id_back_path",
+    label: "Government ID back image",
+    isComplete: (input) =>
+      Boolean(
+        input.govt_id_back_path?.trim() ||
+          input.aadhar_back_path?.trim(),
+      ),
   },
 ];
 

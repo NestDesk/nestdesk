@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Camera,
+  Check,
   CheckCircle2,
   CircleAlert,
   Clock,
@@ -27,22 +28,12 @@ import {
   CardTitle,
 } from "../../../../components/ui/card";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "../../../../components/ui/accordion";
-import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "../../../../components/ui/dialog";
 import { OtpVerificationDialog } from "../../../../components/ui/otp-verification-dialog";
 import { UploadDocType, processImageForUpload } from "../../../../lib/image-upload";
-import {
-  isValidAadhaarNumber,
-  normalizeAadhaarNumber,
-} from "../../../../lib/aadhaar";
 import { normalizeIndianPhoneDigits } from "../../../../lib/phone";
 
 type TenantProfile = {
@@ -55,8 +46,12 @@ type TenantProfile = {
   status: string | null;
   occupation_type: string | null;
   institution_name: string | null;
+  govt_id_type: string | null;
+  govt_id_last4: string | null;
   aadhar_last4: string | null;
   profile_photo_url: string | null;
+  govt_id_front_url: string | null;
+  govt_id_back_url: string | null;
   aadhar_front_url: string | null;
   aadhar_back_url: string | null;
   alternate_id_url: string | null;
@@ -78,10 +73,46 @@ const OCCUPATION_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "other", label: "Other" },
 ];
 
+const GOVT_ID_OPTIONS = [
+  "Aadhaar",
+  "PAN",
+  "Voter ID card",
+  "Passport",
+  "Driving license",
+];
+
+function maskGovtIdNumber(value: string, type?: string): string {
+  const sanitized = value.trim();
+  if (!sanitized) return "";
+
+  const digits = sanitized.replace(/\D/g, "");
+  const last4 = digits.slice(-4) || sanitized.slice(-4);
+
+  if (!last4) return "";
+
+  switch (type) {
+    case "Aadhaar":
+      if (digits.length === 12) return `XXXX XXXX ${last4}`;
+      return `XXXXXX${last4}`;
+    case "PAN":
+      return `XXXX${last4}`;
+    case "Voter ID card":
+      return `XXXXXX${last4}`;
+    case "Passport":
+      return `XXXXXX${last4}`;
+    case "Driving license":
+      return `XXXXXX${last4}`;
+    default:
+      return `XXXXXX${last4}`;
+  }
+}
+
 const DOC_LABELS: Record<UploadDocType, string> = {
   profile_photo: "Profile picture",
-  aadhar_front: "Aadhaar front image",
-  aadhar_back: "Aadhaar back image",
+  govt_id_front: "Government ID front image",
+  govt_id_back: "Government ID back image",
+  aadhar_front: "Government ID front image",
+  aadhar_back: "Government ID back image",
   alternate_id: "Alternate government / institution ID",
 };
 
@@ -141,7 +172,7 @@ export default function TenantProfilePage() {
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
-  const [isPhoneEditing, setIsPhoneEditing] = useState(false);
+  const [originalPhoneVerified, setOriginalPhoneVerified] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [showStatusNote, setShowStatusNote] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -170,6 +201,8 @@ export default function TenantProfilePage() {
   const [originalPhone, setOriginalPhone] = useState("");
   const [occupationType, setOccupationType] = useState("student");
   const [institutionName, setInstitutionName] = useState("");
+  const [govtIdType, setGovtIdType] = useState("");
+  const [govtIdNumber, setGovtIdNumber] = useState("");
   const [aadharNumber, setAadharNumber] = useState("");
   const [savedAadharLast4, setSavedAadharLast4] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{
@@ -188,10 +221,19 @@ export default function TenantProfilePage() {
       setPhone(nextPhone);
       setOriginalPhone(nextPhone);
       setPhoneVerified(Boolean(j.tenant.phone_verified));
-      setIsPhoneEditing(false);
+      setOriginalPhoneVerified(Boolean(j.tenant.phone_verified));
       setIsEditingDetails(false);
       setOccupationType(j.tenant.occupation_type ?? "student");
       setInstitutionName(j.tenant.institution_name ?? "");
+      const nextGovtIdType = j.tenant.govt_id_type ?? (j.tenant.aadhar_last4 ? "Aadhaar" : "");
+      const nextGovtIdNumber = j.tenant.govt_id_last4
+        ? maskGovtIdNumber(j.tenant.govt_id_last4, nextGovtIdType)
+        : j.tenant.aadhar_last4
+          ? maskGovtIdNumber(j.tenant.aadhar_last4, nextGovtIdType)
+          : "";
+
+      setGovtIdType(nextGovtIdType);
+      setGovtIdNumber(nextGovtIdNumber);
       setSavedAadharLast4(j.tenant.aadhar_last4 ?? null);
       setAadharNumber("");
     }
@@ -295,18 +337,17 @@ export default function TenantProfilePage() {
       return;
     }
 
-    const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
-    const hasValidAadhaar =
-      Boolean(savedAadharLast4) ||
-      (Boolean(normalizedAadhaar) && isValidAadhaarNumber(normalizedAadhaar));
-    if (!hasValidAadhaar) {
-      toast.error(
-        normalizedAadhaar
-          ? "Enter a valid Aadhaar number."
-          : "Aadhaar number is required.",
-      );
-      return;
-    }
+    const selectedGovtIdType = govtIdType;
+    const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
+    const existingIdDisplay = savedIdDisplay;
+    const isExistingIdValue =
+      Boolean(existingIdDisplay) &&
+      selectedGovtIdType === savedGovtIdType &&
+      govtIdNumber === existingIdDisplay;
+    const submittedGovtIdNumber = govtIdNumber
+      .replace(/\s+/g, "")
+      .replace(/\*/g, "")
+      .trim();
 
     const missingDocuments = requiredDocumentErrors;
     if (missingDocuments.length > 0) {
@@ -321,6 +362,8 @@ export default function TenantProfilePage() {
         phone: string;
         occupationType: string;
         institutionName: string;
+        govtIdType?: string;
+        govtIdNumber?: string;
         aadharNumber?: string;
       } = {
         fullName: fullName.trim(),
@@ -329,8 +372,9 @@ export default function TenantProfilePage() {
         institutionName: institutionName.trim(),
       };
 
-      if (normalizedAadhaar) {
-        payload.aadharNumber = normalizedAadhaar;
+      if (selectedGovtIdType !== savedGovtIdType || !isExistingIdValue) {
+        payload.govtIdType = selectedGovtIdType;
+        payload.govtIdNumber = submittedGovtIdNumber;
       }
 
       const res = await fetch("/api/tenant/profile", {
@@ -362,6 +406,8 @@ export default function TenantProfilePage() {
             ? {
                 ...prev,
                 profile_photo_url: j.tenant!.profile_photo_url,
+                govt_id_front_url: j.tenant!.govt_id_front_url,
+                govt_id_back_url: j.tenant!.govt_id_back_url,
                 aadhar_front_url: j.tenant!.aadhar_front_url,
                 aadhar_back_url: j.tenant!.aadhar_back_url,
                 alternate_id_url: j.tenant!.alternate_id_url,
@@ -423,17 +469,19 @@ export default function TenantProfilePage() {
   const normalizedPhone = normalizeIndianPhoneDigits(phone.trim());
   const hasPhoneChanged =
     normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
-  const normalizedAadhaar = normalizeAadhaarNumber(aadharNumber);
+  const primaryGovtFrontUrl = profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null;
+  const primaryGovtBackUrl = profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null;
+  const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
+  const savedGovtIdLast4 = profile?.govt_id_last4 ?? savedAadharLast4;
+  const savedIdDisplay = savedGovtIdLast4
+    ? maskGovtIdNumber(savedGovtIdLast4, savedGovtIdType || undefined)
+    : null;
   const requiredDocumentErrors = [
     !profile?.profile_photo_url ? DOC_LABELS.profile_photo : null,
-    !profile?.aadhar_front_url ? DOC_LABELS.aadhar_front : null,
-    !profile?.aadhar_back_url ? DOC_LABELS.aadhar_back : null,
-    !profile?.alternate_id_url ? DOC_LABELS.alternate_id : null,
+    !primaryGovtFrontUrl ? DOC_LABELS.govt_id_front : null,
+    !primaryGovtBackUrl ? DOC_LABELS.govt_id_back : null,
   ].filter((label): label is string => Boolean(label));
-  const missingRequiredFields = [
-    !normalizedAadhaar && !savedAadharLast4 ? "Aadhaar number" : null,
-    ...requiredDocumentErrors,
-  ].filter((label): label is string => Boolean(label));
+  const missingRequiredFields = [...requiredDocumentErrors].filter((label): label is string => Boolean(label));
 
   const canSave =
     !saving &&
@@ -442,9 +490,11 @@ export default function TenantProfilePage() {
   function UploadBlock({
     docType,
     preview,
+    required = false,
   }: {
     docType: UploadDocType;
     preview: string | null;
+    required?: boolean;
   }) {
     const isUploading = uploadingDoc === docType;
     const uploadDisabled = isUploading || isAccountActive;
@@ -453,8 +503,11 @@ export default function TenantProfilePage() {
       <div className="rounded-2xl border border-border/70 bg-card/80 p-3 shadow-sm transition-colors hover:border-primary/30 hover:bg-background/95 sm:p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">{DOC_LABELS[docType]}</p>
-            {!preview ? (
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              {DOC_LABELS[docType]}
+              {required ? <span className="ml-1 text-rose-500">*</span> : null}
+            </p>
+            {!preview && docType !== "alternate_id" ? (
               <p className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
                 <CircleAlert className="h-3 w-3 shrink-0" />
                 Please upload your {DOC_LABELS[docType].toLowerCase()}.
@@ -542,17 +595,51 @@ export default function TenantProfilePage() {
         <CardContent className="flex flex-col gap-4 p-3 sm:gap-5 sm:p-5">
           <div className="flex min-w-0 items-start gap-3 sm:gap-5">
             {/* Avatar */}
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-28 sm:w-28">
-              {profile?.profile_photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={profile.profile_photo_url}
-                  alt="Profile"
-                  className="h-24 w-24 rounded-3xl object-cover sm:h-28 sm:w-28"
-                />
-              ) : (
-                <User className="h-7 w-7 sm:h-9 sm:w-9" />
-              )}
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-36 sm:w-36">
+                {profile?.profile_photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.profile_photo_url}
+                    alt="Profile"
+                    className="h-32 w-32 rounded-3xl object-cover sm:h-36 sm:w-36"
+                  />
+                ) : (
+                  <User className="h-9 w-9 sm:h-11 sm:w-11" />
+                )}
+                <label
+                  className="absolute inset-x-1 bottom-0 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-black/65 px-2 py-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-black/80"
+                >
+                  {uploadingDoc === "profile_photo" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Camera className="h-3 w-3" />
+                  )}
+                  {uploadingDoc === "profile_photo"
+                    ? "Uploading..."
+                    : profile?.profile_photo_url
+                      ? "Update photo"
+                      : "Add photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingDoc === "profile_photo"}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleUpload("profile_photo", file).catch(() => {
+                          // handled in upload function
+                        });
+                      }
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+              <p className="text-[11px] font-semibold text-muted-foreground">
+                Profile picture <span className="text-rose-500">*</span>
+              </p>
             </div>
 
             <div className="min-w-0 flex-1 space-y-1">
@@ -661,11 +748,13 @@ export default function TenantProfilePage() {
         </CardHeader>
         <CardContent className="p-0">
           <form onSubmit={handleSave} className="space-y-8 p-4 sm:p-6">
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div>
               <div className="space-y-6">
             {/* Full name */}
             <div className="space-y-2">
-              <Label htmlFor="profile-name" className="text-sm font-medium">Full name</Label>
+              <Label htmlFor="profile-name" className="text-sm font-medium">
+                Full name <span className="text-rose-500">*</span>
+              </Label>
               <Input
                 id="profile-name"
                 type="text"
@@ -689,7 +778,7 @@ export default function TenantProfilePage() {
             {/* Email (read-only) */}
             <div className="space-y-2">
               <Label htmlFor="profile-email" className="text-sm font-medium">
-                Email{" "}
+                Email <span className="text-rose-500">*</span>{" "}
                 <span className="text-muted-foreground font-normal">
                   (cannot be changed here)
                 </span>
@@ -710,58 +799,51 @@ export default function TenantProfilePage() {
               </Label>
               <div className="flex max-w-sm flex-row items-center gap-2">
                 <span className="inline-flex h-10 items-center rounded-xl border border-border/70 bg-muted/40 px-3 text-sm font-medium text-muted-foreground">+91</span>
-                <Input
-                  id="profile-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  value={phone}
-                  disabled={!isPhoneEditing}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    const nextPhone = e.target.value.replace(/\D/g, "").slice(0, 10);
-                    setPhone(nextPhone);
-                    setPhoneVerified(false);
-                    setOtpSent(false);
-                  }}
-                  placeholder="10-digit mobile number"
-                  className="w-full flex-1 rounded-xl border-border/70 bg-background/80 shadow-sm"
-                />
-                <Button
-                  type="button"
-                  variant="default"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 rounded-xl"
-                  onClick={() => {
-                    if (isPhoneEditing) {
-                      setPhone(originalPhone);
-                      setPhoneVerified(false);
+                <div className="relative min-w-0 flex-1">
+                  <Input
+                    id="profile-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    value={phone}
+                    disabled={!isEditingDetails}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const nextPhone = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setPhone(nextPhone);
+                      setPhoneVerified(
+                        normalizeIndianPhoneDigits(nextPhone) ===
+                          normalizeIndianPhoneDigits(originalPhone)
+                          ? originalPhoneVerified
+                          : false,
+                      );
                       setOtpSent(false);
-                      setOtpCode("");
-                    }
-                    setIsPhoneEditing((prev) => !prev);
-                  }}
-                  aria-label={isPhoneEditing ? "Cancel phone update" : "Update phone number"}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
+                    }}
+                    placeholder="10-digit mobile number"
+                    className="w-full rounded-xl border-border/70 bg-background/80 pr-10 shadow-sm"
+                  />
+                  {phoneVerified ? (
+                    <span
+                      className="group absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-help items-center justify-center text-emerald-600 dark:text-emerald-400"
+                      aria-label="Phone number verified"
+                      tabIndex={0}
+                    >
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                      <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1 text-xs font-medium text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                        Verified
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="flex min-w-0 flex-nowrap items-center gap-2 pt-1">
-                {phoneVerified ? (
-                  <>
-                    <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition-colors dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-300">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Phone verified
-                    </span>
-                   
-                  </>
-                ) : (
+                {!phoneVerified ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm dark:border-red-400/30 dark:bg-red-500/15 dark:text-red-300">
-                    {isPhoneEditing
-                      ? "Verify this number in the OTP dialog before saving."
-                      : "Phone number is locked. Click the pencil icon to change it."}
+                    {isEditingDetails
+                      ? "Verify phone number."
+                      : "Phone number is locked. Click Edit to change it."}
                   </span>
-                )}
+                ) : null}
 
-                {isPhoneEditing && !phoneVerified && hasPhoneChanged && (
+                {isEditingDetails && !phoneVerified && hasPhoneChanged && (
                   <>
                     <Button
                       type="button"
@@ -772,11 +854,10 @@ export default function TenantProfilePage() {
                     >
                       {sendingOtp ? "Sending OTP..." : otpSent ? "Resend OTP" : "Send OTP"}
                     </Button>
-                    <span className="text-xs text-muted-foreground">Verify in the OTP dialog</span>
                   </>
                 )}
               </div>
-              {isPhoneEditing && (
+              {isEditingDetails && (
                 <p className="text-xs text-muted-foreground/80">
                   A secure 6-digit OTP dialog will open after the code is sent.
                 </p>
@@ -797,7 +878,7 @@ export default function TenantProfilePage() {
 
             <div className="space-y-2">
               <Label htmlFor="occupation-type" className="block">
-                Occupation type
+                Occupation type <span className="text-rose-500">*</span>
               </Label>
               <select
                 id="occupation-type"
@@ -817,7 +898,9 @@ export default function TenantProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="institution-name" className="text-sm font-medium">Institution name</Label>
+              <Label htmlFor="institution-name" className="text-sm font-medium">
+                Institution name <span className="text-rose-500">*</span>
+              </Label>
               <Input
                 id="institution-name"
                 type="text"
@@ -827,68 +910,65 @@ export default function TenantProfilePage() {
                 }
                 placeholder="College / company / organization"
                 className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
+                required
                 disabled={!isEditingDetails}
               />
+            </div>
+
+                    <div className="space-y-2">
+              <Label htmlFor="govt-id-type" className="text-sm font-medium">
+                Government ID type <span className="text-muted-foreground text-[11px]">(Optional)</span>
+              </Label>
+              <select
+                id="govt-id-type"
+                value={govtIdType}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  const nextType = e.target.value;
+                  if (
+                    savedIdDisplay &&
+                    govtIdNumber === savedIdDisplay
+                  ) {
+                    setGovtIdNumber("");
+                  }
+                  setGovtIdType(nextType);
+                }}
+                className="block h-10 w-full max-w-sm rounded-xl border border-border/70 bg-background/80 px-3 text-sm shadow-sm"
+                disabled={!isEditingDetails}
+              >
+                <option value="">Select ID type</option>
+                {GOVT_ID_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="aadhar-number" className="text-sm font-medium">Aadhaar number</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="govt-id-number" className="text-sm font-medium">
+                  ID number
+                </Label>
+                <span className="text-[11px] text-muted-foreground">(Optional)</span>
+              </div>
               <Input
-                id="aadhar-number"
+                id="govt-id-number"
                 type="text"
-                inputMode="numeric"
-                maxLength={12}
-                value={aadharNumber}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setAadharNumber(normalizeAadhaarNumber(e.target.value))
-                }
-                placeholder="12-digit Aadhaar number"
+                value={govtIdNumber}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGovtIdNumber(e.target.value)}
+                placeholder={"Enter your ID number"}
                 className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
                 disabled={!isEditingDetails}
               />
-              {savedAadharLast4 && !aadharNumber ? (
-                <p className="text-xs text-muted-foreground">
-                  Saved Aadhaar: **** **** {savedAadharLast4}
+              {savedIdDisplay && !govtIdNumber ? (
+                <p className="text-[11px] text-muted-foreground/80">
+                  Existing ID: {savedIdDisplay}
                 </p>
               ) : null}
-              {aadharNumber && !isValidAadhaarNumber(aadharNumber) ? (
-                <p className="text-xs font-bold text-red-600 dark:text-red-400">
-                  Aadhaar number is invalid
-                </p>
-              ) : null}
-              {!normalizedAadhaar && !savedAadharLast4 ? (
-                <p className="flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
-                  <CircleAlert className="h-3 w-3 shrink-0" />
-                  Please enter your Aadhaar number.
-                </p>
-              ) : null}
+              
             </div>
 
               </div>
-
-              <aside className="self-start rounded-2xl border border-primary/15 bg-primary/[0.04] p-5 shadow-sm lg:max-w-sm">
-                <Accordion type="single" collapsible className="w-full" defaultValue="quick-tips">
-                  <AccordionItem
-                    value="quick-tips"
-                    className="border-0"
-                  >
-                    <AccordionTrigger className="px-0 py-0 text-left hover:no-underline [&>svg]:ml-2">
-                      <div className="space-y-1 text-left">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Quick tips</p>
-                        <h3 className="text-sm font-semibold text-foreground">Keep your account review-ready</h3>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-3">
-                      <ul className="space-y-2 text-sm leading-5 text-muted-foreground">
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Verify your phone number before saving any updated contact detail.</li>
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Alternate ID documents can be used if Aadhaar is not available.</li>
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Keep front and back Aadhaar and alternate ID images clear and cropped.</li>
-                        <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />Update institution details if your stay or role changes.</li>
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </aside>
             </div>
 
             <div className="space-y-4 border-t border-border/60 pt-6">
@@ -903,16 +983,14 @@ export default function TenantProfilePage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <UploadBlock
-                  docType="profile_photo"
-                  preview={profile?.profile_photo_url ?? null}
+                  docType="govt_id_front"
+                  preview={profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null}
+                  required
                 />
                 <UploadBlock
-                  docType="aadhar_front"
-                  preview={profile?.aadhar_front_url ?? null}
-                />
-                <UploadBlock
-                  docType="aadhar_back"
-                  preview={profile?.aadhar_back_url ?? null}
+                  docType="govt_id_back"
+                  preview={profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null}
+                  required
                 />
                 <UploadBlock
                   docType="alternate_id"
