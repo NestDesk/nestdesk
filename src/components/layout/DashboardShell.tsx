@@ -6,7 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { IdleTimeoutEnforcer } from "../auth/IdleTimeoutEnforcer";
 import { Button } from "../ui/button";
-import { type OwnerPlan } from "../../lib/subscriptions";
+import { type OwnerPlan, type SubscriptionStatus } from "../../lib/subscriptions";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -21,6 +21,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<OwnerPlan | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | "free">("free");
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -43,9 +44,11 @@ export function DashboardShell({
 
         const payload = (await res.json().catch(() => null)) as {
           plan?: string;
+          subscription?: { status?: SubscriptionStatus | "free" } | null;
         } | null;
 
         setCurrentPlan((payload?.plan as OwnerPlan) ?? "free");
+        setSubscriptionStatus(payload?.subscription?.status ?? "free");
       } catch {
         if (mounted) {
           setCurrentPlan(null);
@@ -93,6 +96,8 @@ export function DashboardShell({
         <TopBar
           title={title}
           isPhoneVerified={isPhoneVerified}
+          subscriptionPlan={currentPlan ?? "free"}
+          subscriptionStatus={subscriptionStatus}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         />

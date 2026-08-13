@@ -98,11 +98,13 @@ export function Sidebar({
   useEffect(() => {
     let mounted = true;
 
-    async function loadPropertyWarning() {
+    async function loadPropertyWarning(forceRefresh = false) {
       if (portal === "tenant") return;
 
       try {
-        const res = await fetch("/api/hostels", { cache: "no-store" });
+        const res = await fetch("/api/hostels", {
+          cache: forceRefresh ? "no-store" : "default",
+        });
         if (!res.ok) {
           setPropertyWarning(null);
           return;
@@ -147,7 +149,7 @@ export function Sidebar({
     loadPropertyWarning();
 
     const handleHostelStatusChanged = () => {
-      loadPropertyWarning();
+      loadPropertyWarning(true);
     };
 
     window.addEventListener("hostel-status-changed", handleHostelStatusChanged);
