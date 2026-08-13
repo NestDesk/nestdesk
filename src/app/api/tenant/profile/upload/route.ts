@@ -18,6 +18,7 @@ type DocType = keyof typeof DOC_COLUMN_MAP;
 type TenantDocColumn = (typeof DOC_COLUMN_MAP)[DocType];
 type TenantDocRow = {
   id: string;
+  status: string | null;
   profile_photo_path: string | null;
   govt_id_front_path: string | null;
   govt_id_back_path: string | null;
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select(
-      "id, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
+      "id, status, profile_photo_path, govt_id_front_path, govt_id_back_path, aadhar_front_path, aadhar_back_path, alternate_id_path",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle<TenantDocRow>();
@@ -91,6 +92,13 @@ export async function POST(request: Request) {
 
   if (!tenant) {
     return NextResponse.json({ error: "Tenant not found." }, { status: 404 });
+  }
+
+  if (tenant.status === "active" && docType !== "profile_photo") {
+    return NextResponse.json(
+      { error: "ID document changes are locked after account activation." },
+      { status: 403 },
+    );
   }
 
   const extension = file.name.includes(".")
@@ -125,6 +133,7 @@ export async function POST(request: Request) {
     .eq("id", tenant.id);
 
   if (updateError) {
+    await admin.storage.from(TENANT_DOCS_BUCKET).remove([objectPath]);
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 

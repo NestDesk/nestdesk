@@ -52,7 +52,6 @@ type TenantProfile = {
   occupation_type: string | null;
   institution_name: string | null;
   govt_id_type: string | null;
-  govt_id_number: string | null;
   govt_id_last4: string | null;
   aadhar_last4: string | null;
   profile_photo_url: string | null;
@@ -209,7 +208,6 @@ export default function TenantProfilePage() {
   const [institutionName, setInstitutionName] = useState("");
   const [govtIdType, setGovtIdType] = useState("");
   const [govtIdNumber, setGovtIdNumber] = useState("");
-  const [savedGovtIdNumber, setSavedGovtIdNumber] = useState<string | null>(null);
   const [aadharNumber, setAadharNumber] = useState("");
   const [savedAadharLast4, setSavedAadharLast4] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{
@@ -232,13 +230,15 @@ export default function TenantProfilePage() {
       setIsEditingDetails(false);
       setOccupationType(j.tenant.occupation_type ?? "student");
       setInstitutionName(j.tenant.institution_name ?? "");
-      const rawGovtIdNumber = j.tenant.govt_id_number ?? "";
       const nextGovtIdType = j.tenant.govt_id_type ?? (j.tenant.aadhar_last4 ? "Aadhaar" : "");
-      const nextGovtIdNumber = rawGovtIdNumber ? maskGovtIdNumber(rawGovtIdNumber, nextGovtIdType) : "";
+      const nextGovtIdNumber = j.tenant.govt_id_last4
+        ? maskGovtIdNumber(j.tenant.govt_id_last4, nextGovtIdType)
+        : j.tenant.aadhar_last4
+          ? maskGovtIdNumber(j.tenant.aadhar_last4, nextGovtIdType)
+          : "";
 
       setGovtIdType(nextGovtIdType);
       setGovtIdNumber(nextGovtIdNumber);
-      setSavedGovtIdNumber(rawGovtIdNumber || null);
       setSavedAadharLast4(j.tenant.aadhar_last4 ?? null);
       setAadharNumber("");
     }
@@ -344,15 +344,15 @@ export default function TenantProfilePage() {
 
     const selectedGovtIdType = govtIdType;
     const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
+    const existingIdDisplay = savedIdDisplay;
     const isExistingIdValue =
-      Boolean(savedGovtIdNumber) &&
-      govtIdNumber === maskGovtIdNumber(savedGovtIdNumber ?? "", savedGovtIdType);
-    const submittedGovtIdNumber =
-      savedGovtIdNumber &&
+      Boolean(existingIdDisplay) &&
       selectedGovtIdType === savedGovtIdType &&
-      isExistingIdValue
-        ? savedGovtIdNumber
-        : govtIdNumber.replace(/\s+/g, "").replace(/\*/g, "").trim();
+      govtIdNumber === existingIdDisplay;
+    const submittedGovtIdNumber = govtIdNumber
+      .replace(/\s+/g, "")
+      .replace(/\*/g, "")
+      .trim();
 
     const missingDocuments = requiredDocumentErrors;
     if (missingDocuments.length > 0) {
@@ -377,8 +377,10 @@ export default function TenantProfilePage() {
         institutionName: institutionName.trim(),
       };
 
-      payload.govtIdType = selectedGovtIdType;
-      payload.govtIdNumber = submittedGovtIdNumber;
+      if (selectedGovtIdType !== savedGovtIdType || !isExistingIdValue) {
+        payload.govtIdType = selectedGovtIdType;
+        payload.govtIdNumber = submittedGovtIdNumber;
+      }
 
       const res = await fetch("/api/tenant/profile", {
         method: "PATCH",
@@ -409,6 +411,8 @@ export default function TenantProfilePage() {
             ? {
                 ...prev,
                 profile_photo_url: j.tenant!.profile_photo_url,
+                govt_id_front_url: j.tenant!.govt_id_front_url,
+                govt_id_back_url: j.tenant!.govt_id_back_url,
                 aadhar_front_url: j.tenant!.aadhar_front_url,
                 aadhar_back_url: j.tenant!.aadhar_back_url,
                 alternate_id_url: j.tenant!.alternate_id_url,
@@ -472,12 +476,11 @@ export default function TenantProfilePage() {
     normalizedPhone !== normalizeIndianPhoneDigits(originalPhone);
   const primaryGovtFrontUrl = profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null;
   const primaryGovtBackUrl = profile?.govt_id_back_url ?? profile?.aadhar_back_url ?? null;
-  const savedIdDisplay = savedGovtIdNumber
-    ? maskGovtIdNumber(savedGovtIdNumber, govtIdType || (savedAadharLast4 ? "Aadhaar" : undefined))
-    : savedAadharLast4
-      ? `XXXX XXXX ${savedAadharLast4}`
-      : null;
   const savedGovtIdType = profile?.govt_id_type ?? (savedAadharLast4 ? "Aadhaar" : "");
+  const savedGovtIdLast4 = profile?.govt_id_last4 ?? savedAadharLast4;
+  const savedIdDisplay = savedGovtIdLast4
+    ? maskGovtIdNumber(savedGovtIdLast4, savedGovtIdType || undefined)
+    : null;
   const requiredDocumentErrors = [
     !profile?.profile_photo_url ? DOC_LABELS.profile_photo : null,
     !primaryGovtFrontUrl ? DOC_LABELS.govt_id_front : null,
@@ -592,7 +595,7 @@ export default function TenantProfilePage() {
         <CardContent className="flex flex-col gap-4 p-3 sm:gap-5 sm:p-5">
           <div className="flex min-w-0 items-start gap-3 sm:gap-5">
             {/* Avatar */}
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-28 sm:w-28">
+            <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-inner ring-1 ring-primary/10 sm:h-28 sm:w-28">
               {profile?.profile_photo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -603,6 +606,35 @@ export default function TenantProfilePage() {
               ) : (
                 <User className="h-7 w-7 sm:h-9 sm:w-9" />
               )}
+              <label
+                className="absolute inset-x-1 bottom-0 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-black/65 px-2 py-1.5 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-black/80"
+              >
+                {uploadingDoc === "profile_photo" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Camera className="h-3 w-3" />
+                )}
+                {uploadingDoc === "profile_photo"
+                  ? "Uploading..."
+                  : profile?.profile_photo_url
+                    ? "Update photo"
+                    : "Add photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingDoc === "profile_photo"}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleUpload("profile_photo", file).catch(() => {
+                        // handled in upload function
+                      });
+                    }
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
             </div>
 
             <div className="min-w-0 flex-1 space-y-1">
@@ -867,7 +899,9 @@ export default function TenantProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="institution-name" className="text-sm font-medium">Institution name</Label>
+              <Label htmlFor="institution-name" className="text-sm font-medium">
+                Institution name
+              </Label>
               <Input
                 id="institution-name"
                 type="text"
@@ -877,13 +911,14 @@ export default function TenantProfilePage() {
                 }
                 placeholder="College / company / organization"
                 className="w-full max-w-sm rounded-xl border-border/70 bg-background/80 shadow-sm"
+                required
                 disabled={!isEditingDetails}
               />
             </div>
 
                     <div className="space-y-2">
               <Label htmlFor="govt-id-type" className="text-sm font-medium">
-                Government ID type
+                Government ID type <span className="text-muted-foreground text-[11px]">(Optional)</span>
               </Label>
               <select
                 id="govt-id-type"
@@ -891,8 +926,8 @@ export default function TenantProfilePage() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   const nextType = e.target.value;
                   if (
-                    savedGovtIdNumber &&
-                    govtIdNumber === maskGovtIdNumber(savedGovtIdNumber, govtIdType || savedGovtIdType)
+                    savedIdDisplay &&
+                    govtIdNumber === savedIdDisplay
                   ) {
                     setGovtIdNumber("");
                   }
@@ -976,10 +1011,6 @@ export default function TenantProfilePage() {
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <UploadBlock
-                  docType="profile_photo"
-                  preview={profile?.profile_photo_url ?? null}
-                />
                 <UploadBlock
                   docType="govt_id_front"
                   preview={profile?.govt_id_front_url ?? profile?.aadhar_front_url ?? null}

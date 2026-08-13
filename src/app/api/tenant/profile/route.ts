@@ -46,7 +46,7 @@ export async function GET() {
   const { data: tenant } = await admin
     .from("tenants")
     .select(
-      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, govt_id_type, govt_id_number, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
+      "id, full_name, email, phone, phone_verified, phone_verified_at, status, occupation_type, institution_name, govt_id_type, govt_id_last4, govt_id_front_path, govt_id_back_path, aadhar_last4, profile_photo_path, aadhar_front_path, aadhar_back_path, alternate_id_path, first_activated_at, hostels(name, address, city, state, pincode, property_type)",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
@@ -89,7 +89,6 @@ export async function GET() {
       occupation_type: tenant.occupation_type,
       institution_name: tenant.institution_name,
       govt_id_type: tenant.govt_id_type ?? null,
-      govt_id_number: tenant.govt_id_number ?? null,
       govt_id_last4: tenant.govt_id_last4 ?? null,
       govt_id_front_path: tenant.govt_id_front_path ?? null,
       govt_id_back_path: tenant.govt_id_back_path ?? null,
@@ -135,9 +134,9 @@ const updateSchema = z.object({
     .optional(),
   institutionName: z
     .string()
+    .trim()
     .min(2, "Institution name must be at least 2 characters.")
-    .max(120)
-    .optional(),
+    .max(120),
   aadharNumber: z
     .string()
     .regex(/^\d{12}$/)
@@ -233,6 +232,9 @@ export async function PATCH(request: NextRequest) {
   const govtIdHash = normalizedGovtIdNumber
     ? hashAadhaar(normalizedGovtIdNumber.replace(/\s+/g, ""))
     : undefined;
+  const isGovtIdUpdate = parsed.data.govtIdNumber !== undefined;
+  const isAadhaarGovtId = normalizedGovtIdType === "Aadhaar" && Boolean(normalizedGovtIdNumber);
+  const normalizedInstitutionName = parsed.data.institutionName?.trim();
 
   const { error } = await admin
     .from("tenants")
@@ -242,18 +244,34 @@ export async function PATCH(request: NextRequest) {
       phone_verified: phoneChanged ? false : undefined,
       phone_verified_at: phoneChanged ? null : undefined,
       occupation_type: parsed.data.occupationType,
-      institution_name: parsed.data.institutionName,
+      institution_name: parsed.data.institutionName !== undefined
+        ? normalizedInstitutionName || null
+        : undefined,
       govt_id_type: parsed.data.govtIdType !== undefined ? normalizedGovtIdType ?? null : undefined,
       govt_id_number: parsed.data.govtIdNumber !== undefined ? normalizedGovtIdNumber ?? null : undefined,
       govt_id_number_hash: parsed.data.govtIdNumber !== undefined ? govtIdHash ?? null : undefined,
       govt_id_last4: parsed.data.govtIdNumber !== undefined ? govtIdLast4 ?? null : undefined,
       aadhar_number: normalizedAadhaar
         ? encryptAadhaar(normalizedAadhaar)
-        : undefined,
+        : isAadhaarGovtId
+          ? encryptAadhaar(normalizeAadhaarNumber(normalizedGovtIdNumber!))
+          : isGovtIdUpdate
+            ? null
+            : undefined,
       aadhar_number_hash: normalizedAadhaar
         ? hashAadhaar(normalizedAadhaar)
-        : undefined,
-      aadhar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : undefined,
+        : isAadhaarGovtId
+          ? hashAadhaar(normalizeAadhaarNumber(normalizedGovtIdNumber!))
+          : isGovtIdUpdate
+            ? null
+            : undefined,
+      aadhar_last4: normalizedAadhaar
+        ? normalizedAadhaar.slice(-4)
+        : isAadhaarGovtId
+          ? normalizeAadhaarNumber(normalizedGovtIdNumber!).slice(-4)
+          : isGovtIdUpdate
+            ? null
+            : undefined,
       updated_at: new Date().toISOString(),
     })
     .eq("id", tenant.id);
