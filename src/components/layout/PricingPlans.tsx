@@ -435,7 +435,7 @@ export function PricingPlans({
   }, []);
 
   return (
-    <section id={id} className="bg-muted/30 py-4">
+    <section id={id} className="bg-muted/20 py-4 sm:py-4">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
@@ -447,8 +447,8 @@ export function PricingPlans({
           }}
         />
         {title ? (
-          <div className="mb-6 flex flex-col items-center text-center">
-            <h2 className="max-w-2xl text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <div className="mb-12 flex flex-col items-center text-center">
+            <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               {title}
             </h2>
             {description ? (
@@ -569,35 +569,25 @@ export function PricingPlans({
               return (
                 <div
                   key={`${name}-${plan.customPlanId ?? planId}`}
-                  className={`relative flex min-w-[88vw] max-w-none flex-col rounded-3xl border p-5 shadow-lg shadow-primary/5 snap-start sm:min-w-[18rem] sm:max-w-sm md:min-w-[20rem] lg:min-w-[22rem] xl:min-w-[24rem] ${
+                  className={`relative flex min-w-[88vw] max-w-none flex-col rounded-3xl border p-5 shadow-none snap-start sm:min-w-[18rem] sm:max-w-sm md:min-w-[20rem] lg:min-w-[22rem] xl:min-w-[24rem] ${
                     highlighted
-                      ? "border-primary/0 bg-gradient-to-br from-primary via-blue-600 to-blue-700 shadow-xl shadow-primary/30"
-                      : "card-hover border-border/60 bg-card/80 backdrop-blur-sm"
+                      ? "card-hover border-primary bg-primary/5"
+                      : "card-hover border-border/60 bg-card"
                   }`}
                 >
                   {highlighted && (
-                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold text-white ring-2 ring-background">
+                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/20 bg-background px-4 py-1 text-xs font-semibold text-primary ring-2 ring-background">
                       Most Popular
                     </span>
                   )}
 
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3
-                        className={`text-base font-semibold ${
-                          highlighted ? "text-white" : "text-foreground"
-                        }`}
-                      >
+                      <h3 className="text-base font-semibold text-foreground">
                         {name}
                       </h3>
                       {plan.customPlanId ? (
-                        <span
-                          className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                            highlighted
-                              ? "border-white/30 bg-white/10 text-white"
-                              : "border-primary/30 bg-primary/10 text-primary"
-                          }`}
-                        >
+                        <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
                           Assigned plan
                         </span>
                       ) : null}
@@ -607,19 +597,11 @@ export function PricingPlans({
                   <div className="mb-4">
                     {!isPaid ? (
                       <div className="space-y-3">
-                        <span
-                          className={`text-3xl font-bold leading-none tracking-tight ${
-                            highlighted ? "text-white" : "text-foreground"
-                          }`}
-                        >
+                        <span className="text-3xl font-bold leading-none tracking-tight text-foreground">
                           {plan.isCustom ? "Custom" : "Free"}
                         </span>
                         {planId === "institution" && (
-                          <p
-                            className={`text-sm ${
-                              highlighted ? "text-white/70" : "text-muted-foreground"
-                            }`}
-                          >
+                          <p className="text-sm text-muted-foreground">
                             Pricing is tailored to your rollout and requirements.
                           </p>
                         )}
@@ -629,64 +611,34 @@ export function PricingPlans({
                         <div className="mb-2 space-y-2">
                           {!usesCustomYearly ? (
                             <div className="flex items-center gap-2 text-[18px] font-semibold">
-                              <span
-                                className={`line-through ${
-                                  highlighted
-                                    ? "text-white/60"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
+                              <span className="line-through text-muted-foreground">
                                 Rs.{monthly ? formatINR(monthly * 2 + 1) : ""}
                               </span>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                                  highlighted
-                                    ? "bg-white/15 text-white"
-                                    : "bg-emerald-100 text-emerald-700"
-                                }`}
-                              >
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
                                Early Bird : 50% off
                               </span>
                             </div>
                           ) : null}
 
                           <div className="flex items-baseline gap-1">
-                            <span
-                              className={`text-3xl font-bold leading-none tracking-tight ${
-                                highlighted ? "text-white" : "text-foreground"
-                              }`}
-                            >
+                            <span className="text-3xl font-bold leading-none tracking-tight text-foreground">
                               Rs.{activePrice ? formatINR(activePrice) : ""}
                             </span>
-                            <span
-                              className={`text-sm ${
-                                highlighted
-                                  ? "text-white/70"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
+                            <span className="text-sm text-muted-foreground">
                               /month
                             </span>
                           </div>
                         </div>
 
                         {isYearly && yearlyTotal && (
-                          <p
-                            className={`mb-2 text-sm font-semibold ${
-                              highlighted ? "text-white" : "text-foreground"
-                            }`}
-                          >
+                          <p className="mb-2 text-sm font-semibold text-foreground">
                             Rs.{formatINR(yearlyTotal)} billed yearly
                           </p>
                         )}
                         {plan.customPlanId &&
                         plan.maxProperties != null &&
                         plan.maxTenants != null ? (
-                          <p
-                            className={`text-sm ${
-                              highlighted ? "text-white/70" : "text-muted-foreground"
-                            }`}
-                          >
+                          <p className="text-sm text-muted-foreground">
                             Allowed {plan.maxProperties} properties ·{" "}
                             {plan.maxTenants} tenants
                           </p>
@@ -698,16 +650,8 @@ export function PricingPlans({
                   <ul className="mb-6 flex-1 space-y-2">
                     {planFeatures.map((f) => (
                       <li key={f} className="flex items-start gap-2 text-sm">
-                        <CheckCircle2
-                          className={`mt-0.5 h-4 w-4 shrink-0 ${
-                            highlighted ? "text-white/80" : "text-primary"
-                          }`}
-                        />
-                        <span
-                          className={
-                            highlighted ? "text-white/90" : "text-muted-foreground"
-                          }
-                        >
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <span className="text-muted-foreground">
                           {f}
                         </span>
                       </li>
@@ -718,10 +662,8 @@ export function PricingPlans({
                     isCurrent ? (
                       <Button
                         type="button"
-                        className={`w-full rounded-xl ${
-                          highlighted ? "bg-white text-primary" : ""
-                        }`}
-                        variant={highlighted ? "secondary" : "default"}
+                        className="w-full rounded-xl"
+                        variant="default"
                         disabled
                       >
                         {currentButtonText}
@@ -729,12 +671,8 @@ export function PricingPlans({
                     ) : isAssignedCustomInstitution ? (
                       <Button
                         type="button"
-                        className={`w-full rounded-xl ${
-                          highlighted
-                            ? "bg-white text-primary hover:bg-white/90"
-                            : ""
-                        }`}
-                        variant={highlighted ? "secondary" : "default"}
+                        className="w-full rounded-xl"
+                        variant="default"
                         size="sm"
                         disabled={isBuyingPlan === planId}
                         onClick={() =>
@@ -756,12 +694,8 @@ export function PricingPlans({
                     ) : (
                       <Button
                         type="button"
-                        className={`w-full rounded-xl ${
-                          highlighted
-                            ? "bg-white text-primary hover:bg-white/90"
-                            : ""
-                        }`}
-                        variant={highlighted ? "secondary" : "default"}
+                        className="w-full rounded-xl"
+                        variant="default"
                         onClick={() => setIsLeadDialogOpen(true)}
                       >
                         {buttonText}
@@ -770,10 +704,8 @@ export function PricingPlans({
                   ) : isCurrent ? (
                     <Button
                       type="button"
-                      className={`w-full rounded-xl ${
-                        highlighted ? "bg-white text-primary" : ""
-                      }`}
-                      variant={highlighted ? "secondary" : "default"}
+                      className="w-full rounded-xl"
+                      variant="default"
                       disabled
                     >
                       {currentButtonText}
@@ -782,10 +714,8 @@ export function PricingPlans({
                     <div className="space-y-2">
                       <Button
                         type="button"
-                        className={`w-full rounded-xl ${
-                          highlighted ? "bg-white text-primary" : ""
-                        }`}
-                        variant={highlighted ? "secondary" : "default"}
+                        className="w-full rounded-xl"
+                        variant="default"
                         disabled
                       >
                         {currentButtonText}
@@ -798,10 +728,8 @@ export function PricingPlans({
                   ) : isLoggedIn && isPaid ? (
                     <Button
                       type="button"
-                      className={`w-full rounded-xl ${
-                        highlighted ? "bg-white text-primary hover:bg-white/90" : ""
-                      }`}
-                      variant={highlighted ? "secondary" : "default"}
+                      className="w-full rounded-xl"
+                      variant="default"
                       size="sm"
                       disabled={isBuyingPlan === planId}
                       onClick={() => previewUpgrade(planId, name, plan.customPlanId)}
@@ -821,12 +749,8 @@ export function PricingPlans({
                   ) : (
                     <Link href={ctaLinkHref}>
                       <Button
-                        className={`w-full rounded-xl ${
-                          highlighted
-                            ? "bg-white text-primary hover:bg-white/90"
-                            : ""
-                        }`}
-                        variant={highlighted ? "secondary" : "default"}
+                        className="w-full rounded-xl"
+                        variant="default"
                       >
                         {buttonText}
                       </Button>
@@ -851,7 +775,7 @@ export function PricingPlans({
           </div>
         </div>
 
-        <p className="mt-8 text-center text-sm font-semibold">
+        <p className="mt-8 text-center text-sm text-muted-foreground">
           Need a custom rollout for large operations? Contact support for an
           institution plan tailored to your property network.
         </p>
