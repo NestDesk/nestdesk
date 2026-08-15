@@ -345,7 +345,11 @@ export default async function LandingPage() {
               </div>
             ) : (
               <Link href="/login" className="hidden sm:block">
-                <Button variant="ghost" size="sm" className="rounded-xl">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-xl border border-primary/15 bg-primary/5 text-foreground shadow-sm transition-all duration-200 hover:border-primary/30 hover:bg-primary/10 hover:text-primary dark:border-primary/30 dark:bg-primary/10 dark:hover:bg-primary/15"
+                >
                   Sign in
                 </Button>
               </Link>
@@ -396,8 +400,8 @@ export default async function LandingPage() {
                 </span>
                 <Link href="/login">
                   <Button
-                    size="sm"
-                    className="h-9 rounded-xl bg-gradient-to-r from-violet-700 via-purple-500 to-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-200 hover:scale-[1.02] hover:shadow-violet-500/40 focus-visible:ring-violet-500/60 px-8"
+                    size="default"
+                    className="h-10 min-w-[120px] rounded-xl bg-gradient-to-r from-primary via-blue-500 to-sky-500 px-6 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-primary/40 focus-visible:ring-primary/60"
                   >
                     Log in
                   </Button>
