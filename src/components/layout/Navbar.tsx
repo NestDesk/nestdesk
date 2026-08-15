@@ -72,11 +72,11 @@ interface NavbarLogoProps {
 export function NavbarLogo({ href = "/", subtitle }: NavbarLogoProps) {
   return (
     <Link href={href} className="flex items-center gap-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-400 shadow shadow-primary/30">
-        <Building2 className="h-4 w-4 text-white" />
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
+        <Building2 className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-sm font-bold leading-none text-foreground">NestDesk</p>
+        <p className="text-base font-semibold leading-none text-foreground">NestDesk</p>
         {subtitle ? (
           <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
         ) : null}

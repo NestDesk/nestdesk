@@ -53,14 +53,14 @@ export function ScreenshotCarousel() {
   };
 
   return (
-    <section id="demo" className="mx-auto max-w-7xl px-3 py-4 sm:px-5 lg:py-6">
-      <div className="rounded-[24px] border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.04] p-4 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-sm sm:p-5">
-        <div className="mb-4 flex flex-col gap-4 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
+    <section id="demo" className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-4">
+      <div className="rounded-3xl border border-border/60 bg-card p-6 sm:p-8">
+        <div className="mb-6 flex flex-col gap-4 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
           <div className="space-y-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
               Demo at a glance
             </span>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               A cleaner product tour, built for quick scanning
             </h2>
           </div>
@@ -71,7 +71,7 @@ export function ScreenshotCarousel() {
               size="icon"
               onClick={() => moveSlide("prev")}
               aria-label="Show previous screenshot"
-              className="h-10 w-10 rounded-full border-border/70 bg-background/90 shadow-sm hover:bg-primary/8"
+              className="h-10 w-10 rounded-full border-border/70 bg-background/90 shadow-sm hover:bg-primary/5"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -81,19 +81,19 @@ export function ScreenshotCarousel() {
               size="icon"
               onClick={() => moveSlide("next")}
               aria-label="Show next screenshot"
-              className="h-10 w-10 rounded-full border-border/70 bg-background/90 shadow-sm hover:bg-primary/8"
+              className="h-10 w-10 rounded-full border-border/70 bg-background/90 shadow-sm hover:bg-primary/5"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[20px] border border-border/60 bg-background/70 p-2 shadow-inner shadow-primary/5 sm:p-3">
+        <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/30 p-2 sm:p-3">
           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {visibleSlides.map((slide, index) => (
               <article
                 key={`${slide.alt}-${activeIndex}-${index}`}
-                className="group min-w-[360px] flex-1 overflow-hidden rounded-[18px] border border-border/60 bg-background/95 p-2 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 sm:min-w-[420px] sm:p-3 lg:min-w-[460px]"
+                className="group min-w-[360px] flex-1 overflow-hidden rounded-2xl border border-border/60 bg-background p-2 shadow-none transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-sm sm:min-w-[420px] sm:p-3 lg:min-w-[460px]"
               >
                 <button
                   type="button"
@@ -101,7 +101,7 @@ export function ScreenshotCarousel() {
                   className="block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   aria-label={`Open ${slide.alt} in full view`}
                 >
-                  <div className="overflow-hidden rounded-[14px] bg-gradient-to-br from-muted/80 via-background to-primary/5 p-1.5 sm:p-2">
+                  <div className="overflow-hidden rounded-xl bg-muted/50 p-1.5 sm:p-2">
                     <Image
                       src={slide.src}
                       alt={slide.alt}
@@ -146,7 +146,7 @@ export function ScreenshotCarousel() {
           </DialogContent>
         </Dialog>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-border/60 bg-background/70 p-2.5 sm:p-3">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/30 p-2.5 sm:p-3">
           <p className="text-sm text-muted-foreground">Swipe through the complete product preview with the dots below.</p>
           <div className="flex items-center justify-center gap-2">
           {screenshots.map((slide, index) => (

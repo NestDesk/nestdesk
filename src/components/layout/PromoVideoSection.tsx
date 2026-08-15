@@ -38,24 +38,24 @@ export function PromoVideoSection({ videoUrl }: { videoUrl?: string }) {
   }, []);
 
   return (
-    <section id="video" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
-      <div className="w-full rounded-[28px] border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.04] p-4 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.35)] backdrop-blur-sm sm:p-5 lg:p-6">
-        <div className="mb-4 flex flex-col gap-3 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
+    <section id="video" className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-4">
+      <div className="w-full rounded-3xl border border-border/60 bg-card p-6 sm:p-8">
+        <div className="mb-6 flex flex-col gap-3 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
           <div className="space-y-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
               Video walkthrough
             </span>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               See NestDesk in action in under a minute
             </h2>
-            <p className="max-w-4xl text-sm text-muted-foreground sm:text-base">
+            <p className="max-w-4xl text-base text-muted-foreground">
               Watch the core owner workflow in one place: setup, tenant
               tracking, payments, and daily operations.
             </p>
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-3xl rounded-[24px] border border-border/60 bg-black/95 p-2 shadow-inner shadow-primary/10 sm:p-3">
+        <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border/60 bg-black p-2 sm:p-3">
           <video
             ref={videoRef}
             src={videoUrl}
@@ -64,7 +64,7 @@ export function PromoVideoSection({ videoUrl }: { videoUrl?: string }) {
             muted
             preload="metadata"
             loop
-            className="aspect-video w-full rounded-[20px] border border-white/10 bg-black shadow-inner"
+            className="aspect-video w-full rounded-xl border border-white/10 bg-black"
           />
         </div>
       </div>

@@ -147,42 +147,10 @@
   /* Brand mesh gradient backgrounds */
   .bg-mesh-light {
     background-color: hsl(0 0% 99%);
-    background-image:
-      radial-gradient(
-        ellipse 80% 50% at 20% -10%,
-        hsl(221 83% 53% / 0.1) 0%,
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 60% 50% at 80% 10%,
-        hsl(200 90% 55% / 0.08) 0%,
-        transparent 55%
-      ),
-      radial-gradient(
-        ellipse 40% 60% at 50% 100%,
-        hsl(221 83% 53% / 0.05) 0%,
-        transparent 60%
-      );
   }
 
   .bg-mesh-dark {
     background-color: hsl(224 50% 6%);
-    background-image:
-      radial-gradient(
-        ellipse 80% 50% at 20% -10%,
-        hsl(221 83% 53% / 0.18) 0%,
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 60% 50% at 80% 10%,
-        hsl(200 90% 55% / 0.12) 0%,
-        transparent 55%
-      ),
-      radial-gradient(
-        ellipse 40% 60% at 50% 100%,
-        hsl(221 83% 53% / 0.08) 0%,
-        transparent 60%
-      );
   }
 
   /* Auth page branded background */
@@ -221,7 +189,7 @@
 
   /* Card hover lift */
   .card-hover {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-sm;
   }
 }
 
