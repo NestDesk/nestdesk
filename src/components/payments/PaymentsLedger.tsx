@@ -24,8 +24,10 @@ export type PaymentLedgerTenant = {
   room_number: string | null;
   full_name: string;
   agreed_rent_amount: number | null;
+  status: string;
   rent_start_date?: string | null;
   join_date?: string | null;
+  move_out_date?: string | null;
 };
 
 type PaymentsLedgerProps = {
@@ -51,6 +53,18 @@ function compareRooms(left: string | null, right: string | null) {
   return leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: "base" });
 }
 
+function formatTenantStatus(status: string | null | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  const labelMap: Record<string, string> = {
+    pending: "Pending",
+    active: "Active",
+    moved_out: "Moved Out",
+    rejected: "Rejected",
+  };
+
+  return labelMap[normalized] ?? "Profile Status";
+}
+
 export function PaymentsLedger({
   payments,
   tenants,
@@ -69,7 +83,25 @@ export function PaymentsLedger({
       .filter((tenant) => {
         if (hostelFilter !== "all" && tenant.hostel_id !== hostelFilter) return false;
         const rentStartDate = tenant.rent_start_date ?? tenant.join_date ?? "";
-        return !rentStartDate || !toDate || rentStartDate <= toDate;
+        if (rentStartDate && toDate && rentStartDate > toDate) return false;
+
+        const hasPaidThisMonth = payments.some(
+          (payment) =>
+            payment.tenant_id === tenant.id &&
+            payment.status === "paid" &&
+            (!fromDate || payment.paid_on >= fromDate) &&
+            (!toDate || payment.paid_on <= toDate),
+        );
+
+        if (tenant.status === "moved_out") {
+          return hasPaidThisMonth;
+        }
+
+        if (!tenant.room_number) {
+          return hasPaidThisMonth;
+        }
+
+        return true;
       })
       .map((tenant) => {
         const rentStartDate = tenant.rent_start_date ?? tenant.join_date ?? "";
@@ -85,9 +117,11 @@ export function PaymentsLedger({
         const latestPaidPayment = tenantPayments
           .filter((payment) => payment.status === "paid" && payment.billing_end)
           .sort((a, b) => (b.billing_end ?? "").localeCompare(a.billing_end ?? ""))[0];
+        const billingEnd =
+          latestPaidPayment?.billing_end ??
+          (tenant.status === "moved_out" && tenant.move_out_date ? tenant.move_out_date : null);
         const isRentCovered = Boolean(
-          latestPaidPayment &&
-            (!toDate || (latestPaidPayment.billing_end ?? "") >= toDate),
+          billingEnd && (!toDate || billingEnd >= toDate),
         );
         const received = rangePayments
           .filter((payment) => payment.status === "paid")
@@ -98,7 +132,7 @@ export function PaymentsLedger({
           received,
           pending,
           isRentCovered,
-          billingEnd: latestPaidPayment?.billing_end ?? null,
+          billingEnd,
         };
       })
       .sort((a, b) => a.hostel_name.localeCompare(b.hostel_name) || compareRooms(a.room_number, b.room_number));
@@ -138,7 +172,9 @@ export function PaymentsLedger({
                 <tr key={row.id} className="hover:bg-muted/50">
                   <td className="px-3 py-2 text-foreground">
                     <div>{row.full_name}</div>
-                    <div className="text-xs text-muted-foreground">Room {row.room_number ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.room_number ? `Room ${row.room_number}` : `Status: ${formatTenantStatus(row.status)}`}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
                     {row.billingEnd ? formatDate(row.billingEnd) : "Not covered"}

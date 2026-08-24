@@ -22,6 +22,7 @@ export type RecordPaymentTenantOption = {
   status: string;
   rent_start_date?: string | null;
   join_date?: string | null;
+  move_out_date?: string | null;
 };
 
 type RecordPaymentDraft = {
@@ -94,6 +95,13 @@ function getNextBillingPeriod(
 ) {
   if (!tenant) {
     return thisMonthRange();
+  }
+
+  if (tenant.status === "moved_out" && tenant.move_out_date) {
+    return {
+      startDate: tenant.rent_start_date ?? tenant.join_date ?? thisMonthRange().startDate,
+      endDate: tenant.move_out_date,
+    };
   }
 
   const tenantPayments = paymentsList.filter(

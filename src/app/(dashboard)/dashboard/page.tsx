@@ -224,26 +224,14 @@ export default async function DashboardPage() {
           );
           activeTenantsCount = activeTenants.length;
 
+          // KPI definitions:
+          // - Rent Collected = sum of payment rows with status "paid" in the current month.
+          // - Expected Rent = current-month paid receipts plus the agreed rent for tenants
+          //   whose latest paid billing_end does not cover the current month.
           const roomRentById = new Map<string, number>();
           for (const room of rooms ?? []) {
             roomRentById.set(room.id, Number(room.rent_amount) || 0);
           }
-
-          thisMonthRevenueExpected = activeTenants.reduce((sum, tenant) => {
-            const agreed = Number(tenant.agreed_rent_amount) || 0;
-            if (agreed <= 0) return sum;
-
-            const tenantStart = tenant.rent_start_date ?? tenant.join_date;
-            const tenantEnd = tenant.move_out_date;
-            if (
-              (tenantStart && tenantStart > monthEnd) ||
-              (tenantEnd && tenantEnd < monthStart)
-            ) {
-              return sum;
-            }
-
-            return sum + agreed;
-          }, 0);
 
           const tenantCountByRoom = new Map<string, number>();
           for (const tenant of activeTenants ?? []) {
@@ -330,11 +318,11 @@ export default async function DashboardPage() {
                 .is("deleted_at", null),
               admin
                 .from("payments")
-                .select("amount")
+                .select(
+                  "tenant_id, hostel_id, amount, billing_end, paid_on, status",
+                )
                 .in("hostel_id", hostelIds)
-                .eq("status", "paid")
-                .gte("month", monthStart)
-                .lt("month", nextMonthStart),
+                .lte("paid_on", monthEnd),
               admin
                 .from("expenses")
                 .select("amount")
@@ -346,10 +334,64 @@ export default async function DashboardPage() {
 
           openMaintenanceCount = maintenanceResult.count ?? 0;
 
-          thisMonthRentPaid = (paymentsResult.data ?? []).reduce(
-            (acc, row) => acc + Number(row.amount),
-            0,
+          const paidPayments = (paymentsResult.data ?? []).filter(
+            (payment) => payment.status === "paid",
           );
+          thisMonthRentPaid = paidPayments
+            .filter(
+              (payment) =>
+                payment.paid_on >= monthStart &&
+                payment.paid_on < nextMonthStart,
+            )
+            .reduce(
+            (acc, row) => acc + Number(row.amount),
+              0,
+            );
+
+          thisMonthRevenueExpected = (tenants ?? []).reduce((sum, tenant) => {
+            const agreed = Number(tenant.agreed_rent_amount) || 0;
+            if (agreed <= 0) return sum;
+
+            const tenantStart = tenant.rent_start_date ?? tenant.join_date;
+            const tenantEnd = tenant.move_out_date;
+            if (
+              (tenantStart && tenantStart > monthEnd) ||
+              (tenantEnd && tenantEnd < monthStart)
+            ) {
+              return sum;
+            }
+
+            const tenantPayments = paidPayments.filter(
+              (payment) =>
+                payment.tenant_id === tenant.id &&
+                payment.hostel_id === tenant.hostel_id &&
+                (!tenantStart || payment.paid_on >= tenantStart),
+            );
+            const hasPaidThisMonth = paidPayments.some(
+              (payment) =>
+                payment.tenant_id === tenant.id &&
+                payment.hostel_id === tenant.hostel_id &&
+                payment.paid_on >= monthStart &&
+                payment.paid_on < nextMonthStart,
+            );
+            if (tenant.status !== "active" && !hasPaidThisMonth) return sum;
+
+            const received = tenantPayments
+              .filter(
+                (payment) =>
+                  payment.paid_on >= monthStart &&
+                  payment.paid_on < nextMonthStart,
+              )
+              .reduce((total, payment) => total + Number(payment.amount), 0);
+            const billingEnd = tenantPayments
+              .filter((payment) => payment.billing_end)
+              .sort((a, b) =>
+                (b.billing_end ?? "").localeCompare(a.billing_end ?? ""),
+              )[0]?.billing_end;
+            const pending = billingEnd && billingEnd >= monthEnd ? 0 : agreed;
+
+            return sum + received + pending;
+          }, 0);
 
           thisMonthExpenseTotal = (expensesResult.data ?? []).reduce(
             (acc, row) => acc + Number(row.amount),
@@ -389,9 +431,9 @@ export default async function DashboardPage() {
       description: `Total tenants: ${new Intl.NumberFormat("en-IN").format(activeTenantsCount)}`,
       icon: Building2,
       change: occupancySummary.totalBeds > 0 ? "" : "No beds configured yet",
-      gradient: "from-sky-500/20 via-cyan-500/15 to-indigo-500/20",
-      iconColor: "text-sky-500",
-      iconBg: "bg-sky-500/10",
+      gradient: "from-sky-500 to-blue-600",
+      iconColor: "text-white",
+      iconBg: "bg-white/20",
     },
     {
       label: "Rent Collected",
@@ -399,21 +441,21 @@ export default async function DashboardPage() {
       value: `Rs. ${new Intl.NumberFormat("en-IN").format(thisMonthRentPaid)}`,
       progress: collectionRate,
       progressLabel: "Collected",
-      description: undefined,
+      description: "Sum of paid payments in this month.",
       icon: CreditCard,
       change:
         thisMonthRevenueExpected > 0
           ? `${Math.min(collectionRate, 100)}% collected`
           : "No payment activity yet",
-      gradient: "from-emerald-500/20 via-lime-500/15 to-teal-500/20",
-      iconColor: "text-emerald-500",
-      iconBg: "bg-emerald-500/10",
+      gradient: "from-indigo-500 to-blue-700",
+      iconColor: "text-white",
+      iconBg: "bg-white/20",
     },
     {
       label: "Expected Rent Collection",
       subtitle: `${currentMonthRangeLabel}`,
       value: `Rs. ${new Intl.NumberFormat("en-IN").format(thisMonthRevenueExpected)}`,
-      description: undefined,
+      description: "Sum of active tenant rent obligations for this month.",
       badge:
         outstandingAmount > 0
           ? `Rs. ${new Intl.NumberFormat("en-IN").format(outstandingAmount)} outstanding`
@@ -423,9 +465,9 @@ export default async function DashboardPage() {
         thisMonthRevenueExpected > 0
           ? "Outstanding rent for current month"
           : "Revenue will appear after setup",
-      gradient: "from-violet-500/20 via-fuchsia-500/15 to-pink-500/20",
-      iconColor: "text-violet-500",
-      iconBg: "bg-violet-500/10",
+      gradient: "from-violet-500 to-purple-600",
+      iconColor: "text-white",
+      iconBg: "bg-white/20",
     },
     {
       label: "Expenses",
@@ -437,9 +479,9 @@ export default async function DashboardPage() {
         thisMonthExpenseTotal > 0
           ? "Expenses this month"
           : "No expenses recorded yet",
-      gradient: "from-orange-400/20 via-amber-400/15 to-red-400/20",
-      iconColor: "text-orange-500",
-      iconBg: "bg-orange-500/10",
+      gradient: "from-teal-500 to-cyan-700",
+      iconColor: "text-white",
+      iconBg: "bg-white/20",
     },
     {
       label: "Net Cash Flow",
@@ -449,9 +491,12 @@ export default async function DashboardPage() {
       icon: IndianRupee,
       change:
         thisMonthNetCash >= 0 ? "Net positive cash flow" : "Negative cash flow",
-      gradient: "from-cyan-400/30 via-sky-400/20 to-indigo-500/30",
-      iconColor: "text-cyan-500",
-      iconBg: "bg-cyan-500/10",
+      gradient:
+        thisMonthNetCash >= 0
+          ? "from-emerald-500 to-green-600"
+          : "from-rose-500 to-red-600",
+      iconColor: "text-white",
+      iconBg: "bg-white/20",
     },
   ];
 
@@ -690,88 +735,98 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {stats.map(
-          ({
-            label,
-            subtitle,
-            value,
-            icon: Icon,
-            change,
-            description,
-            badge,
-            progress,
-            progressLabel,
-            gradient,
-            iconColor,
-            iconBg,
-          }) => (
-            <Card
-              key={label}
-              className={`card-hover rounded-2xl bg-gradient-to-br ${gradient} border-border/60`}
-            >
-              <CardHeader className="flex flex-row items-center justify-between px-3 py-2">
-                <div>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {label}
-                  </CardTitle>
-                  {subtitle ? (
-                    <p className="mt-1 text-[11px] uppercase text-muted-foreground">
-                      {subtitle}
+      {/* ── Main split: tiles (left) · occupancy (right) ──── */}
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-stretch">
+        {/* Left half — Microsoft-style tiles */}
+        <div className="grid grid-cols-2 content-start gap-2 sm:gap-3">
+          {stats.map(
+            (
+              {
+                label,
+                subtitle,
+                value,
+                icon: Icon,
+                change,
+                description,
+                badge,
+                progress,
+                progressLabel,
+                gradient,
+                iconColor,
+                iconBg,
+              },
+              index,
+            ) => (
+              <Card
+                key={label}
+                className={`card-hover overflow-hidden rounded-xl border-transparent bg-gradient-to-br text-white shadow-sm ${gradient} ${
+                  index === stats.length - 1 && stats.length % 2 === 1
+                    ? "col-span-2"
+                    : ""
+                }`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between px-3 py-2">
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-xs font-semibold uppercase tracking-wide text-white/85">
+                      {label}
+                    </CardTitle>
+                    {subtitle ? (
+                      <p className="mt-0.5 text-[10px] uppercase text-white/60">
+                        {subtitle}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}
+                  >
+                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 pt-1">
+                  <div className="text-xl font-bold text-white sm:text-2xl">
+                    {value}
+                  </div>
+                  {progress !== undefined ? (
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] text-white/70">
+                        <span>{progressLabel ?? "Collected"}</span>
+                        <span className="font-semibold text-white">
+                          {progress}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+                        <div
+                          className="h-full rounded-full bg-white transition-all"
+                          style={{
+                            width: `${Math.min(Math.max(progress, 0), 100)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                  {description ? (
+                    <p className="mt-2 hidden text-[11px] leading-snug text-white/70 sm:block">
+                      {description}
                     </p>
                   ) : null}
-                </div>
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-                >
-                  <Icon className={`h-4 w-4 ${iconColor}`} />
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-2">
-                <div className="text-2xl font-bold text-foreground">
-                  {value}
-                </div>
-                {progress !== undefined ? (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                      <span>{progressLabel ?? "Collected"}</span>
-                      <span className="font-semibold text-foreground">
-                        {progress}%
-                      </span>
+                  {badge ? (
+                    <div className="mt-3 inline-flex items-center rounded-full bg-rose-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-rose-100">
+                      {badge}
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                      <div
-                        className="h-full rounded-full bg-emerald-500 transition-all"
-                        style={{
-                          width: `${Math.min(Math.max(progress, 0), 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-                {description ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    {description}
-                  </p>
-                ) : null}
-                {badge ? (
-                  <div className="mt-4 inline-flex items-center rounded-full bg-rose-500/10 px-3 py-1 text-sm font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
-                    {badge}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-xs text-muted-foreground">{change}</p>
-                )}
-                {badge && change ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{change}</p>
-                ) : null}
-              </CardContent>
-            </Card>
-          ),
-        )}
-      </div>
+                  ) : (
+                    <p className="mt-2 text-[11px] text-white/70">{change}</p>
+                  )}
+                  {badge && change ? (
+                    <p className="mt-1.5 text-[11px] text-rose-200">{change}</p>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ),
+          )}
+        </div>
 
-      <div className="grid gap-4">
-        <Card className="rounded-2xl border-border/70">
+        {/* Right half — Room occupancy */}
+        <Card className="flex h-full flex-col rounded-2xl border-border/70">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Room Occupancy</CardTitle>
           </CardHeader>
