@@ -64,6 +64,8 @@ type PaymentRow = {
   tenant_id: string;
   tenant_name: string;
   room_number: string | null;
+  tenant_status?: string | null;
+  tenant_move_out_date?: string | null;
   hostel_id: string;
   hostel_name: string;
   hostel_location: string | null;
@@ -198,6 +200,18 @@ function thisMonthRange() {
   };
 }
 
+function formatTenantStatus(status: string | null | undefined) {
+  const normalized = (status ?? "").toLowerCase();
+  const labelMap: Record<string, string> = {
+    pending: "Pending",
+    active: "Active",
+    moved_out: "Moved Out",
+    rejected: "Rejected",
+  };
+
+  return labelMap[normalized] ?? "Profile status";
+}
+
 export default function OwnerPaymentsPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [hostels, setHostels] = useState<HostelOption[]>([]);
@@ -313,12 +327,11 @@ export default function OwnerPaymentsPage() {
         status: string;
         rent_start_date?: string | null;
         join_date?: string | null;
+        move_out_date?: string | null;
       };
-      const active = ((json.tenants ?? []) as TenantApiRow[]).filter(
-        (t) => t.status === "active",
-      );
+      const tenantRows = (json.tenants ?? []) as TenantApiRow[];
       setTenants(
-        active.map((t) => ({
+        tenantRows.map((t) => ({
           id: t.id,
           full_name: t.full_name,
           hostel_id: t.hostel_id,
@@ -328,12 +341,13 @@ export default function OwnerPaymentsPage() {
           status: t.status,
           rent_start_date: t.rent_start_date,
           join_date: t.join_date,
+          move_out_date: t.move_out_date ?? null,
         })),
       );
 
       const seenH = new Set<string>(hostels.map((h) => h.id));
       const extra: HostelOption[] = [];
-      for (const t of active) {
+      for (const t of tenantRows) {
         if (!seenH.has(t.hostel_id)) {
           seenH.add(t.hostel_id);
           extra.push({ id: t.hostel_id, name: t.hostel_name, location: null });
@@ -441,7 +455,12 @@ export default function OwnerPaymentsPage() {
     }),
     columnHelper.accessor("room_number", {
       header: "Room Number",
-      cell: (info) => info.getValue() ?? "—",
+      cell: (info) => {
+        const payment = info.row.original;
+        const roomNumber = info.getValue();
+        if (roomNumber) return roomNumber;
+        return formatTenantStatus(payment.tenant_status);
+      },
       enableSorting: true,
     }),
     columnHelper.accessor("tenant_name", {
@@ -704,7 +723,10 @@ export default function OwnerPaymentsPage() {
 
   function openEditModal(payment: PaymentRow) {
     const startDate = payment.billing_start ?? `${payment.month}-01`;
-    const endDate = payment.billing_end ?? getMonthEndDate(payment.month);
+    const endDate =
+      payment.billing_end ||
+      payment.tenant_move_out_date ||
+      getMonthEndDate(payment.month);
     setEditingId(payment.id);
     setEditDraft({
       status: payment.status,

@@ -183,26 +183,36 @@ export async function GET(request: NextRequest) {
   const { data: tenants } = tenantIds.length
     ? await admin
         .from("tenants")
-        .select("id, full_name, room_id, rooms(room_number)")
+        .select("id, full_name, room_id, status, move_out_date, rooms(room_number)")
         .in("id", tenantIds)
     : {
-        data: [] as Array<{ id: string; full_name: string; room_id: string | null }>,
+        data: [] as Array<{
+          id: string;
+          full_name: string;
+          room_id: string | null;
+          status: string | null;
+          move_out_date: string | null;
+        }>,
       };
 
   type TenantRow = {
     id: string;
     full_name: string;
     room_id: string | null;
+    status: string | null;
+    move_out_date: string | null;
     rooms?: { room_number: string } | null;
   };
   const tenantMap = new Map<
     string,
-    { fullName: string; roomNumber: string | null }
+    { fullName: string; roomNumber: string | null; status: string | null; moveOutDate: string | null }
   >();
   for (const t of (tenants ?? []) as TenantRow[]) {
     tenantMap.set(t.id, {
       fullName: t.full_name,
       roomNumber: (t.rooms as { room_number: string } | null)?.room_number ?? null,
+      status: t.status ?? null,
+      moveOutDate: t.move_out_date ?? null,
     });
   }
 
@@ -224,6 +234,8 @@ export async function GET(request: NextRequest) {
       hostel_upi_id: billing?.upi_id ?? null,
       tenant_name: tenant?.fullName ?? "Tenant",
       room_number: tenant?.roomNumber ?? null,
+      tenant_status: tenant?.status ?? null,
+      tenant_move_out_date: tenant?.moveOutDate ?? null,
     };
   });
 
